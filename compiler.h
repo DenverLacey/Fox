@@ -50,12 +50,15 @@
 struct Function_Definition;
 struct Compiler {
     int stack_top;
-//    int wb_top;
     Compiler *parent = nullptr;
-//    Compiler *child  = nullptr;
     Compiler *global;
-//    VM *vm;
     Function_Definition *function;
+    
+    static constexpr size_t ConstantsAllignment = 8;
+    Data_Section constants;
+    Data_Section str_constants;
+//    int wb_top;
+//    Compiler *child  = nullptr;
 //    bool has_return;
     // Scope global_scope;
     // Scope *current_scope;
@@ -79,11 +82,21 @@ struct Compiler {
     void emit_opcode(Opcode op);
     void emit_size(Size size);
     void emit_address(Address address);
+    size_t emit_jump(Opcode jump_code);
+    void patch_jump(size_t jump);
     
     template<typename T>
     void emit_value(T value) {
         for (int i = 0; i < sizeof(T); i++) {
             emit_byte(*(((uint8_t *)&value) + i));
         }
+    }
+    
+    size_t add_constant(void *data, size_t size);
+    size_t add_str_constant(String source);
+    
+    template<typename T>
+    size_t add_constant(T constant) {
+        return add_constant(&constant, sizeof(T));
     }
 };

@@ -87,6 +87,19 @@ void Typed_AST_Block::add(Ref<Typed_AST> node) {
     nodes.push_back(std::move(node));
 }
 
+Typed_AST_If::Typed_AST_If(
+    Value_Type type,
+    Ref<Typed_AST> cond,
+    Ref<Typed_AST> then,
+    Ref<Typed_AST> else_)
+{
+    kind = Typed_AST_Kind::If;
+    this->type = type;
+    this->cond = std::move(cond);
+    this->then = std::move(then);
+    this->else_ = std::move(else_);
+}
+
 Typed_AST_Type_Signiture::Typed_AST_Type_Signiture(Ref<Value_Type> value_type) {
     this->kind = Typed_AST_Kind::Type_Signiture;
     this->value_type = std::move(value_type);
@@ -377,14 +390,8 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
 Ref<Typed_AST> Untyped_AST_Ternary::typecheck(Typer &t) {
     auto lhs = this->lhs->typecheck(t);
     auto mid = this->mid->typecheck(t);
-    auto rhs = this->rhs ? this->rhs->typecheck(t) : nullptr;
+    auto rhs = this->rhs->typecheck(t);
     switch (kind) {
-        // @NOTE: should if be its own type instead of a Ternary? Because only an
-        //        if statement can have 'rhs' be null. Anything else including a
-        //        potential if expression need 'rhs' to not be null.
-        case Untyped_AST_Kind::If:
-            verify(lhs->type.kind == Value_Type_Kind::Bool, "(if) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
-            return make<Typed_AST_Ternary>(Typed_AST_Kind::If, value_types::None, std::move(lhs), std::move(mid), std::move(rhs));
             
         default:
             assert(false);
@@ -398,6 +405,14 @@ Ref<Typed_AST> Untyped_AST_Block::typecheck(Typer &t) {
         block->add(node->typecheck(t));
     }
     return block;
+}
+
+Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
+    auto cond = this->cond->typecheck(t);
+    auto then = this->then->typecheck(t);
+    auto else_ = this->else_ ? this->else_->typecheck(t) : nullptr;
+    verify(!else_ || then->type == else_->type, "Both branches of (if) must be the same. (%s) vs (%s).", then->type.debug_str(), else_->type.debug_str());
+    return make<Typed_AST_If>(then->type, std::move(cond), std::move(then), std::move(else_));
 }
 
 Ref<Typed_AST> Untyped_AST_Type_Signiture::typecheck(Typer &t) {

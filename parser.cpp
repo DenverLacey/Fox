@@ -219,7 +219,7 @@ struct Parser {
         return type;
     }
     
-    Ref<Untyped_AST_Ternary> parse_if_statement() {
+    Ref<Untyped_AST_If> parse_if_statement() {
         auto cond = parse_expression();
         auto then = parse_block();
         
@@ -232,7 +232,7 @@ struct Parser {
             }
         }
         
-        return make<Untyped_AST_Ternary>(Untyped_AST_Kind::If, std::move(cond), std::move(then), std::move(else_));
+        return make<Untyped_AST_If>(std::move(cond), std::move(then), std::move(else_));
     }
     
     Ref<Untyped_AST_Binary> parse_while_statement() {

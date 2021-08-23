@@ -21,9 +21,9 @@ enum class Opcode : uint8_t {
     Lit_False,
     Lit_0,
     Lit_1,
+    Lit_Char,
     
     // CONSTANTS
-    Load_Const_Char,
     Load_Const_Int,
     Load_Const_Float,
     Load_Const_String,
@@ -209,6 +209,8 @@ struct VM {
     Call_Stack frames;
     Stack stack;
 //    Workbench workbench;
+    
+    VM(Data_Section &&constants, Data_Section &&str_constants);
     
     void run();
     void call(Function_Definition* fn, int arg_size);

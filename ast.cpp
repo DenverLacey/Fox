@@ -58,7 +58,12 @@ Untyped_AST_Binary::Untyped_AST_Binary(Untyped_AST_Kind kind, Ref<Untyped_AST> l
     this->rhs = std::move(rhs);
 }
 
-Untyped_AST_Ternary::Untyped_AST_Ternary(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs, Ref<Untyped_AST> mid, Ref<Untyped_AST> rhs) {
+Untyped_AST_Ternary::Untyped_AST_Ternary(
+    Untyped_AST_Kind kind,
+    Ref<Untyped_AST> lhs,
+    Ref<Untyped_AST> mid,
+    Ref<Untyped_AST> rhs)
+{
     this->kind = kind;
     this->lhs = std::move(lhs);
     this->mid = std::move(mid);
@@ -78,11 +83,22 @@ Untyped_AST_Type_Signiture::Untyped_AST_Type_Signiture(Ref<Value_Type> value_typ
     this->value_type = std::move(value_type);
 }
 
+Untyped_AST_If::Untyped_AST_If(
+    Ref<Untyped_AST> cond,
+    Ref<Untyped_AST> then,
+    Ref<Untyped_AST> else_)
+{
+    this->kind = Untyped_AST_Kind::If;
+    this->cond = std::move(cond);
+    this->then = std::move(then);
+    this->else_ = std::move(else_);
+}
+
 Untyped_AST_Let::Untyped_AST_Let(
-                     String id,
-                     bool is_mut,
-                     Ref<Untyped_AST_Type_Signiture> specified_type,
-                     Ref<Untyped_AST> initializer)
+    String id,
+    bool is_mut,
+    Ref<Untyped_AST_Type_Signiture> specified_type,
+    Ref<Untyped_AST> initializer)
 {
     kind = Untyped_AST_Kind::Let;
     this->id = id;

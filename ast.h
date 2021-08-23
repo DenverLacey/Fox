@@ -36,13 +36,13 @@ enum class Untyped_AST_Kind {
     While,
     
     // ternary
-    If,
     
     // block
     Block,
     Comma,
     
     // unique
+    If,
     Let,
     Type_Signiture,
 };
@@ -131,6 +131,15 @@ struct Untyped_AST_Block : public Untyped_AST {
     
     Untyped_AST_Block(Untyped_AST_Kind kind);
     void add(Ref<Untyped_AST> node);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+};
+
+struct Untyped_AST_If : public Untyped_AST {
+    Ref<Untyped_AST> cond;
+    Ref<Untyped_AST> then;
+    Ref<Untyped_AST> else_;
+    
+    Untyped_AST_If(Ref<Untyped_AST> cond, Ref<Untyped_AST> then, Ref<Untyped_AST> else_);
     Ref<Typed_AST> typecheck(Typer &t) override;
 };
 

@@ -1,5 +1,5 @@
 //
-//  str.cpp
+//  String.cpp
 //  Fox
 //
 //  Created by Denver Lacey on 7/7/21.

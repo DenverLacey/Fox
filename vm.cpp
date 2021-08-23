@@ -54,6 +54,11 @@ void *Stack::get(VM *vm, Address address) {
     return get(vm->frames.top().stack_bottom + address);
 }
 
+VM::VM(Data_Section &&constants, Data_Section &&str_constants)
+    : constants(constants), str_constants(str_constants)
+{
+}
+
 void VM::run() {
     #define READ(type, frame) *(type *)&(*frame->bytecode)[frame->pc]; frame->pc += sizeof(type)
     #define UNOP(type, op) { \
@@ -83,12 +88,12 @@ void VM::run() {
             case Opcode::Lit_1: {
                 stack.push<runtime::Int>(1);
             } break;
-                
-            // Constants
-            case Opcode::Load_Const_Char: {
+            case Opcode::Lit_Char: {
                 runtime::Char c = READ(runtime::Char, frame);
                 stack.push<runtime::Char>(c);
             } break;
+                
+            // Constants
             case Opcode::Load_Const_Int: {
                 size_t constant = READ(size_t, frame);
                 runtime::Int value = *(runtime::Int *)&constants[constant];
@@ -291,7 +296,7 @@ void VM::print_bytecode(Compiler *c) {
 void VM::print_stack() {
     for (size_t i = 0; i < stack._top; i++) {
         uint8_t byte = stack._buffer[i];
-        printf("%zu: %hhX\n", i, byte);
+        printf("%03zu: %hhX\n", i, byte);
     }
 }
 
@@ -299,8 +304,11 @@ void interpret(const char *filepath) {
     String source = (char *)R"(
     # let a = 27;
     # let b = a * 3;
-    !false;
-    !true;
+    if false {
+        1;
+    } else {
+        2;
+    }
     )";
     auto tokens = tokenize(source);
     auto ast = parse(tokens);
@@ -326,7 +334,7 @@ void interpret(const char *filepath) {
     global.compile(typed_ast.get());
     
 #if RUN_VIRTUAL_MACHINE
-    VM vm;
+    VM vm(std::move(global.constants), std::move(global.str_constants));
     vm.call(&program, 0);
     vm.run();
     

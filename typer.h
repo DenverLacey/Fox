@@ -35,13 +35,13 @@ enum class Typed_AST_Kind {
     While,
     
     // ternary
-    If,
     
     // block
     Block,
     Comma,
     
     // unique
+    If,
     Let,
     Type_Signiture,
 };
@@ -130,6 +130,15 @@ struct Typed_AST_Block : public Typed_AST {
     
     Typed_AST_Block(Typed_AST_Kind kind);
     void add(Ref<Typed_AST> node);
+    void compile(Compiler *c) override;
+};
+
+struct Typed_AST_If : public Typed_AST {
+    Ref<Typed_AST> cond;
+    Ref<Typed_AST> then;
+    Ref<Typed_AST> else_;
+    
+    Typed_AST_If(Value_Type type, Ref<Typed_AST> cond, Ref<Typed_AST> then, Ref<Typed_AST> else_);
     void compile(Compiler *c) override;
 };
 

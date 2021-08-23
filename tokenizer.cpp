@@ -75,11 +75,12 @@ static Token number(Source_Iterator &src) {
     }
     
     bool is_float = false;
-    if (src.peek() == '.') {
+    if (src.match('.')) {
         is_float = true;
-        do {
+        while (isdigit(src.peek())) {
+            src.next();
             word_end = src.cur;
-        } while (isdigit(src.next()));
+        }
     }
     
     String num_str = String::copy(word, word_end - word);
