@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "allocation.h"
+#include "mem.h"
 #include "ast.h"
 #include "tokenizer.h"
 

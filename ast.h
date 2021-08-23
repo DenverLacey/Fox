@@ -10,7 +10,7 @@
 
 #include <optional>
 #include <vector>
-#include "allocation.h"
+#include "mem.h"
 #include "value.h"
 
 enum class Untyped_AST_Kind {

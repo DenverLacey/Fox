@@ -8,7 +8,7 @@
 
 #include "vm.h"
 
-#include "allocation.h"
+#include "mem.h"
 #include "compiler.h"
 #include "error.h"
 #include "parser.h"

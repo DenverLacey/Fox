@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include "String.h"
-#include "allocation.h"
+#include "mem.h"
 
 enum class Value_Type_Kind : uint8_t {
     Unresolved_Type,
