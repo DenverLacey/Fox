@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "../utfcpp/utf8.h"
+#include "utfcpp/utf8.h"
 
 String::String(char *data, std::size_t size)
     : _data(data), _size(size)

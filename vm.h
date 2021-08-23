@@ -13,9 +13,6 @@
 
 #include "String.h"
 
-#define SHOW_DEBUG 1
-#define RUN 1
-
 enum class Opcode : uint8_t {
     None = 0,
     
@@ -167,7 +164,7 @@ struct Call_Frame {
     Chunk *bytecode;
 };
 
-typedef std::vector<uint8_t> Data_Section;
+using Data_Section = std::vector<uint8_t>;
 using Call_Stack = std::stack<Call_Frame>;
 
 struct VM;

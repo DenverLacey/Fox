@@ -9,7 +9,7 @@
 #include "error.h"
 #include "tokenizer.h"
 #include "String.h"
-#include "../utfcpp/utf8.h"
+#include "utfcpp/utf8.h"
 
 static Token eof_token() {
     Token t;

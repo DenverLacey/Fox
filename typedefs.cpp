@@ -7,7 +7,7 @@
 //
 
 #include "typedefs.h"
-#include "../utfcpp/utf8.h"
+#include "utfcpp/utf8.h"
 
 utf8char_t utf8char_t::from_char32(char32_t c) {
     utf8char_t _c{0};
