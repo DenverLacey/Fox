@@ -1,0 +1,70 @@
+//
+//  tokenizer.h
+//  Fox
+//
+//  Created by Denver Lacey on 7/7/21.
+//  Copyright © 2021 Denver Lacey. All rights reserved.
+//
+
+#pragma once
+#include <cstddef>
+#include <vector>
+#include "String.h"
+
+enum class Token_Kind {
+    // internal
+    Eof,
+    Err,
+    
+    // literals
+    True,
+    False,
+    Int,
+    Float,
+    Char,
+    String,
+    Ident,
+    
+    // delimeters
+    Semi,
+    Colon,
+    Comma,
+    Left_Paren,
+    Right_Paren,
+    Left_Curly,
+    Right_Curly,
+    
+    // keyword
+    Let,
+    Mut,
+    If,
+    Else,
+    While,
+    Fn,
+    Struct,
+    Enum,
+    
+    // operators
+    Plus,       // +
+    Dash,       // -
+    Star,       // *
+    Slash,      // /
+    Percent,    // %
+    Bang,       // !
+    Eq,         // =
+    Double_Eq,  // ==
+};
+
+union Token_Data {
+    int64_t i;
+    double f;
+    char32_t c;
+    String s;
+};
+
+struct Token {
+    Token_Kind kind;
+    Token_Data data;
+};
+
+std::vector<Token> tokenize(String source);
