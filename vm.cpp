@@ -107,7 +107,10 @@ void VM::run() {
                 stack.push<runtime::Float>(value);
             } break;
             case Opcode::Load_Const_String: {
-                assert(false);
+                size_t constant = READ(size_t, frame);
+                size_t len = *(size_t *)&str_constants[constant];
+                char *s    = (char *)&str_constants[constant + sizeof(size_t)];
+                stack.push<runtime::String>({ s, (runtime::Int)len });
             } break;
             case Opcode::Load_Const: {
                 Size size = READ(Size, frame);
