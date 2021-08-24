@@ -12,6 +12,38 @@
 #include <sstream>
 #include <assert.h>
 
+#include "error.h"
+
+Size Value_Type::size() const {
+    switch (kind) {
+        case Value_Type_Kind::Unresolved_Type:
+            return 0;
+        case Value_Type_Kind::None:
+            return 0;
+        case Value_Type_Kind::Void:
+            return 0;
+        case Value_Type_Kind::Bool:
+            return sizeof(runtime::Bool);
+        case Value_Type_Kind::Char:
+            return sizeof(runtime::Char);
+        case Value_Type_Kind::Int:
+            return sizeof(runtime::Int);
+        case Value_Type_Kind::Float:
+            return sizeof(runtime::Float);
+        case Value_Type_Kind::Str:
+            return sizeof(runtime::String);
+        case Value_Type_Kind::Ptr:
+            return sizeof(runtime::Pointer);
+            
+        case Value_Type_Kind::Struct:
+        case Value_Type_Kind::Enum:
+            
+        default:
+            internal_error("Unknown value type: %d.", kind);
+            return 0;
+    }
+}
+
 char *Value_Type::debug_str() const {
     std::ostringstream s;
     if (is_mut) {

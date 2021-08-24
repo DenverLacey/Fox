@@ -261,7 +261,7 @@ struct Typer {
     std::list<Scope> scopes;
     
     Scope &current_scope() {
-        return scopes.back();
+        return scopes.front();
     }
     
     void begin_scope() {

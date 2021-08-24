@@ -82,6 +82,7 @@ struct Value_Type {
     bool is_mut = false;
     Value_Type_Data data;
     
+    Size size() const;
     char *debug_str() const;
 };
 

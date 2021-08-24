@@ -7,10 +7,11 @@
 //
 
 // @TODOS:
-// [ ]  Do the stack_top stuff soon or else you'll need to do it for everything
+// [x]  Do the stack_top stuff soon or else you'll need to do it for everything
 //      like last time and you'll make a mistake.
 // [x]  Actually setup the reading from a source file instead of using a String
 //      to pass source code.
+// [ ]  Fix issue where something can't be deleted because it was never allocated.
 
 #include <iostream>
 

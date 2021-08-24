@@ -18,20 +18,17 @@
 #include "typer.h"
 #include "vm.h"
 
-//struct Variable {
-//    Value_Type inferred_type;
-//    Address address;
-//    int len;
-//    const char *name;
-//};
+struct Variable {
+    Value_Type type;
+    Address address;
+//    String id;
+};
 
-//struct Scope {
-//    int stack_bottom;
-//    Scope *parent;
-//    std::list<Scope> children;
-//    std::list<Variable> variables;
-//    std::vector<AST *> defers;
-//};
+struct Scope {
+    int stack_bottom;
+    Scope *parent;
+    std::unordered_map<std::string, Variable> variables;
+};
 
 //struct Loop {
 //    int stack_bottom;
@@ -50,9 +47,13 @@
 struct Function_Definition;
 struct Compiler {
     int stack_top;
+    
     Compiler *parent = nullptr;
     Compiler *global;
     Function_Definition *function;
+    
+    Scope *global_scope;
+    std::list<Scope> scopes;
     
     static constexpr size_t ConstantsAllignment = 8;
     Data_Section constants;
@@ -84,6 +85,8 @@ struct Compiler {
     void emit_address(Address address);
     size_t emit_jump(Opcode jump_code);
     void patch_jump(size_t jump);
+    Variable &emit_variable(String id, Typed_AST *initializer);
+    Variable *find_variable(String id);
     
     template<typename T>
     void emit_value(T value) {
@@ -99,4 +102,8 @@ struct Compiler {
     size_t add_constant(T constant) {
         return add_constant(&constant, sizeof(T));
     }
+    
+    Scope &current_scope();
+    void begin_scope();
+    void end_scope();
 };
