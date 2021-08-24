@@ -18,6 +18,7 @@ public:
     String(char *data, size_t size);
     String(char *data);
     
+    static String with_size(size_t size);
     static String copy(const char *data);
     static String copy(const char *data, size_t size);
     void free();

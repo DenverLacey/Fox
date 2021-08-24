@@ -15,6 +15,8 @@
 #include "tokenizer.h"
 #include "typer.h"
 
+#include <fstream>
+
 #define PRINT_DEBUG_DIAGNOSTICS 1
 #define COMPILE_AST 1
 #define RUN_VIRTUAL_MACHINE 1
@@ -300,16 +302,22 @@ void VM::print_stack() {
     }
 }
 
-void interpret(const char *filepath) {
-    String source = (char *)R"(
-    # let a = 27;
-    # let b = a * 3;
-    if false {
-        1;
-    } else {
-        2;
-    }
-    )";
+static String read_entire_file(const char *path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    verify(file.is_open(), "'%s' could not be opened.", path);
+    
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    auto source = String::with_size(size);
+    file.read(source.c_str(), size);
+    verify(file.good(), "Could not read from '%s'.", path);
+    
+    return source;
+}
+
+void interpret(const char *path) {
+    String source = read_entire_file(path);
     auto tokens = tokenize(source);
     auto ast = parse(tokens);
     

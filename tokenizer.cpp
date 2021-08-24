@@ -55,13 +55,14 @@ struct Source_Iterator {
     }
     
     void skip_whitespace() {
-        while (isspace(peek()) && has_more()) {
-            next();
+        while ((isspace(peek()) || peek() == '#') && has_more()) {
             if (peek() == '#') {
-                while (next() != '\n' && has_more()) {
+                while (peek() != '\n' && has_more()) {
                     // keep getting next until we've passed the new line
+                    next();
                 }
             }
+            next();
         }
     }
 };
