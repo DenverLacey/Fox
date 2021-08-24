@@ -106,10 +106,10 @@ Typed_AST_Type_Signiture::Typed_AST_Type_Signiture(Ref<Value_Type> value_type) {
 }
 
 Typed_AST_Let::Typed_AST_Let(
-                     String id,
-                     bool is_mut,
-                     Ref<Typed_AST_Type_Signiture> specified_type,
-                     Ref<Typed_AST> initializer)
+    String id,
+    bool is_mut,
+    Ref<Typed_AST_Type_Signiture> specified_type,
+    Ref<Typed_AST> initializer)
 {
     kind = Typed_AST_Kind::Let;
     this->id = id;
@@ -211,12 +211,12 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
             print_binary_at_indent("while", (Typed_AST_Binary *)node, indent);
         } break;
         case Typed_AST_Kind::If: {
-            Typed_AST_Ternary *t = (Typed_AST_Ternary *)node;
+            Typed_AST_If *t = (Typed_AST_If *)node;
             printf("(if)\n");
-            print_sub_at_indent("cond", t->lhs.get(), indent + 1);
-            print_sub_at_indent("then", t->mid.get(), indent + 1);
-            if (t->rhs) {
-                print_sub_at_indent("else", t->rhs.get(), indent + 1);
+            print_sub_at_indent("cond", t->cond.get(), indent + 1);
+            print_sub_at_indent("then", t->then.get(), indent + 1);
+            if (t->else_) {
+                print_sub_at_indent("else", t->else_.get(), indent + 1);
             }
         } break;
         case Typed_AST_Kind::Block: {

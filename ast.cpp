@@ -200,12 +200,12 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
             print_binary_at_indent("while", (Untyped_AST_Binary *)node, indent);
         } break;
         case Untyped_AST_Kind::If: {
-            Untyped_AST_Ternary *t = (Untyped_AST_Ternary *)node;
+            Untyped_AST_If *t = (Untyped_AST_If *)node;
             printf("(if)\n");
-            print_sub_at_indent("cond", t->lhs.get(), indent + 1);
-            print_sub_at_indent("then", t->mid.get(), indent + 1);
-            if (t->rhs) {
-                print_sub_at_indent("else", t->rhs.get(), indent + 1);
+            print_sub_at_indent("cond", t->cond.get(), indent + 1);
+            print_sub_at_indent("then", t->then.get(), indent + 1);
+            if (t->else_) {
+                print_sub_at_indent("else", t->else_.get(), indent + 1);
             }
         } break;
         case Untyped_AST_Kind::Block: {
