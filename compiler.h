@@ -24,9 +24,9 @@ struct Variable {
 //    String id;
 };
 
-struct Scope {
+struct Compiler_Scope {
     int stack_bottom;
-    Scope *parent;
+    Compiler_Scope *parent;
     std::unordered_map<std::string, Variable> variables;
 };
 
@@ -52,8 +52,8 @@ struct Compiler {
     Compiler *global;
     Function_Definition *function;
     
-    Scope *global_scope;
-    std::list<Scope> scopes;
+    Compiler_Scope *global_scope;
+    std::list<Compiler_Scope> scopes;
     
     static constexpr size_t ConstantsAllignment = 8;
     Data_Section constants;
@@ -61,8 +61,8 @@ struct Compiler {
 //    int wb_top;
 //    Compiler *child  = nullptr;
 //    bool has_return;
-    // Scope global_scope;
-    // Scope *current_scope;
+    // Compiler_Scope global_scope;
+    // Compiler_Scope *current_scope;
 //    AST *ret_statement = nullptr;
 //    std::vector<Loop> loops;
 //    std::vector<LoopJump> breaks;
@@ -103,7 +103,7 @@ struct Compiler {
         return add_constant(&constant, sizeof(T));
     }
     
-    Scope &current_scope();
+    Compiler_Scope &current_scope();
     void begin_scope();
     void end_scope();
 };

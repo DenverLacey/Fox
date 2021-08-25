@@ -253,19 +253,19 @@ void Typed_AST::print() const {
     print_at_indent(this, 0);
 }
 
-struct Scope {
+struct Typer_Scope {
     std::unordered_map<std::string, Value_Type> variables;
 };
 
 struct Typer {
-    std::list<Scope> scopes;
+    std::list<Typer_Scope> scopes;
     
-    Scope &current_scope() {
+    Typer_Scope &current_scope() {
         return scopes.front();
     }
     
     void begin_scope() {
-        scopes.push_front({});
+        scopes.push_front(Typer_Scope());
     }
     
     void end_scope() {

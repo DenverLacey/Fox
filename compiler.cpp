@@ -15,7 +15,6 @@ Compiler::Compiler(Function_Definition *function) {
     parent = nullptr;
     global = this;
     this->function = function;
-    scopes.push_front({ 0, nullptr });
 }
 
 Compiler::Compiler(Compiler *parent, Function_Definition *function) {
@@ -23,7 +22,6 @@ Compiler::Compiler(Compiler *parent, Function_Definition *function) {
     this->parent = parent;
     global = parent->global;
     this->function = function;
-    scopes.push_front({ 0, nullptr });
 }
 
 Function_Definition *Compiler::compile(Typed_AST *node) {
@@ -62,16 +60,17 @@ void Compiler::patch_jump(size_t jump) {
 
 Variable &Compiler::emit_variable(String id, Typed_AST *initializer) {
     std::string sid(id.c_str(), id.size());
-    Scope &s = current_scope();
+    Compiler_Scope &s = current_scope();
     Address address = (Address)stack_top;
     initializer->compile(this);
     Variable v = { initializer->type, address };
-    return s.variables[sid] = v;
+    s.variables[sid] = v;
+    return s.variables[sid];
 }
 
 Variable *Compiler::find_variable(String id) {
     std::string sid(id.c_str(), id.size());
-    for (Scope *s = &current_scope(); s != nullptr; s = s->parent) {
+    for (Compiler_Scope *s = &current_scope(); s != nullptr; s = s->parent) {
         auto it = s->variables.find(sid);
         if (it != s->variables.end()) {
             return &it->second;
@@ -141,13 +140,13 @@ size_t Compiler::add_str_constant(String source) {
     return index;
 }
 
-Scope &Compiler::current_scope() {
+Compiler_Scope &Compiler::current_scope() {
     return scopes.front();
 }
 
 void Compiler::begin_scope() {
-    Scope &parent = current_scope();
-    Scope next;
+    Compiler_Scope &parent = current_scope();
+    Compiler_Scope next{};
     next.stack_bottom = stack_top;
     next.parent = &parent;
     scopes.push_front(next);
@@ -227,9 +226,11 @@ void Typed_AST_Ternary::compile(Compiler *c) {
 }
 
 void Typed_AST_Block::compile(Compiler *c) {
+    c->begin_scope();
     for (auto &node : nodes) {
         node->compile(c);
     }
+    c->end_scope();
 }
 
 void Typed_AST_If::compile(Compiler *c) {

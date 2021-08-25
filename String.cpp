@@ -65,18 +65,18 @@ size_t String::len() const {
     return utf8::distance(begin, end);
 }
 
-bool String::operator==(const String &other) {
+bool String::operator==(const String &other) const {
     return _size == other._size && memcmp(_data, other._data, _size) == 0;
 }
 
-bool String::operator!=(const String &other) {
+bool String::operator!=(const String &other) const {
     return !(*this == other);
 }
 
-bool String::operator==(const char *other) {
+bool String::operator==(const char *other) const {
     return _size == strlen(other) && memcmp(_data, other, _size) == 0;
 }
 
-bool String::operator!=(const char *other) {
+bool String::operator!=(const char *other) const {
     return !(*this == other);
 }

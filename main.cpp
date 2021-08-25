@@ -11,7 +11,10 @@
 //      like last time and you'll make a mistake.
 // [x]  Actually setup the reading from a source file instead of using a String
 //      to pass source code.
-// [ ]  Fix issue where something can't be deleted because it was never allocated.
+// [x]  Fix issue where something can't be deleted because it was never allocated.
+//      Issue was caused by Scope being a struct defined in typer.cpp and
+//      compiler.h. Now that they are called Typer_Scope and Compiler_Scope
+//      respectively, the issue is fixed.
 
 #include <iostream>
 

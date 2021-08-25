@@ -33,8 +33,8 @@ public:
     size_t len() const;
     
 public:
-    bool operator==(const String &other);
-    bool operator!=(const String &other);
-    bool operator==(const char *other);
-    bool operator!=(const char *other);
+    bool operator==(const String &other) const;
+    bool operator!=(const String &other) const;
+    bool operator==(const char *other) const;
+    bool operator!=(const char *other) const;
 };
