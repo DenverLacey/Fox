@@ -24,8 +24,13 @@ Compiler::Compiler(Compiler *parent, Function_Definition *function) {
     this->function = function;
 }
 
-Function_Definition *Compiler::compile(Typed_AST *node) {
-    node->compile(this);
+Function_Definition *Compiler::compile(Typed_AST_Block *block) {
+    begin_scope();
+    global_scope = &current_scope();
+    for (auto &n : block->nodes) {
+        n->compile(*this);
+    }
+    
     return this->function;
 }
 
@@ -50,6 +55,10 @@ size_t Compiler::emit_jump(Opcode jump_code) {
     emit_opcode(jump_code);
     size_t jump = function->bytecode.size();
     emit_value<size_t>(-1);
+    if (jump_code == Opcode::Jump_True ||
+          jump_code == Opcode::Jump_False) {
+        stack_top -= value_types::Bool.size();
+    }
     return jump;
 }
 
@@ -62,21 +71,32 @@ Variable &Compiler::emit_variable(String id, Typed_AST *initializer) {
     std::string sid(id.c_str(), id.size());
     Compiler_Scope &s = current_scope();
     Address address = (Address)stack_top;
-    initializer->compile(this);
+    initializer->compile(*this);
     Variable v = { initializer->type, address };
     s.variables[sid] = v;
     return s.variables[sid];
 }
 
-Variable *Compiler::find_variable(String id) {
+bool Compiler::find_variable(String id, Variable * &out_v) {
     std::string sid(id.c_str(), id.size());
     for (Compiler_Scope *s = &current_scope(); s != nullptr; s = s->parent) {
         auto it = s->variables.find(sid);
         if (it != s->variables.end()) {
-            return &it->second;
+            out_v = &s->variables[sid];
+            return false;
         }
     }
-    return nullptr;
+    
+    // check global scope
+    auto it = global_scope->variables.find(sid);
+    if (it != global_scope->variables.end()) {
+        out_v = &global_scope->variables[sid];
+        return true;
+    }
+    
+    // nothing was found
+    out_v = nullptr;
+    return false;
 }
 
 size_t Compiler::add_constant(void *data, size_t size) {
@@ -145,120 +165,368 @@ Compiler_Scope &Compiler::current_scope() {
 }
 
 void Compiler::begin_scope() {
-    Compiler_Scope &parent = current_scope();
+    Compiler_Scope *parent = scopes.size() > 0 ? &current_scope() : nullptr;
     Compiler_Scope next{};
     next.stack_bottom = stack_top;
-    next.parent = &parent;
+    next.parent = parent;
     scopes.push_front(next);
 }
 
 void Compiler::end_scope() {
+    Address flush_point = current_scope().stack_bottom;
+    emit_opcode(Opcode::Flush);
+    emit_address(flush_point);
     scopes.pop_front();
 }
 
-void Typed_AST_Bool::compile(Compiler *c) {
-    c->emit_opcode(value ? Opcode::Lit_True : Opcode::Lit_False);
-    c->stack_top += type.size();
+void Typed_AST_Bool::compile(Compiler &c) {
+    c.emit_opcode(value ? Opcode::Lit_True : Opcode::Lit_False);
+    c.stack_top += type.size();
 }
 
-void Typed_AST_Char::compile(Compiler *c) {
-    c->emit_opcode(Opcode::Lit_Char);
-    c->emit_value<runtime::Char>(value);
-    c->stack_top += type.size();
+void Typed_AST_Char::compile(Compiler &c) {
+    c.emit_opcode(Opcode::Lit_Char);
+    c.emit_value<runtime::Char>(value);
+    c.stack_top += type.size();
 }
 
-void Typed_AST_Float::compile(Compiler *c) {
-    size_t constant = c->add_constant<runtime::Float>(value);
-    c->emit_opcode(Opcode::Load_Const_Float);
-    c->emit_value<size_t>(constant);
-    c->stack_top += type.size();
+void Typed_AST_Float::compile(Compiler &c) {
+    size_t constant = c.add_constant<runtime::Float>(value);
+    c.emit_opcode(Opcode::Load_Const_Float);
+    c.emit_value<size_t>(constant);
+    c.stack_top += type.size();
 }
 
-void Typed_AST_Ident::compile(Compiler *c) {
-    Variable *v = c->find_variable(id);
+void Typed_AST_Ident::compile(Compiler &c) {
+    Variable *v;
+    bool is_global = c.find_variable(id, v);
     verify(v, "Unresolved identifier '%s'.", id.c_str());
     internal_verify(v->type == type, "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
-    c->emit_opcode(Opcode::Push_Value);
-    c->emit_size(v->type.size());
-    c->emit_address(v->address);
-    c->stack_top += v->type.size();
+    c.emit_opcode(is_global ? Opcode::Push_Global_Value : Opcode::Push_Value);
+    c.emit_size(v->type.size());
+    c.emit_address(v->address);
+    c.stack_top += v->type.size();
 }
 
-void Typed_AST_Int::compile(Compiler *c) {
-    size_t constant = c->add_constant<runtime::Int>(value);
-    c->emit_opcode(Opcode::Load_Const_Int);
-    c->emit_value<size_t>(constant);
-    c->stack_top += type.size();
+void Typed_AST_Int::compile(Compiler &c) {
+    size_t constant = c.add_constant<runtime::Int>(value);
+    c.emit_opcode(Opcode::Load_Const_Int);
+    c.emit_value<size_t>(constant);
+    c.stack_top += type.size();
 }
 
-void Typed_AST_Str::compile(Compiler *c) {
-    size_t constant = c->add_str_constant(value);
-    c->emit_opcode(Opcode::Load_Const_String);
-    c->emit_value<size_t>(constant);
-    c->stack_top += type.size();
+void Typed_AST_Str::compile(Compiler &c) {
+    size_t constant = c.add_str_constant(value);
+    c.emit_opcode(Opcode::Load_Const_String);
+    c.emit_value<size_t>(constant);
+    c.stack_top += type.size();
 }
 
-void Typed_AST_Unary::compile(Compiler *c) {
-    int stack_top = c->stack_top;
+void Typed_AST_Unary::compile(Compiler &c) {
+    int stack_top = c.stack_top;
     sub->compile(c);
     switch (kind) {
         case Typed_AST_Kind::Not:
-            c->emit_opcode(Opcode::Not);
+            c.emit_opcode(Opcode::Not);
             break;
             
         default:
             internal_error("Kind is not a valid unary operation: %d.", kind);
             break;
     }
-    c->stack_top = stack_top + type.size();
+    c.stack_top = stack_top + type.size();
 }
 
-void Typed_AST_Binary::compile(Compiler *c) {
+struct Find_Static_Address_Result {
+    enum {
+        Not_Found,
+        Found,
+        Found_Global
+    } status;
+    Address address;
+};
+
+static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &node) {
+    auto status = Find_Static_Address_Result::Found;
+    Address address;
+    
+    switch (node.kind) {
+        case Typed_AST_Kind::Ident: {
+            Typed_AST_Ident *id = dynamic_cast<Typed_AST_Ident *>(&node);
+            internal_verify(id, "Failed to cast node to an Ident* in find_static_address.");
+            
+            Variable *v;
+            bool is_global = c.find_variable(id->id, v);
+            
+            verify(v, "Unresolved identifier '%.*s'.", id->id.c_str());
+            
+            if (is_global) {
+                status = Find_Static_Address_Result::Found_Global;
+            }
+            
+            address = v->address;
+        } break;
+//        case AST_SUBSCRIPT: {
+//            Binary *sub = (Binary *)ast;
+//            auto lhs_result = find_static_address(c, sub->lhs);
+//
+//            if (lhs_result.type == FSAR_NOT_FOUND)
+//                { type = FSAR_NOT_FOUND; break; }
+//
+//            // @TODO: can we make this more constant?
+//            if (!types_match(c, sub->lhs->inferred_type, TYPE_ARRAY))
+//                { type = FSAR_NOT_FOUND; break; }
+//
+//            // @TODO: implement constant evaluation
+//            if (sub->rhs->type != AST_INTEGER)
+//                { type = FSAR_NOT_FOUND; break; }
+//
+//            if (lhs_result.type == FSAR_FOUND_GLOBAL) type = FSAR_FOUND_GLOBAL;
+//
+//            Integer idx = ((Literal *)sub->rhs)->as.integer;
+//            addr = lhs_result.address + idx * size_of_type(c, sub->inferred_type);
+//        } break;
+//        case AST_DOT: {
+//            Binary *dot = (Binary *)ast;
+//            AST *lhs = dot->lhs;
+//            auto lhs_result = find_static_address(c, lhs);
+//
+//            if (lhs_result.type == FSAR_NOT_FOUND)
+//                { type = FSAR_NOT_FOUND; break; }
+//
+//            if (lhs_result.type == FSAR_FOUND_GLOBAL) type = FSAR_FOUND_GLOBAL;
+//
+//            StructDefinition *defn = lhs->inferred_type.data.struct_defn;
+//            Identifier *mem_id = (Identifier *)dot->rhs;
+//
+//            auto member = std::find_if(defn->members.begin(), defn->members.end(),
+//            [mem_id] (const StructMember &m) {
+//                return mem_id->len == m.len && memcmp(mem_id->s, m.ident, m.len) == 0;
+//            });
+//            verify(member != defn->members.end(), mem_id->location, "'%.*s' is not a member of '%.*s'.", mem_id->len, mem_id->s, defn->len_ident, defn->ident);
+//
+//            addr = lhs_result.address + member->offset;
+//        } break;
+            
+        default:
+            status = Find_Static_Address_Result::Not_Found;
+            break;
+    }
+    
+    return { status, address };
+}
+
+static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
+    switch (node.kind) {
+        case Typed_AST_Kind::Ident: {
+            Typed_AST_Ident *id = dynamic_cast<Typed_AST_Ident *>(&node);
+            internal_verify(id, "Failed to cast node to Ident* in emit_dynamic_address_code().");
+            
+            Variable *v;
+            bool is_global = c.find_variable(id->id, v);
+            
+            verify(v, "Unresolved identifier '%.*s'.", id->id.c_str());
+            
+            c.emit_opcode(is_global ? Opcode::Push_Global_Pointer : Opcode::Push_Pointer);
+            c.emit_address(v->address);
+        } break;
+//        case AST_DEREF: {
+//            Unary *deref = (Unary *)ast;
+//            emit_bytecode(c, deref->subexpression);
+//        } break;
+//        case AST_SUBSCRIPT: {
+//            Binary *sub = (Binary *)ast;
+//
+//            ValueType *element_type = get_subtype(c, sub->lhs->inferred_type);
+//            TypeSize size = size_of_type(c, *element_type);
+//
+//            if (!emit_address_bytecode(c, sub->lhs)) return false;
+//            if (types_match(c, sub->lhs->inferred_type, TYPE_SLICE)) {
+//                emit_byte(c, BYTE_LOAD);
+//                emit_size(c, size_of_type(PTR_TYPE));
+//            }
+//
+//            emit_byte(c, BYTE_LOAD_CONST);
+//            emit_size(c, size_of_type(INT_TYPE));
+//            emit_value<Integer>(c, size);
+//            emit_bytecode(c, sub->rhs);
+//            emit_byte(c, BYTE_INTEGER_MUL);
+//
+//            emit_byte(c, BYTE_INTEGER_ADD);
+//        } break;
+//        case AST_DOT: {
+//            Binary *dot = (Binary *)ast;
+//
+//            verify(types_match(c, dot->lhs->inferred_type, TYPE_STRUCT), dot->lhs->location, "Type mismatch! Expected a struct type but was given '%s'.", type_to_string(dot->lhs->inferred_type));
+//
+//            StructDefinition *defn = dot->lhs->inferred_type.data.struct_defn;
+//            Identifier *mem_id = (Identifier *)dot->rhs;
+//
+//            auto member = std::find_if(defn->members.begin(), defn->members.end(),
+//            [mem_id] (const StructMember &m) {
+//                return mem_id->len == m.len && memcmp(mem_id->s, m.ident, m.len) == 0;
+//            });
+//
+//            verify(member != defn->members.end(), mem_id->location, "'%.*s' is not a member of '%s'.", mem_id->len, mem_id->s, type_to_string(dot->lhs->inferred_type));
+//
+//            emit_address_bytecode(c, dot->lhs);
+//            emit_byte(c, BYTE_LOAD_CONST);
+//            emit_size(c, sizeof(Integer));
+//            emit_value<Integer>(c, member->offset);
+//            emit_byte(c, BYTE_INTEGER_ADD);
+//        } break;
+//        case AST_DEREF_DOT:
+//            assert(false);
+            
+            
+        default:
+            return false;
+    }
+    
+    return true;
+}
+
+static bool emit_address_code(Compiler &c, Typed_AST &node) {
+    int stack_top = c.stack_top;
+    bool success = true;
+    
+    auto [status, address] = find_static_address(c, node);
+    
+    auto push_type = Opcode::Push_Pointer;
+    switch (status) {
+        case Find_Static_Address_Result::Found_Global:
+            push_type = Opcode::Push_Global_Pointer;
+        case Find_Static_Address_Result::Found:
+            c.emit_opcode(push_type);
+            c.emit_address(address);
+            break;
+        case Find_Static_Address_Result::Not_Found:
+            success = emit_dynamic_address_code(c, node);
+            break;
+            
+        default:
+            internal_error("Invalid status in emit_address_code(): %d.", status);
+            break;
+    }
+    
+    c.stack_top = stack_top + value_types::Ptr.size();
+    return success;
+}
+
+static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
+    int stack_top = c.stack_top;
+    
+    b.rhs->compile(c);
+    bool success = emit_address_code(c, *b.lhs.get());
+    verify(success, "Cannot assign to this kind of expression.");
+        
+    Size size = b.rhs->type.size();
+    c.emit_opcode(Opcode::Move);
+    c.emit_size(size);
+    
+    c.stack_top = stack_top;
+}
+
+void Typed_AST_Binary::compile(Compiler &c) {
+    switch (kind) {
+        case Typed_AST_Kind::Assignment:
+            compile_assignment(c, *this);
+            return;
+        case Typed_AST_Kind::While:
+            assert(false);
+            break;
+    }
+    
+    int stack_top = c.stack_top;
+    Opcode op;
+    switch (kind) {
+        case Typed_AST_Kind::Addition:
+            if (type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Add;
+            else if (type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Add;
+            else if (type.kind == Value_Type_Kind::Str)
+                op = Opcode::Str_Add;
+            break;
+        case Typed_AST_Kind::Division:
+            if (type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Div;
+            else if (type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Div;
+            break;
+        case Typed_AST_Kind::Equal:
+            op = Opcode::Equal;
+            break;
+            
+        case Typed_AST_Kind::Mod:
+            op = Opcode::Mod;
+            break;
+            
+        case Typed_AST_Kind::Multiplication:
+            if (type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Mul;
+            else if (type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Mul;
+            break;
+        case Typed_AST_Kind::Subtraction:
+            if (type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Sub;
+            else if (type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Sub;
+            break;
+            
+        default:
+            internal_error("Invalid binary operation: %d.", kind);
+            break;
+    }
+    
+    lhs->compile(c);
+    rhs->compile(c);
+    c.emit_opcode(op);
+    
+    c.stack_top = stack_top + type.size();
+}
+
+void Typed_AST_Ternary::compile(Compiler &c) {
     assert(false);
-    int stack_top = c->stack_top;
-    c->stack_top = stack_top + type.size();
+    int stack_top = c.stack_top;
+    c.stack_top = stack_top + type.size();
 }
 
-void Typed_AST_Ternary::compile(Compiler *c) {
-    assert(false);
-    int stack_top = c->stack_top;
-    c->stack_top = stack_top + type.size();
-}
-
-void Typed_AST_Block::compile(Compiler *c) {
-    c->begin_scope();
+void Typed_AST_Block::compile(Compiler &c) {
+    c.begin_scope();
     for (auto &node : nodes) {
         node->compile(c);
     }
-    c->end_scope();
+    c.end_scope();
 }
 
-void Typed_AST_If::compile(Compiler *c) {
+void Typed_AST_If::compile(Compiler &c) {
     cond->compile(c);
     
-    size_t else_jump = c->emit_jump(Opcode::Jump_False);
+    size_t else_jump = c.emit_jump(Opcode::Jump_False);
     size_t exit_jump;
     
     then->compile(c);
     
     if (else_) {
-        exit_jump = c->emit_jump(Opcode::Jump);
+        exit_jump = c.emit_jump(Opcode::Jump);
     }
-    c->patch_jump(else_jump);
+    c.patch_jump(else_jump);
     
     // else block
     if (else_) {
         else_->compile(c);
-        c->patch_jump(exit_jump);
+        c.patch_jump(exit_jump);
     }
 }
 
-void Typed_AST_Type_Signiture::compile(Compiler *c) {
+void Typed_AST_Type_Signiture::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Type_Signiture::compile() is disallowed.");
 }
 
-void Typed_AST_Let::compile(Compiler *c) {
-    int stack_top = c->stack_top;
-    c->emit_variable(id, initializer.get());
-    c->stack_top = stack_top + initializer->type.size();
+void Typed_AST_Let::compile(Compiler &c) {
+    int stack_top = c.stack_top;
+    c.emit_variable(id, initializer.get());
+    c.stack_top = stack_top + initializer->type.size();
 }

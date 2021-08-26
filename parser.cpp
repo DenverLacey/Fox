@@ -155,6 +155,8 @@ struct Parser {
             s = parse_if_statement();
         } else if (match(Token_Kind::While)) {
             s = parse_while_statement();
+        } else if (check(Token_Kind::Left_Curly)) {
+            s = parse_block();
         } else {
             s = parse_expression();
             expect(Token_Kind::Semi, "Expected ';' after statement.");

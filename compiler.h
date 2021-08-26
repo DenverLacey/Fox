@@ -77,7 +77,7 @@ struct Compiler {
     Compiler(Function_Definition *function);
     Compiler(Compiler *parent, Function_Definition *function);
     
-    Function_Definition *compile(Typed_AST *node);
+    Function_Definition *compile(Typed_AST_Block *node);
     
     void emit_byte(uint8_t byte);
     void emit_opcode(Opcode op);
@@ -86,7 +86,7 @@ struct Compiler {
     size_t emit_jump(Opcode jump_code);
     void patch_jump(size_t jump);
     Variable &emit_variable(String id, Typed_AST *initializer);
-    Variable *find_variable(String id);
+    bool find_variable(String id, Variable * &out_v);
     
     template<typename T>
     void emit_value(T value) {

@@ -288,10 +288,10 @@ struct Typer {
     }
 };
 
-Ref<Typed_AST> typecheck(Untyped_AST *node) {
+Ref<Typed_AST_Block> typecheck(Untyped_AST_Block *node) {
     Typer t;
     t.begin_scope();
-    return node->typecheck(t);
+    return cast<Typed_AST_Block>(node->typecheck(t));
 }
 
 Ref<Typed_AST> Untyped_AST_Bool::typecheck(Typer &t) {
