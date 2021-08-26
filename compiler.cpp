@@ -67,6 +67,12 @@ void Compiler::patch_jump(size_t jump) {
     *(size_t *)&function->bytecode[jump] = to - jump - sizeof(size_t);
 }
 
+void Compiler::emit_loop(size_t loop_start) {
+    emit_opcode(Opcode::Loop);
+    size_t jump = function->bytecode.size() - loop_start + sizeof(size_t);
+    emit_value<size_t>(jump);
+}
+
 Variable &Compiler::emit_variable(String id, Typed_AST *initializer) {
     std::string sid(id.c_str(), id.size());
     Compiler_Scope &s = current_scope();
@@ -427,17 +433,38 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
     c.stack_top = stack_top;
 }
 
+void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
+    size_t loop_start = c.function->bytecode.size();
+    
+    b.lhs->compile(c);
+    
+    size_t exit_jump = c.emit_jump(Opcode::Jump_False);
+    
+    b.rhs->compile(c);
+    
+    c.emit_loop(loop_start);
+    c.patch_jump(exit_jump);
+}
+
 void Typed_AST_Binary::compile(Compiler &c) {
+    int stack_top = c.stack_top;
+    
     switch (kind) {
         case Typed_AST_Kind::Assignment:
             compile_assignment(c, *this);
             return;
         case Typed_AST_Kind::While:
-            assert(false);
-            break;
+            compile_while_loop(c, *this);
+            return;
+        case Typed_AST_Kind::Equal:
+            lhs->compile(c);
+            rhs->compile(c);
+            c.emit_opcode(Opcode::Equal);
+            c.emit_size(lhs->type.size());
+            c.stack_top = stack_top + value_types::Bool.size();
+            return;
     }
     
-    int stack_top = c.stack_top;
     Opcode op;
     switch (kind) {
         case Typed_AST_Kind::Addition:
@@ -453,9 +480,6 @@ void Typed_AST_Binary::compile(Compiler &c) {
                 op = Opcode::Int_Div;
             else if (type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Div;
-            break;
-        case Typed_AST_Kind::Equal:
-            op = Opcode::Equal;
             break;
             
         case Typed_AST_Kind::Mod:

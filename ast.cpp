@@ -14,14 +14,26 @@ Untyped_AST_Bool::Untyped_AST_Bool(bool value) {
     this->value = value;
 }
 
+Ref<Untyped_AST> Untyped_AST_Bool::clone() {
+    return make<Untyped_AST_Bool>(value);
+}
+
 Untyped_AST_Char::Untyped_AST_Char(char32_t value) {
     kind = Untyped_AST_Kind::Char;
     this->value = value;
 }
 
+Ref<Untyped_AST> Untyped_AST_Char::clone() {
+    return make<Untyped_AST_Char>(value);
+}
+
 Untyped_AST_Float::Untyped_AST_Float(double value) {
     kind = Untyped_AST_Kind::Float;
     this->value = value;
+}
+
+Ref<Untyped_AST> Untyped_AST_Float::clone() {
+    return make<Untyped_AST_Float>(value);
 }
 
 Untyped_AST_Ident::Untyped_AST_Ident(String id) {
@@ -33,9 +45,17 @@ Untyped_AST_Ident::~Untyped_AST_Ident() {
     id.free();
 }
 
+Ref<Untyped_AST> Untyped_AST_Ident::clone() {
+    return make<Untyped_AST_Ident>(id.clone());
+}
+
 Untyped_AST_Int::Untyped_AST_Int(int64_t value) {
     kind = Untyped_AST_Kind::Int;
     this->value = value;
+}
+
+Ref<Untyped_AST> Untyped_AST_Int::clone() {
+    return make<Untyped_AST_Int>(value);
 }
 
 Untyped_AST_Str::Untyped_AST_Str(String value) {
@@ -47,15 +67,27 @@ Untyped_AST_Str::~Untyped_AST_Str() {
     value.free();
 }
 
+Ref<Untyped_AST> Untyped_AST_Str::clone() {
+    return make<Untyped_AST_Str>(value.clone());
+}
+
 Untyped_AST_Unary::Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub) {
     this->kind = kind;
     this->sub = std::move(sub);
+}
+
+Ref<Untyped_AST> Untyped_AST_Unary::clone() {
+    return make<Untyped_AST_Unary>(kind, sub->clone());
 }
 
 Untyped_AST_Binary::Untyped_AST_Binary(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs, Ref<Untyped_AST> rhs) {
     this->kind = kind;
     this->lhs = std::move(lhs);
     this->rhs = std::move(rhs);
+}
+
+Ref<Untyped_AST> Untyped_AST_Binary::clone() {
+    return make<Untyped_AST_Binary>(kind, lhs->clone(), rhs->clone());
 }
 
 Untyped_AST_Ternary::Untyped_AST_Ternary(
@@ -70,6 +102,10 @@ Untyped_AST_Ternary::Untyped_AST_Ternary(
     this->rhs = std::move(rhs);
 }
 
+Ref<Untyped_AST> Untyped_AST_Ternary::clone() {
+    return make<Untyped_AST_Ternary>(kind, lhs->clone(), mid->clone(), rhs->clone());
+}
+
 Untyped_AST_Block::Untyped_AST_Block(Untyped_AST_Kind kind) {
     this->kind = kind;
 }
@@ -78,9 +114,22 @@ void Untyped_AST_Block::add(Ref<Untyped_AST> node) {
     nodes.push_back(std::move(node));
 }
 
+Ref<Untyped_AST> Untyped_AST_Block::clone() {
+    auto block = make<Untyped_AST_Block>(kind);
+    for (auto &n : nodes) {
+        block->add(n->clone());
+    }
+    return block;
+}
+
 Untyped_AST_Type_Signiture::Untyped_AST_Type_Signiture(Ref<Value_Type> value_type) {
     this->kind = Untyped_AST_Kind::Type_Signiture;
     this->value_type = std::move(value_type);
+}
+
+Ref<Untyped_AST> Untyped_AST_Type_Signiture::clone() {
+    assert(false);
+    return nullptr;
 }
 
 Untyped_AST_If::Untyped_AST_If(
@@ -92,6 +141,13 @@ Untyped_AST_If::Untyped_AST_If(
     this->cond = std::move(cond);
     this->then = std::move(then);
     this->else_ = std::move(else_);
+}
+
+Ref<Untyped_AST> Untyped_AST_If::clone() {
+    auto cond = this->cond->clone();
+    auto then = this->then->clone();
+    auto else_ = this->else_ ? this->else_->clone() : nullptr;
+    return make<Untyped_AST_If>(std::move(cond), std::move(then), std::move(else_));
 }
 
 Untyped_AST_Let::Untyped_AST_Let(
@@ -109,6 +165,11 @@ Untyped_AST_Let::Untyped_AST_Let(
 
 Untyped_AST_Let::~Untyped_AST_Let() {
     id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Let::clone() {
+    auto sig = specified_type ? cast<Untyped_AST_Type_Signiture>(specified_type->clone()) : nullptr;
+    return make<Untyped_AST_Let>(id.clone(), is_mut, std::move(sig), initializer->clone());
 }
 
 constexpr size_t INDENT_SIZE = 2;

@@ -46,11 +46,17 @@ enum class Token_Kind {
     
     // operators
     Plus,       // +
+    Plus_Eq,    // +=
     Dash,       // -
+    Dash_Eq,    // -=
     Star,       // *
+    Star_Eq,    // *=
     Slash,      // /
+    Slash_Eq,   // /=
     Percent,    // %
+    Percent_Eq, // %=
     Bang,       // !
+    Bang_Eq,    // !=
     Eq,         // =
     Double_Eq,  // ==
 };

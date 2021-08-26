@@ -140,12 +140,48 @@ static Token punctuation(Source_Iterator &src) {
         case '}': t.kind = Token_Kind::Right_Curly; break;
             
         // operators
-        case '+': t.kind = Token_Kind::Plus; break;
-        case '-': t.kind = Token_Kind::Dash; break;
-        case '*': t.kind = Token_Kind::Star; break;
-        case '/': t.kind = Token_Kind::Slash; break;
-        case '%': t.kind = Token_Kind::Percent; break;
-        case '!': t.kind = Token_Kind::Bang; break;
+        case '+': // t.kind = Token_Kind::Plus; break;
+            if (src.match('=')) {
+                t.kind = Token_Kind::Plus_Eq;
+            } else {
+                t.kind = Token_Kind::Plus;
+            }
+            break;
+        case '-': // t.kind = Token_Kind::Dash; break;
+            if (src.match('=')) {
+                t.kind = Token_Kind::Dash_Eq;
+            } else {
+                t.kind = Token_Kind::Dash;
+            }
+            break;
+        case '*': // t.kind = Token_Kind::Star; break;
+            if (src.match('=')) {
+                t.kind = Token_Kind::Star_Eq;
+            } else {
+                t.kind = Token_Kind::Star;
+            }
+            break;
+        case '/': // t.kind = Token_Kind::Slash; break;
+            if (src.match('=')) {
+                t.kind = Token_Kind::Slash_Eq;
+            } else {
+                t.kind = Token_Kind::Slash;
+            }
+            break;
+        case '%': // t.kind = Token_Kind::Percent; break;
+            if (src.match('=')) {
+                t.kind = Token_Kind::Percent_Eq;
+            } else {
+                t.kind = Token_Kind::Percent;
+            }
+            break;
+        case '!': // t.kind = Token_Kind::Bang; break;
+            if (src.match('=')) {
+                t.kind = Token_Kind::Bang_Eq;
+            } else {
+                t.kind = Token_Kind::Bang;
+            }
+            break;
         case '=':
             if (src.match('=')) {
                 t.kind = Token_Kind::Double_Eq;

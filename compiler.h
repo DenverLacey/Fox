@@ -85,6 +85,7 @@ struct Compiler {
     void emit_address(Address address);
     size_t emit_jump(Opcode jump_code);
     void patch_jump(size_t jump);
+    void emit_loop(size_t loop_start);
     Variable &emit_variable(String id, Typed_AST *initializer);
     bool find_variable(String id, Variable * &out_v);
     

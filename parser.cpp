@@ -68,8 +68,16 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Slash: return Precedence::Factor;
         case Token_Kind::Percent: return Precedence::Factor;
         case Token_Kind::Bang: return Precedence::Unary;
-        case Token_Kind::Eq: return Precedence::Assignment;
         case Token_Kind::Double_Eq: return Precedence::Equality;
+        case Token_Kind::Bang_Eq: return Precedence::Equality;
+            
+        // assignment operator
+        case Token_Kind::Eq: return Precedence::Assignment;
+        case Token_Kind::Plus_Eq: return Precedence::Assignment;
+        case Token_Kind::Dash_Eq: return Precedence::Assignment;
+        case Token_Kind::Star_Eq: return Precedence::Assignment;
+        case Token_Kind::Slash_Eq: return Precedence::Assignment;
+        case Token_Kind::Percent_Eq: return Precedence::Assignment;
     }
     assert(false);
 }
@@ -308,6 +316,7 @@ struct Parser {
     Ref<Untyped_AST> parse_infix(Token token, Ref<Untyped_AST> prev) {
         Ref<Untyped_AST> a = nullptr;
         auto prec = token_precedence(token);
+        verify(prec != Precedence::Assignment, "Assignment where expression was expected.");
         switch (token.kind) {
             // delimeters
             case Token_Kind::Left_Paren:
@@ -318,17 +327,32 @@ struct Parser {
             case Token_Kind::Plus:
                 a = parse_binary(Untyped_AST_Kind::Addition, prec, std::move(prev));
                 break;
+            case Token_Kind::Plus_Eq:
+                a = parse_operator_assignment(Untyped_AST_Kind::Addition, std::move(prev));
+                break;
             case Token_Kind::Dash:
                 a = parse_binary(Untyped_AST_Kind::Subtraction, prec, std::move(prev));
+                break;
+            case Token_Kind::Dash_Eq:
+                a = parse_operator_assignment(Untyped_AST_Kind::Subtraction, std::move(prev));
                 break;
             case Token_Kind::Star:
                 a = parse_binary(Untyped_AST_Kind::Multiplication, prec, std::move(prev));
                 break;
+            case Token_Kind::Star_Eq:
+                a = parse_operator_assignment(Untyped_AST_Kind::Multiplication, std::move(prev));
+                break;
             case Token_Kind::Slash:
                 a = parse_binary(Untyped_AST_Kind::Division, prec, std::move(prev));
                 break;
+            case Token_Kind::Slash_Eq:
+                a = parse_operator_assignment(Untyped_AST_Kind::Division, std::move(prev));
+                break;
             case Token_Kind::Percent:
                 a = parse_binary(Untyped_AST_Kind::Mod, prec, std::move(prev));
+                break;
+            case Token_Kind::Percent_Eq:
+                a = parse_operator_assignment(Untyped_AST_Kind::Mod, std::move(prev));
                 break;
             case Token_Kind::Eq:
                 a = parse_binary(Untyped_AST_Kind::Assignment, prec, std::move(prev));
@@ -336,6 +360,10 @@ struct Parser {
             case Token_Kind::Double_Eq:
                 a = parse_binary(Untyped_AST_Kind::Equal, prec, std::move(prev));
                 break;
+            case Token_Kind::Bang_Eq: {
+                auto eq = parse_binary(Untyped_AST_Kind::Equal, prec, std::move(prev));
+                a = make<Untyped_AST_Unary>(Untyped_AST_Kind::Not, std::move(eq));
+            } break;
                 
             default:
                 break;
@@ -351,6 +379,13 @@ struct Parser {
     Ref<Untyped_AST_Binary> parse_binary(Untyped_AST_Kind kind, Precedence prec, Ref<Untyped_AST> lhs) {
         auto rhs = parse_precedence(++prec);
         return make<Untyped_AST_Binary>(kind, std::move(lhs), std::move(rhs));
+    }
+    
+    Ref<Untyped_AST_Binary> parse_operator_assignment(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs) {
+        auto rhs_lhs = lhs->clone();
+        auto rhs_rhs = parse_expression();
+        auto rhs = make<Untyped_AST_Binary>(kind, std::move(rhs_lhs), std::move(rhs_rhs));
+        return make<Untyped_AST_Binary>(Untyped_AST_Kind::Assignment, std::move(lhs), std::move(rhs));
     }
     
     Ref<Untyped_AST_Block> parse_block() {
