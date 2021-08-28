@@ -26,12 +26,16 @@ enum class Typed_AST_Kind {
     
     // binary
     Addition,
-    Assignment,
-    Division,
-    Equal,
-    Mod,
-    Multiplication,
     Subtraction,
+    Multiplication,
+    Division,
+    Mod,
+    Assignment,
+    Equal,
+    Less,
+    Less_Eq,
+    Greater,
+    Greater_Eq,
     While,
     
     // ternary

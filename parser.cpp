@@ -70,6 +70,10 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Bang: return Precedence::Unary;
         case Token_Kind::Double_Eq: return Precedence::Equality;
         case Token_Kind::Bang_Eq: return Precedence::Equality;
+        case Token_Kind::Left_Angle: return Precedence::Comparison;
+        case Token_Kind::Left_Angle_Eq: return Precedence::Comparison;
+        case Token_Kind::Right_Angle: return Precedence::Comparison;
+        case Token_Kind::Right_Angle_Eq: return Precedence::Comparison;
             
         // assignment operator
         case Token_Kind::Eq: return Precedence::Assignment;
@@ -166,7 +170,7 @@ struct Parser {
         } else if (check(Token_Kind::Left_Curly)) {
             s = parse_block();
         } else {
-            s = parse_expression();
+            s = parse_expression_unguarded();
             expect(Token_Kind::Semi, "Expected ';' after statement.");
         }
         return s;
@@ -251,8 +255,14 @@ struct Parser {
         return make<Untyped_AST_Binary>(Untyped_AST_Kind::While, std::move(cond), std::move(body));
     }
     
-    Ref<Untyped_AST> parse_expression() {
+    Ref<Untyped_AST> parse_expression_unguarded() {
         return parse_precedence(Precedence::Assignment);
+    }
+    
+    Ref<Untyped_AST> parse_expression() {
+        auto expr = parse_expression_unguarded();
+        verify(expr->kind != Untyped_AST_Kind::Assignment, "Cannot assign in expression context.");
+        return expr;
     }
     
     Ref<Untyped_AST> parse_precedence(Precedence prec) {
@@ -316,7 +326,6 @@ struct Parser {
     Ref<Untyped_AST> parse_infix(Token token, Ref<Untyped_AST> prev) {
         Ref<Untyped_AST> a = nullptr;
         auto prec = token_precedence(token);
-        verify(prec != Precedence::Assignment, "Assignment where expression was expected.");
         switch (token.kind) {
             // delimeters
             case Token_Kind::Left_Paren:
@@ -364,6 +373,18 @@ struct Parser {
                 auto eq = parse_binary(Untyped_AST_Kind::Equal, prec, std::move(prev));
                 a = make<Untyped_AST_Unary>(Untyped_AST_Kind::Not, std::move(eq));
             } break;
+            case Token_Kind::Left_Angle:
+                a = parse_binary(Untyped_AST_Kind::Less, prec, std::move(prev));
+                break;
+            case Token_Kind::Left_Angle_Eq:
+                a = parse_binary(Untyped_AST_Kind::Less_Eq, prec, std::move(prev));
+                break;
+            case Token_Kind::Right_Angle:
+                a = parse_binary(Untyped_AST_Kind::Greater, prec, std::move(prev));
+                break;
+            case Token_Kind::Right_Angle_Eq:
+                a = parse_binary(Untyped_AST_Kind::Greater_Eq, prec, std::move(prev));
+                break;
                 
             default:
                 break;

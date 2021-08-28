@@ -65,12 +65,12 @@ void VM::run() {
     #define READ(type, frame) *(type *)&(*frame->bytecode)[frame->pc]; frame->pc += sizeof(type)
     #define UNOP(type, op) { \
         type a = stack.pop<type>(); \
-        stack.push<type>(op(a)); \
+        stack.push(op(a)); \
     } break
     #define BIOP(type, op) { \
         type b = stack.pop<type>(); \
         type a = stack.pop<type>(); \
-        stack.push<type>(a op b); \
+        stack.push(a op b); \
     } break
     
     Call_Frame *frame = &frames.top();
@@ -294,10 +294,6 @@ void VM::call(Function_Definition *fn, int arg_size) {
     frames.push(frame);
 }
 
-void VM::print_bytecode(Compiler *c) {
-    assert(false);
-}
-
 void VM::print_stack() {
     for (size_t i = 0; i < stack._top; i++) {
         uint8_t byte = stack._buffer[i];
@@ -319,6 +315,311 @@ static String read_entire_file(const char *path) {
     return source;
 }
 
+void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constants) {
+    #define READ(type, i) *(type *)&code[i]; i += sizeof(type)
+    #define MARK(i) size_t mark = i++
+    
+    size_t i = 0;
+    while (i < code.size()) {
+        Opcode op = code[i];
+        switch (op) {
+            // Literals
+            case Opcode::Lit_True:
+                printf("%03zu: Lit_True\n", i);
+                i++;
+                break;
+            case Opcode::Lit_False:
+                printf("%03zu: Lit_False\n", i);
+                i++;
+                break;
+            case Opcode::Lit_0:
+                printf("%03zu: Lit_0\n", i);
+                i++;
+                break;
+            case Opcode::Lit_1:
+                printf("%03zu: Lit_1\n", i);
+                i++;
+                break;
+            case Opcode::Lit_Char: {
+                MARK(i);
+                runtime::Char c = READ(runtime::Char, i);
+                printf("%03zu: Lit_Char (%s)\n", mark, utf8char_t::from_char32(c).buf);
+            } break;
+                
+            // Constants
+            case Opcode::Load_Const_Int: {
+                MARK(i);
+                size_t constant = READ(size_t, i);
+                runtime::Int k = *(runtime::Int *)&constants[constant];
+                printf("%03zu: Load_Const_Int [%zu] (%lld)\n", mark, constant, k);
+            } break;
+            case Opcode::Load_Const_Float: {
+                MARK(i);
+                size_t constant = READ(size_t, i);
+                runtime::Float f = *(runtime::Float *)&constants[constant];
+                printf("%03zu: Load_Const_Float [%zu] (%f)\n", mark, constant, f);
+            } break;
+            case Opcode::Load_Const_String: {
+                MARK(i);
+                size_t constant = READ(size_t, i);
+                size_t len = *(size_t *)&str_constants[constant];
+                char *s    = (char *)&str_constants[constant + sizeof(size_t)];
+                printf("%03zu: Load_Const_String [%zu] (%.*s)\n", mark, constant, len, s);
+            } break;
+            case Opcode::Load_Const: {
+                MARK(i);
+                size_t size = READ(size_t, i);
+                uint8_t *constant = (uint8_t *)&code[i];
+                i += size;
+                printf("%03zu: Load_Const %zub (", mark, size * 8);
+                for (size_t it = 0; it < size; it++, constant++) {
+                    printf("%X", *constant);
+                }
+                printf(")\n");
+            } break;
+                
+            // Arithmetic
+            case Opcode::Int_Add:
+                printf("%03zu: Int_Add\n", i);
+                i++;
+                break;
+            case Opcode::Int_Sub:
+                printf("%03zu: Int_Sub\n", i);
+                i++;
+                break;
+            case Opcode::Int_Mul:
+                printf("%03zu: Int_Mul\n", i);
+                i++;
+                break;
+            case Opcode::Int_Div:
+                printf("%03zu: Int_Div\n", i);
+                i++;
+                break;
+            case Opcode::Int_Neg:
+                printf("%03zu: Int_Neg\n", i);
+                i++;
+                break;
+            case Opcode::Mod:
+                printf("%03zu: Mod\n", i);
+                i++;
+                break;
+            case Opcode::Float_Add:
+                printf("%03zu: Float_Add\n", i);
+                i++;
+                break;
+            case Opcode::Float_Sub:
+                printf("%03zu: Float_Sub\n", i);
+                i++;
+                break;
+            case Opcode::Float_Mul:
+                printf("%03zu: Float_Mul\n", i);
+                i++;
+                break;
+            case Opcode::Float_Div:
+                printf("%03zu: Float_Div\n", i);
+                i++;
+                break;
+            case Opcode::Float_Neg:
+                printf("%03zu: Float_Neg\n", i);
+                i++;
+                break;
+            case Opcode::Str_Add:
+                printf("%03zu: Str_Add\n", i);
+                i++;
+                break;
+                
+            // Bitwise
+            case Opcode::Bit_Not:
+                printf("%03zu: Bit_Not\n", i);
+                i++;
+                break;
+            case Opcode::Shift_Left:
+                printf("%03zu: Shift_Left\n", i);
+                i++;
+                break;
+            case Opcode::Shift_Right:
+                printf("%03zu: Shift_Right\n", i);
+                i++;
+                break;
+            case Opcode::Bit_And:
+                printf("%03zu: Bit_And\n", i);
+                i++;
+                break;
+            case Opcode::Xor:
+                printf("%03zu: Xor\n", i);
+                i++;
+                break;
+            case Opcode::Bit_Or:
+                printf("%03zu: Bit_Or\n", i);
+                i++;
+                break;
+                
+            // Logical
+            case Opcode::And:
+                printf("%03zu: And\n", i);
+                i++;
+                break;
+            case Opcode::Or:
+                printf("%03zu: Or\n", i);
+                i++;
+                break;
+            case Opcode::Not:
+                printf("%03zu: Not\n", i);
+                i++;
+                break;
+                
+            // Equality
+            case Opcode::Equal: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf("%03zu: Equal %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Not_Equal: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf("%03zu: Not_Equal %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Str_Equal:
+                printf("%03zu: Str_Equal\n", i);
+                i++;
+                break;
+            case Opcode::Str_Not_Equal:
+                printf("%03zu: Str_Not_Equal\n", i);
+                i++;
+                break;
+                
+            // Relational
+            case Opcode::Int_Less_Than:
+                printf("%03zu: Int_Less_Than\n", i);
+                i++;
+                break;
+            case Opcode::Int_Less_Equal:
+                printf("%03zu: Int_Less_Equal\n", i);
+                i++;
+                break;
+            case Opcode::Int_Greater_Than:
+                printf("%03zu: Int_Greater_Than\n", i);
+                i++;
+                break;
+            case Opcode::Int_Greater_Equal:
+                printf("%03zu: Int_Greater_Equal\n", i);
+                i++;
+                break;
+            case Opcode::Float_Less_Than:
+                printf("%03zu: Float_Less_Than\n", i);
+                i++;
+                break;
+            case Opcode::Float_Less_Equal:
+                printf("%03zu: Float_Less_Equal\n", i);
+                i++;
+                break;
+            case Opcode::Float_Greater_Than:
+                printf("%03zu: Float_Greater_Than\n", i);
+                i++;
+                break;
+            case Opcode::Float_Greater_Equal:
+                printf("%03zu: Float_Greater_Equal\n", i);
+                i++;
+                break;
+                
+            // Stack
+            case Opcode::Move: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf("%03zu: Move %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Indirect_Move:
+                assert(false);
+                break;
+            case Opcode::Load: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf("%03zu: Load %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Push_Pointer: {
+                MARK(i);
+                Address address = READ(Address, i);
+                printf("%03zu: Push_Pointer [%zu]\n", mark, address);
+            } break;
+            case Opcode::Push_Value: {
+                MARK(i);
+                Size size = READ(Size, i);
+                Address address = READ(Address, i);
+                printf("%03zu: Push_Value %ub [%zu]\n", mark, size * 8, address);
+            } break;
+            case Opcode::Push_Global_Pointer: {
+                MARK(i);
+                Address address = READ(Address, i);
+                printf("%03zu: Push_Global_Pointer [%zu]\n", mark, address);
+            } break;
+            case Opcode::Push_Global_Value: {
+                MARK(i);
+                Size size = READ(Size, i);
+                Address address = READ(Address, i);
+                printf("%03zu: Push_Global_Value %ub [%zu]\n", mark, size * 8, address);
+            } break;
+            case Opcode::Pop: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf("%03zu: Pop %ub\n", mark, size);
+            } break;
+            case Opcode::Flush: {
+                MARK(i);
+                Address flush_point = READ(Address, i);
+                printf("%03zu: Flush => %zu\n", mark, flush_point);
+            } break;
+            case Opcode::Return: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf("%03zu: Return %ub\n", mark, size);
+            } break;
+                
+            // Branching
+            case Opcode::Jump: {
+                MARK(i);
+                size_t jump = READ(size_t, i);
+                size_t dest = mark + jump + 9; // add 9 for bytecode
+                printf("%03zu: Jump => %zu\n", i, dest);
+            } break;
+            case Opcode::Loop: {
+                MARK(i);
+                size_t jump = READ(size_t, i);
+                size_t dest = mark - jump + 9; // add 9 for bytecode
+                printf("%03zu: Loop => %zu\n", i, dest);
+            } break;
+            case Opcode::Jump_True: {
+                MARK(i);
+                size_t jump = READ(size_t, i);
+                size_t dest = mark + jump + 9; // add 9 for bytecode
+                printf("%03zu: Jump_True => %zu\n", i, dest);
+            } break;
+            case Opcode::Jump_False: {
+                MARK(i);
+                size_t jump = READ(size_t, i);
+                size_t dest = mark + jump + 9; // add 9 for bytecode
+                printf("%03zu: Jump_False => %zu\n", i, dest);
+            } break;
+            case Opcode::Jump_True_No_Pop: {
+                MARK(i);
+                size_t jump = READ(size_t, i);
+                size_t dest = mark + jump + 9; // add 9 for bytecode
+                printf("%03zu: Jump_True_No_Pop => %zu\n", i, dest);
+            } break;
+            case Opcode::Jump_False_No_Pop: {
+                MARK(i);
+                size_t jump = READ(size_t, i);
+                size_t dest = mark + jump + 9; // add 9 for bytecode
+                printf("%03zu: Jump_False_No_Pop => %zu\n", i, dest);
+            } break;
+                
+            default:
+                internal_error("Invalid opcode: %d.", op);
+                break;
+        }
+    }
+}
+#undef READ
+
 void interpret(const char *path) {
     String source = read_entire_file(path);
     auto tokens = tokenize(source);
@@ -336,13 +637,14 @@ void interpret(const char *path) {
 #endif
     
 #if COMPILE_AST
-#if PRINT_DEBUG_DIAGNOSTICS
-    printf("\n------\n\n");
-#endif
-    
     Function_Definition program;
     Compiler global(&program);
     global.compile(typed_ast.get());
+    
+#if PRINT_DEBUG_DIAGNOSTICS
+    printf("\n------\n\n");
+    print_code(program.bytecode, global.constants, global.str_constants);
+#endif
     
 #if RUN_VIRTUAL_MACHINE
     VM vm(std::move(global.constants), std::move(global.str_constants));
@@ -350,6 +652,7 @@ void interpret(const char *path) {
     vm.run();
     
 #if PRINT_DEBUG_DIAGNOSTICS
+    printf("\n------\n\n");
     vm.print_stack();
 #endif
     

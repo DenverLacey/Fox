@@ -215,9 +215,15 @@ void Typed_AST_Ident::compile(Compiler &c) {
 }
 
 void Typed_AST_Int::compile(Compiler &c) {
-    size_t constant = c.add_constant<runtime::Int>(value);
-    c.emit_opcode(Opcode::Load_Const_Int);
-    c.emit_value<size_t>(constant);
+    if (value == 0) {
+        c.emit_opcode(Opcode::Lit_0);
+    } else if (value == 1) {
+        c.emit_opcode(Opcode::Lit_1);
+    } else {
+        size_t constant = c.add_constant<runtime::Int>(value);
+        c.emit_opcode(Opcode::Load_Const_Int);
+        c.emit_value<size_t>(constant);
+    }
     c.stack_top += type.size();
 }
 
@@ -475,28 +481,51 @@ void Typed_AST_Binary::compile(Compiler &c) {
             else if (type.kind == Value_Type_Kind::Str)
                 op = Opcode::Str_Add;
             break;
-        case Typed_AST_Kind::Division:
+        case Typed_AST_Kind::Subtraction:
             if (type.kind == Value_Type_Kind::Int)
-                op = Opcode::Int_Div;
+                op = Opcode::Int_Sub;
             else if (type.kind == Value_Type_Kind::Float)
-                op = Opcode::Float_Div;
+                op = Opcode::Float_Sub;
             break;
-            
-        case Typed_AST_Kind::Mod:
-            op = Opcode::Mod;
-            break;
-            
         case Typed_AST_Kind::Multiplication:
             if (type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Mul;
             else if (type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Mul;
             break;
-        case Typed_AST_Kind::Subtraction:
+        case Typed_AST_Kind::Division:
             if (type.kind == Value_Type_Kind::Int)
-                op = Opcode::Int_Sub;
+                op = Opcode::Int_Div;
             else if (type.kind == Value_Type_Kind::Float)
-                op = Opcode::Float_Sub;
+                op = Opcode::Float_Div;
+            break;
+        case Typed_AST_Kind::Mod:
+            op = Opcode::Mod;
+            break;
+            
+        case Typed_AST_Kind::Less:
+            if (lhs->type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Less_Than;
+            else if (lhs->type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Less_Than;
+            break;
+        case Typed_AST_Kind::Less_Eq:
+            if (lhs->type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Less_Equal;
+            else if (lhs->type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Less_Equal;
+            break;
+        case Typed_AST_Kind::Greater:
+            if (lhs->type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Greater_Than;
+            else if (lhs->type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Greater_Than;
+            break;
+        case Typed_AST_Kind::Greater_Eq:
+            if (lhs->type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Greater_Equal;
+            else if (lhs->type.kind == Value_Type_Kind::Float)
+                op = Opcode::Float_Greater_Equal;
             break;
             
         default:

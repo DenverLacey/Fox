@@ -15,6 +15,9 @@
 //      Issue was caused by Scope being a struct defined in typer.cpp and
 //      compiler.h. Now that they are called Typer_Scope and Compiler_Scope
 //      respectively, the issue is fixed.
+// [x]  Add checking that the assignment operators only appear in statement
+//      context. Right now it works like C where they are expressions.
+//
 
 #include <iostream>
 

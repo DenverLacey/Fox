@@ -239,23 +239,35 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
         case Untyped_AST_Kind::Addition: {
             print_binary_at_indent("+", (Untyped_AST_Binary *)node, indent);
         } break;
-        case Untyped_AST_Kind::Assignment: {
-            print_binary_at_indent("=", (Untyped_AST_Binary *)node, indent);
-        } break;
-        case Untyped_AST_Kind::Division: {
-            print_binary_at_indent("/", (Untyped_AST_Binary *)node, indent);
-        } break;
-        case Untyped_AST_Kind::Equal: {
-            print_binary_at_indent("==", (Untyped_AST_Binary *)node, indent);
-        } break;
-        case Untyped_AST_Kind::Mod: {
-            print_binary_at_indent("%", (Untyped_AST_Binary *)node, indent);
+        case Untyped_AST_Kind::Subtraction: {
+            print_binary_at_indent("-", (Untyped_AST_Binary *)node, indent);
         } break;
         case Untyped_AST_Kind::Multiplication: {
             print_binary_at_indent("*", (Untyped_AST_Binary *)node, indent);
         } break;
-        case Untyped_AST_Kind::Subtraction: {
-            print_binary_at_indent("-", (Untyped_AST_Binary *)node, indent);
+        case Untyped_AST_Kind::Division: {
+            print_binary_at_indent("/", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Mod: {
+            print_binary_at_indent("%", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Assignment: {
+            print_binary_at_indent("=", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Equal: {
+            print_binary_at_indent("==", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Less: {
+            print_binary_at_indent("<", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Less_Eq: {
+            print_binary_at_indent("<=", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Greater: {
+            print_binary_at_indent(">", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Greater_Eq: {
+            print_binary_at_indent(">=", (Untyped_AST_Binary *)node, indent);
         } break;
         case Untyped_AST_Kind::While: {
             print_binary_at_indent("while", (Untyped_AST_Binary *)node, indent);

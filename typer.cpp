@@ -189,23 +189,35 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
         case Typed_AST_Kind::Addition: {
             print_binary_at_indent("+", (Typed_AST_Binary *)node, indent);
         } break;
-        case Typed_AST_Kind::Assignment: {
-            print_binary_at_indent("=", (Typed_AST_Binary *)node, indent);
-        } break;
-        case Typed_AST_Kind::Division: {
-            print_binary_at_indent("/", (Typed_AST_Binary *)node, indent);
-        } break;
-        case Typed_AST_Kind::Equal: {
-            print_binary_at_indent("==", (Typed_AST_Binary *)node, indent);
-        } break;
-        case Typed_AST_Kind::Mod: {
-            print_binary_at_indent("%", (Typed_AST_Binary *)node, indent);
+        case Typed_AST_Kind::Subtraction: {
+            print_binary_at_indent("-", (Typed_AST_Binary *)node, indent);
         } break;
         case Typed_AST_Kind::Multiplication: {
             print_binary_at_indent("*", (Typed_AST_Binary *)node, indent);
         } break;
-        case Typed_AST_Kind::Subtraction: {
-            print_binary_at_indent("-", (Typed_AST_Binary *)node, indent);
+        case Typed_AST_Kind::Division: {
+            print_binary_at_indent("/", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Mod: {
+            print_binary_at_indent("%", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Assignment: {
+            print_binary_at_indent("=", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Equal: {
+            print_binary_at_indent("==", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Less: {
+            print_binary_at_indent("<", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Less_Eq: {
+            print_binary_at_indent("<=", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Greater: {
+            print_binary_at_indent(">", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Greater_Eq: {
+            print_binary_at_indent(">=", (Typed_AST_Binary *)node, indent);
         } break;
         case Typed_AST_Kind::While: {
             print_binary_at_indent("while", (Typed_AST_Binary *)node, indent);
@@ -344,32 +356,6 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(rhs->type.kind == Value_Type_Kind::Int ||
                    rhs->type.kind == Value_Type_Kind::Float, "(+) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::Addition, lhs->type, std::move(lhs), std::move(rhs));
-        case Untyped_AST_Kind::Assignment:
-            verify(lhs->type == rhs->type, "(=) requires both operands to be the same type.");
-            verify(lhs->type.is_mut, "Cannot assign to something of type (%s) because it isn't mutable.", lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Assignment, value_types::None, std::move(lhs), std::move(rhs));
-        case Untyped_AST_Kind::Division:
-            verify(lhs->type.kind == rhs->type.kind, "(/) requires both operands to be the same type.");
-            verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Division, lhs->type, std::move(lhs), std::move(rhs));
-        case Untyped_AST_Kind::Equal:
-            verify(lhs->type == rhs->type, "(==) requires both operands to be the same type.");
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Equal, value_types::Bool, std::move(lhs), std::move(rhs));
-        case Untyped_AST_Kind::Mod:
-            verify(lhs->type.kind == rhs->type.kind, "(+) requires both operands to be the same type.");
-            verify(lhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Mod, value_types::Int, std::move(lhs), std::move(rhs));
-        case Untyped_AST_Kind::Multiplication:
-            verify(lhs->type.kind == rhs->type.kind, "(*) requires both operands to be the same type.");
-            verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Multiplication, lhs->type, std::move(lhs), std::move(rhs));
         case Untyped_AST_Kind::Subtraction:
             verify(lhs->type.kind == rhs->type.kind, "(-) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
@@ -377,6 +363,57 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(rhs->type.kind == Value_Type_Kind::Int ||
                    rhs->type.kind == Value_Type_Kind::Float, "(-) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::Subtraction, lhs->type, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Multiplication:
+            verify(lhs->type.kind == rhs->type.kind, "(*) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Int ||
+                   rhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Multiplication, lhs->type, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Division:
+            verify(lhs->type.kind == rhs->type.kind, "(/) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Int ||
+                   rhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Division, lhs->type, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Mod:
+            verify(lhs->type.kind == rhs->type.kind, "(+) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", rhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Mod, value_types::Int, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Assignment:
+            verify(lhs->type == rhs->type, "(=) requires both operands to be the same type.");
+            verify(lhs->type.is_mut, "Cannot assign to something of type (%s) because it isn't mutable.", lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Assignment, value_types::None, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Equal:
+            verify(lhs->type == rhs->type, "(==) requires both operands to be the same type.");
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Equal, value_types::Bool, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Less:
+            verify(lhs->type == rhs->type, "(<) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Float,
+                   "(<) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Less, value_types::Bool, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Greater:
+            verify(lhs->type == rhs->type, "(>) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Float,
+                   "(>) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Greater, value_types::Bool, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Less_Eq:
+            verify(lhs->type == rhs->type, "(<=) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Float,
+                   "(<=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Less_Eq, value_types::Bool, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Greater_Eq:
+            verify(lhs->type == rhs->type, "(>=) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Float,
+                   "(>=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Greater_Eq, value_types::Bool, std::move(lhs), std::move(rhs));
+        
         case Untyped_AST_Kind::While:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, std::move(lhs), std::move(rhs));

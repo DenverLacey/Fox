@@ -214,7 +214,6 @@ struct VM {
     
     void run();
     void call(Function_Definition* fn, int arg_size);
-    void print_bytecode(Compiler *c);
     void print_stack();
 };
 

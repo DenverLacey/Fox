@@ -189,6 +189,20 @@ static Token punctuation(Source_Iterator &src) {
                 t.kind = Token_Kind::Eq;
             }
             break;
+        case '<':
+            if (src.match('=')) {
+                t.kind = Token_Kind::Left_Angle_Eq;
+            } else {
+                t.kind = Token_Kind::Left_Angle;
+            }
+            break;
+        case '>':
+            if (src.match('=')) {
+                t.kind = Token_Kind::Right_Angle_Eq;
+            } else {
+                t.kind = Token_Kind::Right_Angle;
+            }
+            break;
             
         default:
             auto _c = utf8char_t::from_char32(c);
