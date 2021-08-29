@@ -442,6 +442,7 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
 
 void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     size_t loop_start = c.function->bytecode.size();
+    int stack_top = c.stack_top;
     
     b.lhs->compile(c);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False);
@@ -449,6 +450,37 @@ void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     b.rhs->compile(c);
     c.emit_loop(loop_start);
     c.patch_jump(exit_jump);
+    
+    c.stack_top = stack_top;
+}
+
+void compile_logical_operator(Compiler &c, Typed_AST_Binary &b) {
+    int stack_top = c.stack_top;
+    Size size_of_bool = value_types::Bool.size();
+    
+    b.lhs->compile(c);
+    
+    size_t jump;
+    switch (b.kind) {
+        case Typed_AST_Kind::And:
+            jump = c.emit_jump(Opcode::Jump_False_No_Pop);
+            c.emit_opcode(Opcode::Pop);
+            c.emit_size(size_of_bool);
+            break;
+        case Typed_AST_Kind::Or:
+            jump = c.emit_jump(Opcode::Jump_True_No_Pop);
+            c.emit_opcode(Opcode::Pop);
+            c.emit_size(size_of_bool);
+            break;
+        default:
+            internal_error("Invalid node passed to compile_logical_operator(): %d.", b.kind);
+            break;
+    }
+    
+    b.rhs->compile(c);
+    c.patch_jump(jump);
+    
+    c.stack_top = stack_top + size_of_bool;
 }
 
 void Typed_AST_Binary::compile(Compiler &c) {
@@ -470,7 +502,8 @@ void Typed_AST_Binary::compile(Compiler &c) {
             return;
         case Typed_AST_Kind::And:
         case Typed_AST_Kind::Or:
-            assert(false);
+            compile_logical_operator(c, *this);
+            return;
     }
     
     Opcode op;

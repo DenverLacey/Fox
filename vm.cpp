@@ -260,12 +260,16 @@ void VM::run() {
                 runtime::Bool cond = stack.pop<runtime::Bool>();
                 if (!cond) frame->pc += (int)jump;
             } break;
-            case Opcode::Jump_True_No_Pop:
-                assert(false);
-                break;
-            case Opcode::Jump_False_No_Pop:
-                assert(false);
-                break;
+            case Opcode::Jump_True_No_Pop: {
+                size_t jump = READ(size_t, frame);
+                runtime::Bool cond = stack.top<runtime::Bool>();
+                if (cond) frame->pc += (int)jump;
+            } break;
+            case Opcode::Jump_False_No_Pop: {
+                size_t jump = READ(size_t, frame);
+                runtime::Bool cond = stack.top<runtime::Bool>();
+                if (!cond) frame->pc += (int)jump;
+            } break;
                 
             case Opcode::Return: {
                 if (frames.size() - 1 == 0)
