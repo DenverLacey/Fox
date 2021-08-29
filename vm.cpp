@@ -613,6 +613,8 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
         }
     }
     
+    printf(IDX "END\n", i);
+    
     #undef IDX
     #undef READ
     #undef MARK

@@ -139,7 +139,7 @@ size_t Compiler::add_str_constant(String source) {
         size_t len = *(size_t *)&str_constants[i];
         i += sizeof(size_t);
         char *str = (char *)&str_constants[i];
-        if (memcmp(source.c_str(), str, len) == 0) {
+        if (source.size() == len && memcmp(source.c_str(), str, len) == 0) {
             return index;
         }
         i += len;
@@ -496,8 +496,12 @@ void Typed_AST_Binary::compile(Compiler &c) {
         case Typed_AST_Kind::Equal:
             lhs->compile(c);
             rhs->compile(c);
-            c.emit_opcode(Opcode::Equal);
-            c.emit_size(lhs->type.size());
+            if (lhs->type.kind == Value_Type_Kind::Str) {
+                c.emit_opcode(Opcode::Str_Equal);
+            } else {
+                c.emit_opcode(Opcode::Equal);
+                c.emit_size(lhs->type.size());
+            }
             c.stack_top = stack_top + value_types::Bool.size();
             return;
         case Typed_AST_Kind::And:
