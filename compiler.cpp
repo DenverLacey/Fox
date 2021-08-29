@@ -197,9 +197,8 @@ void Typed_AST_Char::compile(Compiler &c) {
 }
 
 void Typed_AST_Float::compile(Compiler &c) {
-    size_t constant = c.add_constant<runtime::Float>(value);
-    c.emit_opcode(Opcode::Load_Const_Float);
-    c.emit_value<size_t>(constant);
+    c.emit_opcode(Opcode::Lit_Float);
+    c.emit_value<runtime::Float>(value);
     c.stack_top += type.size();
 }
 
@@ -220,9 +219,8 @@ void Typed_AST_Int::compile(Compiler &c) {
     } else if (value == 1) {
         c.emit_opcode(Opcode::Lit_1);
     } else {
-        size_t constant = c.add_constant<runtime::Int>(value);
-        c.emit_opcode(Opcode::Load_Const_Int);
-        c.emit_value<size_t>(constant);
+        c.emit_opcode(Opcode::Lit_Int);
+        c.emit_value<runtime::Int>(value);
     }
     c.stack_top += type.size();
 }

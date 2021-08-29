@@ -302,7 +302,6 @@ struct Typer {
 
 Ref<Typed_AST_Block> typecheck(Untyped_AST_Block *node) {
     Typer t;
-    t.begin_scope();
     return cast<Typed_AST_Block>(node->typecheck(t));
 }
 
@@ -437,10 +436,12 @@ Ref<Typed_AST> Untyped_AST_Ternary::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Block::typecheck(Typer &t) {
+    t.begin_scope();
     auto block = make<Typed_AST_Block>(Typed_AST_Kind::Block);
     for (auto &node : nodes) {
         block->add(node->typecheck(t));
     }
+    t.end_scope();
     return block;
 }
 

@@ -37,6 +37,8 @@ Size Value_Type::size() const {
             
         case Value_Type_Kind::Struct:
         case Value_Type_Kind::Enum:
+            internal_error("Struct and Enums not yet implemented.");
+            return 0;
             
         default:
             internal_error("Unknown value type: %d.", kind);
@@ -46,6 +48,7 @@ Size Value_Type::size() const {
 
 char *Value_Type::debug_str() const {
     std::ostringstream s;
+    
     if (is_mut) {
         s << "mut ";
     }

@@ -24,8 +24,8 @@ enum class Opcode : uint8_t {
     Lit_Char,
     
     // CONSTANTS
-    Load_Const_Int,
-    Load_Const_Float,
+    Lit_Int,
+    Lit_Float,
     Load_Const_String,
     
     Load_Const,
