@@ -239,6 +239,9 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
         case Untyped_AST_Kind::Address_Of: {
             print_unary_at_indent("&", (Untyped_AST_Unary *)node, indent);
         } break;
+        case Untyped_AST_Kind::Address_Of_Mut: {
+            print_unary_at_indent("&mut", (Untyped_AST_Unary *)node, indent);
+        } break;
         case Untyped_AST_Kind::Deref: {
             print_unary_at_indent("*", (Untyped_AST_Unary *)node, indent);
         } break;

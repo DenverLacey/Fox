@@ -54,6 +54,15 @@ struct Source_Iterator {
         return false;
     }
     
+    bool match(const char *s) {
+        size_t len = strlen(s);
+        auto num_remaining = end - cur;
+        if (num_remaining < len) return false;
+        if (memcmp(s, cur, len) != 0) return false;
+        cur += len;
+        return true;
+    }
+    
     void skip_whitespace() {
         while ((isspace(peek()) || peek() == '#') && has_more()) {
             if (peek() == '#') {
@@ -206,6 +215,8 @@ static Token punctuation(Source_Iterator &src) {
         case '&':
             if (src.match('=')) {
                 assert(false);
+            } else if (src.match("mut")) {
+                t.kind = Token_Kind::Ampersand_Mut;
             } else {
                 t.kind = Token_Kind::Ampersand;
             }

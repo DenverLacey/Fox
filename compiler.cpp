@@ -409,6 +409,7 @@ void Typed_AST_Unary::compile(Compiler &c) {
             c.emit_opcode(Opcode::Not);
             break;
         case Typed_AST_Kind::Address_Of:
+        case Typed_AST_Kind::Address_Of_Mut:
             emit_address_code(c, *sub.get());
             break;
         case Typed_AST_Kind::Deref: {

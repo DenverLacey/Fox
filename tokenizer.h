@@ -66,6 +66,7 @@ enum class Token_Kind {
     Right_Angle,    // >
     Right_Angle_Eq, // >=
     Ampersand,      // &
+    Ampersand_Mut,  // &mut
 };
 
 union Token_Data {

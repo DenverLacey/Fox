@@ -322,6 +322,9 @@ struct Parser {
             case Token_Kind::Ampersand:
                 a = parse_unary(Untyped_AST_Kind::Address_Of);
                 break;
+            case Token_Kind::Ampersand_Mut:
+                a = parse_unary(Untyped_AST_Kind::Address_Of_Mut);
+                break;
             case Token_Kind::Star:
                 a = parse_unary(Untyped_AST_Kind::Deref);
                 break;

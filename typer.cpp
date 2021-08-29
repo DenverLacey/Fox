@@ -189,6 +189,9 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
         case Typed_AST_Kind::Address_Of: {
             print_unary_at_indent("&", (Typed_AST_Unary *)node, indent);
         } break;
+        case Typed_AST_Kind::Address_Of_Mut: {
+            print_unary_at_indent("&mut", (Typed_AST_Unary *)node, indent);
+        } break;
         case Typed_AST_Kind::Deref: {
             print_unary_at_indent("*", (Typed_AST_Unary *)node, indent);
         } break;
@@ -352,7 +355,14 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Address_Of: {
             verify(sub->type.kind != Value_Type_Kind::None, "Cannot take a pointer to something that doesn't return a value.");
             auto pty = value_types::ptr_to(&sub->type);
+            pty.data.ptr.subtype->is_mut = false;
             return make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of, pty, std::move(sub));
+        }
+        case Untyped_AST_Kind::Address_Of_Mut: {
+            verify(sub->type.kind != Value_Type_Kind::None, "Cannot take a pointer to something that doesn't return a value.");
+            verify(sub->type.is_mut, "Cannot take a mutable pointer to something that isn't itself mutable.");
+            auto pty = value_types::ptr_to(&sub->type);
+            return make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of_Mut, pty, std::move(sub));
         }
         case Untyped_AST_Kind::Deref:
             verify(sub->type.kind == Value_Type_Kind::Ptr, "Cannot dereference something of type (%s) because it is not a pointer type.", sub->type.debug_str());

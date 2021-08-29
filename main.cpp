@@ -17,6 +17,8 @@
 //      respectively, the issue is fixed.
 // [x]  Add checking that the assignment operators only appear in statement
 //      context. Right now it works like C where they are expressions.
+// [ ]  Fix bug where comments at the end of the file trip up skip_whitespace() in
+//      tokenizer.
 //
 
 #include <iostream>
