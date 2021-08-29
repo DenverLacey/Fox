@@ -444,11 +444,9 @@ void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     size_t loop_start = c.function->bytecode.size();
     
     b.lhs->compile(c);
-    
     size_t exit_jump = c.emit_jump(Opcode::Jump_False);
     
     b.rhs->compile(c);
-    
     c.emit_loop(loop_start);
     c.patch_jump(exit_jump);
 }
@@ -560,18 +558,13 @@ void Typed_AST_Block::compile(Compiler &c) {
 
 void Typed_AST_If::compile(Compiler &c) {
     cond->compile(c);
-    
     size_t else_jump = c.emit_jump(Opcode::Jump_False);
     size_t exit_jump;
     
     then->compile(c);
-    
-    if (else_) {
-        exit_jump = c.emit_jump(Opcode::Jump);
-    }
+    if (else_) exit_jump = c.emit_jump(Opcode::Jump);
     c.patch_jump(else_jump);
     
-    // else block
     if (else_) {
         else_->compile(c);
         c.patch_jump(exit_jump);

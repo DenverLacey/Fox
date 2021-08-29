@@ -307,20 +307,6 @@ void VM::print_stack() {
     }
 }
 
-static String read_entire_file(const char *path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-    verify(file.is_open(), "'%s' could not be opened.", path);
-    
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    
-    auto source = String::with_size(size);
-    file.read(source.c_str(), size);
-    verify(file.good(), "Could not read from '%s'.", path);
-    
-    return source;
-}
-
 void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constants) {
     #define IDX "%04zX: "
     #define READ(type, i) *(type *)&code[i]; i += sizeof(type)
@@ -626,6 +612,23 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
     #undef IDX
     #undef READ
     #undef MARK
+}
+
+static String read_entire_file(const char *path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    verify(file.is_open(), "'%s' could not be opened.", path);
+    
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    auto source = String::with_size(size);
+    file.read(source.c_str(), size);
+    verify(file.good(), "Could not read from '%s'.", path);
+    
+    // guarantee null terminator
+    source.c_str()[size] = 0;
+    
+    return source;
 }
 
 void interpret(const char *path) {

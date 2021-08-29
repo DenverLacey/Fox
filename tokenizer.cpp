@@ -71,7 +71,7 @@ struct Source_Iterator {
                     next();
                 }
             }
-            next();
+            if (peek() != '\0') next();
         }
     }
 };
