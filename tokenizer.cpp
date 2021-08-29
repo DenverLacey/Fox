@@ -203,6 +203,13 @@ static Token punctuation(Source_Iterator &src) {
                 t.kind = Token_Kind::Right_Angle;
             }
             break;
+        case '&':
+            if (src.match('=')) {
+                assert(false);
+            } else {
+                t.kind = Token_Kind::Ampersand;
+            }
+            break;
             
         default:
             auto _c = utf8char_t::from_char32(c);
@@ -241,6 +248,10 @@ static Token identifier_or_keyword(Source_Iterator &src) {
         t.kind = Token_Kind::Else;
     } else if (word == "while") {
         t.kind = Token_Kind::While;
+    } else if (word == "and") {
+        t.kind = Token_Kind::And;
+    } else if (word == "or") {
+        t.kind = Token_Kind::Or;
     } else {
         t.kind = Token_Kind::Ident;
         t.data.s = word;

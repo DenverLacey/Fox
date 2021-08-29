@@ -87,7 +87,7 @@ struct Compiler {
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
     Variable &emit_variable(String id, Typed_AST *initializer);
-    bool find_variable(String id, Variable * &out_v);
+    std::pair<bool, Variable *> find_variable(String id);
     
     template<typename T>
     void emit_value(T value) {

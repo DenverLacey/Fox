@@ -236,6 +236,12 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
         case Untyped_AST_Kind::Not: {
             print_unary_at_indent("!", (Untyped_AST_Unary *)node, indent);
         } break;
+        case Untyped_AST_Kind::Address_Of: {
+            print_unary_at_indent("&", (Untyped_AST_Unary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Deref: {
+            print_unary_at_indent("*", (Untyped_AST_Unary *)node, indent);
+        } break;
         case Untyped_AST_Kind::Addition: {
             print_binary_at_indent("+", (Untyped_AST_Binary *)node, indent);
         } break;
@@ -271,6 +277,12 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
         } break;
         case Untyped_AST_Kind::While: {
             print_binary_at_indent("while", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::And: {
+            print_binary_at_indent("and", (Untyped_AST_Binary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Or: {
+            print_binary_at_indent("or", (Untyped_AST_Binary *)node, indent);
         } break;
         case Untyped_AST_Kind::If: {
             Untyped_AST_If *t = (Untyped_AST_If *)node;

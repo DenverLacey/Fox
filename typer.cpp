@@ -186,6 +186,12 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
         case Typed_AST_Kind::Not: {
             print_unary_at_indent("!", (Typed_AST_Unary *)node, indent);
         } break;
+        case Typed_AST_Kind::Address_Of: {
+            print_unary_at_indent("&", (Typed_AST_Unary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Deref: {
+            print_unary_at_indent("*", (Typed_AST_Unary *)node, indent);
+        } break;
         case Typed_AST_Kind::Addition: {
             print_binary_at_indent("+", (Typed_AST_Binary *)node, indent);
         } break;
@@ -221,6 +227,12 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
         } break;
         case Typed_AST_Kind::While: {
             print_binary_at_indent("while", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::And: {
+            print_binary_at_indent("and", (Typed_AST_Binary *)node, indent);
+        } break;
+        case Typed_AST_Kind::Or: {
+            print_binary_at_indent("or", (Typed_AST_Binary *)node, indent);
         } break;
         case Typed_AST_Kind::If: {
             Typed_AST_If *t = (Typed_AST_If *)node;
@@ -337,6 +349,14 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Not:
             verify(sub->type.kind == Value_Type_Kind::Bool, "(!) requires operand to be a (bool) but got a (%s).", sub->type.debug_str());
             return make<Typed_AST_Unary>(Typed_AST_Kind::Not, value_types::Bool, std::move(sub));
+        case Untyped_AST_Kind::Address_Of: {
+            verify(sub->type.kind != Value_Type_Kind::None, "Cannot take a pointer to something that doesn't return a value.");
+            auto pty = value_types::ptr_to(&sub->type);
+            return make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of, pty, std::move(sub));
+        }
+        case Untyped_AST_Kind::Deref:
+            verify(sub->type.kind == Value_Type_Kind::Ptr, "Cannot dereference something of type (%s) because it is not a pointer type.", sub->type.debug_str());
+            return make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.subtype, std::move(sub));
             
         default:
             assert(false);
@@ -412,7 +432,15 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(>=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::Greater_Eq, value_types::Bool, std::move(lhs), std::move(rhs));
-        
+        case Untyped_AST_Kind::And:
+            verify(lhs->type.kind == Value_Type_Kind::Bool, "(and) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Bool, "(and) requires second operand to be (bool) but was given (%s).", lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::And, value_types::Bool, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Or:
+            verify(lhs->type.kind == Value_Type_Kind::Bool, "(or) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be (bool) but was given (%s).", lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Or, value_types::Bool, std::move(lhs), std::move(rhs));
+            
         case Untyped_AST_Kind::While:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, std::move(lhs), std::move(rhs));

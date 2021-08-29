@@ -26,13 +26,13 @@ enum class Token_Kind {
     Ident,
     
     // delimeters
-    Semi,
-    Colon,
-    Comma,
-    Left_Paren,
-    Right_Paren,
-    Left_Curly,
-    Right_Curly,
+    Semi,           // ;
+    Colon,          // :
+    Comma,          // ,
+    Left_Paren,     // (
+    Right_Paren,    // )
+    Left_Curly,     // {
+    Right_Curly,    // }
     
     // keyword
     Let,
@@ -43,6 +43,8 @@ enum class Token_Kind {
     Fn,
     Struct,
     Enum,
+    And,
+    Or,
     
     // operators
     Plus,           // +
@@ -63,6 +65,7 @@ enum class Token_Kind {
     Left_Angle_Eq,  // <=
     Right_Angle,    // >
     Right_Angle_Eq, // >=
+    Ampersand,      // &
 };
 
 union Token_Data {

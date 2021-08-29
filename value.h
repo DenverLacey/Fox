@@ -97,4 +97,6 @@ inline const Value_Type Int = { Value_Type_Kind::Int };
 inline const Value_Type Float = { Value_Type_Kind::Float };
 inline const Value_Type Str = { Value_Type_Kind::Str };
 inline const Value_Type Ptr = { Value_Type_Kind::Ptr };
+
+Value_Type ptr_to(Value_Type *subtype);
 }

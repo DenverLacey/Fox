@@ -110,3 +110,11 @@ bool operator==(const Value_Type &a, const Value_Type &b) {
     
     return true;
 }
+
+namespace value_types {
+    Value_Type ptr_to(Value_Type *subtype) {
+        auto pty = Ptr;
+        pty.data.ptr.subtype = subtype;
+        return pty;
+    }
+}

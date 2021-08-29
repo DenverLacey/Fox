@@ -83,26 +83,23 @@ Variable &Compiler::emit_variable(String id, Typed_AST *initializer) {
     return s.variables[sid];
 }
 
-bool Compiler::find_variable(String id, Variable * &out_v) {
+std::pair<bool, Variable *> Compiler::find_variable(String id) {
     std::string sid(id.c_str(), id.size());
     for (Compiler_Scope *s = &current_scope(); s != nullptr; s = s->parent) {
         auto it = s->variables.find(sid);
         if (it != s->variables.end()) {
-            out_v = &s->variables[sid];
-            return false;
+            return { false, &s->variables[sid] };
         }
     }
     
     // check global scope
     auto it = global_scope->variables.find(sid);
     if (it != global_scope->variables.end()) {
-        out_v = &global_scope->variables[sid];
-        return true;
+        return { true, &global_scope->variables[sid] };
     }
     
     // nothing was found
-    out_v = nullptr;
-    return false;
+    return { false, nullptr };
 }
 
 size_t Compiler::add_constant(void *data, size_t size) {
@@ -203,8 +200,7 @@ void Typed_AST_Float::compile(Compiler &c) {
 }
 
 void Typed_AST_Ident::compile(Compiler &c) {
-    Variable *v;
-    bool is_global = c.find_variable(id, v);
+    auto [is_global, v] = c.find_variable(id);
     verify(v, "Unresolved identifier '%s'.", id.c_str());
     internal_verify(v->type == type, "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
     c.emit_opcode(is_global ? Opcode::Push_Global_Value : Opcode::Push_Value);
@@ -232,21 +228,6 @@ void Typed_AST_Str::compile(Compiler &c) {
     c.stack_top += type.size();
 }
 
-void Typed_AST_Unary::compile(Compiler &c) {
-    int stack_top = c.stack_top;
-    sub->compile(c);
-    switch (kind) {
-        case Typed_AST_Kind::Not:
-            c.emit_opcode(Opcode::Not);
-            break;
-            
-        default:
-            internal_error("Kind is not a valid unary operation: %d.", kind);
-            break;
-    }
-    c.stack_top = stack_top + type.size();
-}
-
 struct Find_Static_Address_Result {
     enum {
         Not_Found,
@@ -262,13 +243,11 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
     
     switch (node.kind) {
         case Typed_AST_Kind::Ident: {
-            Typed_AST_Ident *id = dynamic_cast<Typed_AST_Ident *>(&node);
+            auto id = dynamic_cast<Typed_AST_Ident *>(&node);
             internal_verify(id, "Failed to cast node to an Ident* in find_static_address.");
             
-            Variable *v;
-            bool is_global = c.find_variable(id->id, v);
-            
-            verify(v, "Unresolved identifier '%.*s'.", id->id.c_str());
+            auto [is_global, v] = c.find_variable(id->id);
+            verify(v, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
             
             if (is_global) {
                 status = Find_Static_Address_Result::Found_Global;
@@ -329,21 +308,20 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
 static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
     switch (node.kind) {
         case Typed_AST_Kind::Ident: {
-            Typed_AST_Ident *id = dynamic_cast<Typed_AST_Ident *>(&node);
+            auto id = dynamic_cast<Typed_AST_Ident *>(&node);
             internal_verify(id, "Failed to cast node to Ident* in emit_dynamic_address_code().");
             
-            Variable *v;
-            bool is_global = c.find_variable(id->id, v);
-            
-            verify(v, "Unresolved identifier '%.*s'.", id->id.c_str());
+            auto [is_global, v] = c.find_variable(id->id);
+            verify(v, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
             
             c.emit_opcode(is_global ? Opcode::Push_Global_Pointer : Opcode::Push_Pointer);
             c.emit_address(v->address);
         } break;
-//        case AST_DEREF: {
-//            Unary *deref = (Unary *)ast;
-//            emit_bytecode(c, deref->subexpression);
-//        } break;
+        case Typed_AST_Kind::Deref: {
+            auto deref = dynamic_cast<Typed_AST_Unary *>(&node);
+            internal_verify(deref, "Failed to cast node to Unary* in emit_dynamic_address_code().");
+            deref->sub->compile(c);
+        } break;
 //        case AST_SUBSCRIPT: {
 //            Binary *sub = (Binary *)ast;
 //
@@ -423,6 +401,30 @@ static bool emit_address_code(Compiler &c, Typed_AST &node) {
     return success;
 }
 
+void Typed_AST_Unary::compile(Compiler &c) {
+    int stack_top = c.stack_top;
+    switch (kind) {
+        case Typed_AST_Kind::Not:
+            sub->compile(c);
+            c.emit_opcode(Opcode::Not);
+            break;
+        case Typed_AST_Kind::Address_Of:
+            emit_address_code(c, *sub.get());
+            break;
+        case Typed_AST_Kind::Deref: {
+            Size size = sub->type.data.ptr.subtype->size();
+            sub->compile(c);
+            c.emit_opcode(Opcode::Load);
+            c.emit_size(size);
+        } break;
+            
+        default:
+            internal_error("Kind is not a valid unary operation: %d.", kind);
+            break;
+    }
+    c.stack_top = stack_top + type.size();
+}
+
 static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
     int stack_top = c.stack_top;
     
@@ -467,6 +469,9 @@ void Typed_AST_Binary::compile(Compiler &c) {
             c.emit_size(lhs->type.size());
             c.stack_top = stack_top + value_types::Bool.size();
             return;
+        case Typed_AST_Kind::And:
+        case Typed_AST_Kind::Or:
+            assert(false);
     }
     
     Opcode op;
@@ -545,11 +550,11 @@ void Typed_AST_Ternary::compile(Compiler &c) {
 }
 
 void Typed_AST_Block::compile(Compiler &c) {
-    c.begin_scope();
+    if (kind == Typed_AST_Kind::Block) c.begin_scope();
     for (auto &node : nodes) {
         node->compile(c);
     }
-    c.end_scope();
+    if (kind == Typed_AST_Kind::Block) c.end_scope();
 }
 
 void Typed_AST_If::compile(Compiler &c) {

@@ -24,6 +24,8 @@ enum class Untyped_AST_Kind {
     
     // unary
     Not,
+    Address_Of,
+    Deref,
     
     // binary
     Addition,
@@ -37,6 +39,8 @@ enum class Untyped_AST_Kind {
     Less_Eq,
     Greater,
     Greater_Eq,
+    And,
+    Or,
     While,
     
     // ternary

@@ -13,8 +13,8 @@ enum class Precedence {
     None,
     Assignment, // =
     Comma,      // ,
-    Or,         // ||
-    And,        // &&
+    Or,         // or
+    And,        // and
     BitOr,      // |
     Xor,        // ^
     BitAnd,     // &
@@ -60,6 +60,8 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Fn: return Precedence::None;
         case Token_Kind::Struct: return Precedence::None;
         case Token_Kind::Enum: return Precedence::None;
+        case Token_Kind::And: return Precedence::And;
+        case Token_Kind::Or: return Precedence::Or;
             
         // operators
         case Token_Kind::Plus: return Precedence::Term;
@@ -74,6 +76,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Left_Angle_Eq: return Precedence::Comparison;
         case Token_Kind::Right_Angle: return Precedence::Comparison;
         case Token_Kind::Right_Angle_Eq: return Precedence::Comparison;
+        case Token_Kind::Ampersand: return Precedence::BitAnd;
             
         // assignment operator
         case Token_Kind::Eq: return Precedence::Assignment;
@@ -316,6 +319,12 @@ struct Parser {
             case Token_Kind::Bang:
                 a = parse_unary(Untyped_AST_Kind::Not);
                 break;
+            case Token_Kind::Ampersand:
+                a = parse_unary(Untyped_AST_Kind::Address_Of);
+                break;
+            case Token_Kind::Star:
+                a = parse_unary(Untyped_AST_Kind::Deref);
+                break;
                 
             default:
                 break;
@@ -384,6 +393,12 @@ struct Parser {
                 break;
             case Token_Kind::Right_Angle_Eq:
                 a = parse_binary(Untyped_AST_Kind::Greater_Eq, prec, std::move(prev));
+                break;
+            case Token_Kind::And:
+                a = parse_binary(Untyped_AST_Kind::And, prec, std::move(prev));
+                break;
+            case Token_Kind::Or:
+                a = parse_binary(Untyped_AST_Kind::Or, prec, std::move(prev));
                 break;
                 
             default:

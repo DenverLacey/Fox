@@ -23,6 +23,8 @@ enum class Typed_AST_Kind {
     
     // unary
     Not,
+    Address_Of,
+    Deref,
     
     // binary
     Addition,
@@ -37,6 +39,8 @@ enum class Typed_AST_Kind {
     Greater,
     Greater_Eq,
     While,
+    And,
+    Or,
     
     // ternary
     
