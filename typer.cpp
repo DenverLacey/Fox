@@ -216,6 +216,9 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
         case Typed_AST_Kind::Equal: {
             print_binary_at_indent("==", (Typed_AST_Binary *)node, indent);
         } break;
+        case Typed_AST_Kind::Not_Equal: {
+            print_binary_at_indent("!=", (Typed_AST_Binary *)node, indent);
+        } break;
         case Typed_AST_Kind::Less: {
             print_binary_at_indent("<", (Typed_AST_Binary *)node, indent);
         } break;
@@ -418,6 +421,9 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Equal:
             verify(lhs->type == rhs->type, "(==) requires both operands to be the same type.");
             return make<Typed_AST_Binary>(Typed_AST_Kind::Equal, value_types::Bool, std::move(lhs), std::move(rhs));
+        case Untyped_AST_Kind::Not_Equal:
+            verify(lhs->type == rhs->type, "(!=) requires both operands to be the same type.");
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Not_Equal, value_types::Bool, std::move(lhs), std::move(rhs));
         case Untyped_AST_Kind::Less:
             verify(lhs->type == rhs->type, "(<) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
@@ -444,11 +450,11 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             return make<Typed_AST_Binary>(Typed_AST_Kind::Greater_Eq, value_types::Bool, std::move(lhs), std::move(rhs));
         case Untyped_AST_Kind::And:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(and) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Bool, "(and) requires second operand to be (bool) but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Bool, "(and) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::And, value_types::Bool, std::move(lhs), std::move(rhs));
         case Untyped_AST_Kind::Or:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(or) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be (bool) but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::Or, value_types::Bool, std::move(lhs), std::move(rhs));
             
         case Untyped_AST_Kind::While:
@@ -474,12 +480,12 @@ Ref<Typed_AST> Untyped_AST_Ternary::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Block::typecheck(Typer &t) {
-    t.begin_scope();
-    auto block = make<Typed_AST_Block>(Typed_AST_Kind::Block);
+    if (kind == Untyped_AST_Kind::Block) t.begin_scope();
+    auto block = make<Typed_AST_Block>(kind == Untyped_AST_Kind::Block ? Typed_AST_Kind::Block : Typed_AST_Kind::Comma);
     for (auto &node : nodes) {
         block->add(node->typecheck(t));
     }
-    t.end_scope();
+    if (kind == Untyped_AST_Kind::Block) t.end_scope();
     return block;
 }
 

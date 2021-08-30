@@ -381,10 +381,9 @@ struct Parser {
             case Token_Kind::Double_Eq:
                 a = parse_binary(Untyped_AST_Kind::Equal, prec, std::move(prev));
                 break;
-            case Token_Kind::Bang_Eq: {
-                auto eq = parse_binary(Untyped_AST_Kind::Equal, prec, std::move(prev));
-                a = make<Untyped_AST_Unary>(Untyped_AST_Kind::Not, std::move(eq));
-            } break;
+            case Token_Kind::Bang_Eq:
+                a = parse_binary(Untyped_AST_Kind::Not_Equal, prec, std::move(prev));
+                break;
             case Token_Kind::Left_Angle:
                 a = parse_binary(Untyped_AST_Kind::Less, prec, std::move(prev));
                 break;

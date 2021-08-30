@@ -266,6 +266,9 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
         case Untyped_AST_Kind::Equal: {
             print_binary_at_indent("==", (Untyped_AST_Binary *)node, indent);
         } break;
+        case Untyped_AST_Kind::Not_Equal: {
+            print_binary_at_indent("!=", (Untyped_AST_Binary *)node, indent);
+        } break;
         case Untyped_AST_Kind::Less: {
             print_binary_at_indent("<", (Untyped_AST_Binary *)node, indent);
         } break;

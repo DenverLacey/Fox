@@ -36,6 +36,7 @@ enum class Untyped_AST_Kind {
     Mod,
     Assignment,
     Equal,
+    Not_Equal,
     Less,
     Less_Eq,
     Greater,

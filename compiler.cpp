@@ -504,6 +504,17 @@ void Typed_AST_Binary::compile(Compiler &c) {
             }
             c.stack_top = stack_top + value_types::Bool.size();
             return;
+        case Typed_AST_Kind::Not_Equal:
+            lhs->compile(c);
+            rhs->compile(c);
+            if (lhs->type.kind == Value_Type_Kind::Str) {
+                c.emit_opcode(Opcode::Str_Not_Equal);
+            } else {
+                c.emit_opcode(Opcode::Not_Equal);
+                c.emit_size(lhs->type.size());
+            }
+            c.stack_top = stack_top + value_types::Bool.size();
+            return;
         case Typed_AST_Kind::And:
         case Typed_AST_Kind::Or:
             compile_logical_operator(c, *this);
