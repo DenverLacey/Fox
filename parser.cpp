@@ -54,6 +54,7 @@ Precedence token_precedence(Token token) {
             
         // keywords
         case Token_Kind::Let: return Precedence::None;
+        case Token_Kind::Mut: return Precedence::None;
         case Token_Kind::If: return Precedence::None;
         case Token_Kind::Else: return Precedence::None;
         case Token_Kind::While: return Precedence::None;
@@ -77,6 +78,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Right_Angle: return Precedence::Comparison;
         case Token_Kind::Right_Angle_Eq: return Precedence::Comparison;
         case Token_Kind::Ampersand: return Precedence::BitAnd;
+        case Token_Kind::Ampersand_Mut: return Precedence::Unary;
             
         // assignment operator
         case Token_Kind::Eq: return Precedence::Assignment;
@@ -89,9 +91,10 @@ Precedence token_precedence(Token token) {
     assert(false);
 }
 
-Precedence operator++(Precedence p) {
-    auto q = (int)p + 1;
-    return q < (int)Precedence::Primary ? (Precedence)q : Precedence::Primary;
+Precedence operator+(Precedence p, int step) {
+    auto q = (int)p + step;
+    q = std::clamp(q, (int)Precedence::None, (int)Precedence::Primary);
+    return (Precedence)q;
 }
 
 struct Parser {
@@ -343,6 +346,9 @@ struct Parser {
             case Token_Kind::Left_Paren:
                 // a = parse_invocation(prev);
                 break;
+            case Token_Kind::Comma:
+                a = parse_comma_separated_expressions(std::move(prev));
+                break;
                 
             // operators
             case Token_Kind::Plus:
@@ -415,7 +421,7 @@ struct Parser {
     }
     
     Ref<Untyped_AST_Binary> parse_binary(Untyped_AST_Kind kind, Precedence prec, Ref<Untyped_AST> lhs) {
-        auto rhs = parse_precedence(++prec);
+        auto rhs = parse_precedence(prec + 1);
         return make<Untyped_AST_Binary>(kind, std::move(lhs), std::move(rhs));
     }
     
@@ -433,6 +439,15 @@ struct Parser {
             block->add(parse_declaration());
         }
         expect(Token_Kind::Right_Curly, "Expected '}' to end block.");
+        return block;
+    }
+    
+    Ref<Untyped_AST_Block> parse_comma_separated_expressions(Ref<Untyped_AST> prev) {
+        auto block = make<Untyped_AST_Block>(Untyped_AST_Kind::Comma);
+        block->add(std::move(prev));
+        do {
+            block->add(parse_precedence(Precedence::Comma + 1));
+        } while (match(Token_Kind::Comma) && has_more());
         return block;
     }
 };
