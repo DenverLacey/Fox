@@ -22,6 +22,7 @@ enum class Value_Type_Kind : uint8_t {
     Float,
     Str,
     Ptr,
+    Tuple,
     Struct,
     Enum,
 };
@@ -62,6 +63,11 @@ struct Ptr_Type_Data {
     Value_Type *subtype;
 };
 
+struct Tuple_Type_Data {
+    size_t num_subtypes;
+    Value_Type *subtypes;
+};
+
 struct Struct_Type_Data {
     
 };
@@ -73,6 +79,7 @@ struct Enum_Type_Data {
 union Value_Type_Data {
     Ptr_Type_Data ptr;
     Unresolved_Type_Data unresolved;
+    Tuple_Type_Data tuple;
     Struct_Type_Data struct_;
     Enum_Type_Data enum_;
 };
@@ -87,6 +94,7 @@ struct Value_Type {
 };
 
 bool operator==(const Value_Type &a, const Value_Type &b);
+bool operator!=(const Value_Type &a, const Value_Type &b);
 
 namespace value_types {
 inline const Value_Type None = { Value_Type_Kind::None };
@@ -97,6 +105,42 @@ inline const Value_Type Int = { Value_Type_Kind::Int };
 inline const Value_Type Float = { Value_Type_Kind::Float };
 inline const Value_Type Str = { Value_Type_Kind::Str };
 inline const Value_Type Ptr = { Value_Type_Kind::Ptr };
+inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
 
 Value_Type ptr_to(Value_Type *subtype);
+
+template<typename T, typename ...Ts>
+constexpr size_t count_types() {
+    return 1 + count_types<Ts...>();
 }
+
+template<>
+constexpr size_t count_types<Value_Type>() {
+    return 1;
+}
+
+void copy_subtypes_into_buffer(Value_Type *buffer);
+
+template<typename T, typename ...Ts>
+void copy_subtypes_into_buffer(Value_Type *buffer, T head, Ts ...remaining) {
+    *buffer = head;
+    copy_subtypes_into_buffer(buffer + 1, remaining...);
+}
+
+template<typename ...Ts>
+Value_Type tup_of(Ts ...subtypes) {
+    size_t num_types = count_types<Ts...>();
+    
+    Value_Type *buffer = nullptr;
+    if (num_types != 0) {
+        buffer = new Value_Type[num_types];
+        copy_subtypes_into_buffer(buffer, subtypes...);
+    }
+    
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Tuple;
+    ty.data.tuple.num_subtypes = num_types;
+    ty.data.tuple.subtypes = buffer;
+    return ty;
+}
+} // namespace value_types

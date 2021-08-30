@@ -34,6 +34,13 @@ Size Value_Type::size() const {
             return sizeof(runtime::String);
         case Value_Type_Kind::Ptr:
             return sizeof(runtime::Pointer);
+        case Value_Type_Kind::Tuple: {
+            Size size = 0;
+            for (size_t i = 0; i < data.tuple.num_subtypes; i++) {
+                size += data.tuple.subtypes[i].size();
+            }
+            return size;
+        }
             
         case Value_Type_Kind::Struct:
         case Value_Type_Kind::Enum:
@@ -82,6 +89,14 @@ char *Value_Type::debug_str() const {
             s << "*";
             s << data.ptr.subtype->debug_str();
             break;
+        case Value_Type_Kind::Tuple:
+            s << "(";
+            for (size_t i = 0; i < data.tuple.num_subtypes; i++) {
+                s << data.tuple.subtypes[i].debug_str();
+                if (i + 1 < data.tuple.num_subtypes) s << ", ";
+            }
+            s << ")";
+            break;
         case Value_Type_Kind::Struct:
             assert(false);
             break;
@@ -102,6 +117,18 @@ bool operator==(const Value_Type &a, const Value_Type &b) {
     switch (a.kind) {
         case Value_Type_Kind::Ptr:
             return *a.data.ptr.subtype == *b.data.ptr.subtype;
+        case Value_Type_Kind::Tuple:
+            if (a.data.tuple.num_subtypes != b.data.tuple.num_subtypes) {
+                return false;
+            }
+            for (size_t i = 0; i < a.data.tuple.num_subtypes; i++) {
+                auto ai = a.data.tuple.subtypes[i];
+                auto bi = b.data.tuple.subtypes[i];
+                if (ai != bi) {
+                    return false;
+                }
+            }
+            break;
         case Value_Type_Kind::Struct:
             assert(false);
         case Value_Type_Kind::Enum:
@@ -111,10 +138,16 @@ bool operator==(const Value_Type &a, const Value_Type &b) {
     return true;
 }
 
+bool operator!=(const Value_Type &a, const Value_Type &b) {
+    return !(a == b);
+}
+
 namespace value_types {
     Value_Type ptr_to(Value_Type *subtype) {
         auto pty = Ptr;
         pty.data.ptr.subtype = subtype;
         return pty;
     }
+    
+    void copy_subtypes_into_buffer(Value_Type *buffer) {}
 }
