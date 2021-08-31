@@ -157,15 +157,6 @@ namespace value_types {
         return pty;
     }
     
-    void copy_subtypes_into_buffer(
-        Value_Type *buffer,
-        const std::initializer_list<Value_Type> &subtypes)
-    {
-        for (auto it = subtypes.begin(); it != subtypes.end(); it++, buffer++) {
-            *buffer = *it;
-        }
-    }
-    
     Value_Type tup_from(size_t count, Value_Type *subtypes) {
         Value_Type ty;
         ty.kind = Value_Type_Kind::Tuple;

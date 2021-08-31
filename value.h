@@ -112,8 +112,6 @@ inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
 Value_Type ptr_to(Value_Type *subtype);
 Value_Type tup_from(size_t count, Value_Type *subtypes);
 
-void copy_subtypes_into_buffer(Value_Type *buffer, const std::initializer_list<Value_Type> &subtypes);
-
 template<typename ...Ts>
 Value_Type tup_of(Ts ...subtypes) {
     size_t num_types = sizeof...(Ts);
@@ -121,7 +119,12 @@ Value_Type tup_of(Ts ...subtypes) {
     Value_Type *buffer = nullptr;
     if (num_types != 0) {
         buffer = new Value_Type[num_types];
-        copy_subtypes_into_buffer(buffer, { subtypes... });
+        std::initializer_list<Value_Type> subtype_list = { subtypes... };
+        Value_Type *it = buffer;
+        for (auto &ty : subtype_list) {
+            *it = ty;
+            it++;
+        }
     }
     
     Value_Type ty;
