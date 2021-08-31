@@ -149,42 +149,42 @@ static Token punctuation(Source_Iterator &src) {
         case '}': t.kind = Token_Kind::Right_Curly; break;
             
         // operators
-        case '+': // t.kind = Token_Kind::Plus; break;
+        case '+':
             if (src.match('=')) {
                 t.kind = Token_Kind::Plus_Eq;
             } else {
                 t.kind = Token_Kind::Plus;
             }
             break;
-        case '-': // t.kind = Token_Kind::Dash; break;
+        case '-':
             if (src.match('=')) {
                 t.kind = Token_Kind::Dash_Eq;
             } else {
                 t.kind = Token_Kind::Dash;
             }
             break;
-        case '*': // t.kind = Token_Kind::Star; break;
+        case '*':
             if (src.match('=')) {
                 t.kind = Token_Kind::Star_Eq;
             } else {
                 t.kind = Token_Kind::Star;
             }
             break;
-        case '/': // t.kind = Token_Kind::Slash; break;
+        case '/':
             if (src.match('=')) {
                 t.kind = Token_Kind::Slash_Eq;
             } else {
                 t.kind = Token_Kind::Slash;
             }
             break;
-        case '%': // t.kind = Token_Kind::Percent; break;
+        case '%':
             if (src.match('=')) {
                 t.kind = Token_Kind::Percent_Eq;
             } else {
                 t.kind = Token_Kind::Percent;
             }
             break;
-        case '!': // t.kind = Token_Kind::Bang; break;
+        case '!':
             if (src.match('=')) {
                 t.kind = Token_Kind::Bang_Eq;
             } else {

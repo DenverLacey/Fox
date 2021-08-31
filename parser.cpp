@@ -177,7 +177,7 @@ struct Parser {
         } else if (check(Token_Kind::Left_Curly)) {
             s = parse_block();
         } else {
-            s = parse_expression_unguarded();
+            s = parse_expression_or_assignment();
             expect(Token_Kind::Semi, "Expected ';' after statement.");
         }
         return s;
@@ -248,9 +248,7 @@ struct Parser {
                 
                 // @TODO: Check for '->' if function signiture
                 
-                Value_Type *buffer = flatten(subtypes);
-                
-                *type = value_types::tup_from(subtypes.size(), buffer);
+                *type = value_types::tup_from(subtypes.size(), flatten(subtypes));
             } break;
             default:
                 assert(false);
@@ -281,12 +279,12 @@ struct Parser {
         return make<Untyped_AST_Binary>(Untyped_AST_Kind::While, std::move(cond), std::move(body));
     }
     
-    Ref<Untyped_AST> parse_expression_unguarded() {
+    Ref<Untyped_AST> parse_expression_or_assignment() {
         return parse_precedence(Precedence::Assignment);
     }
     
     Ref<Untyped_AST> parse_expression() {
-        auto expr = parse_expression_unguarded();
+        auto expr = parse_expression_or_assignment();
         verify(expr->kind != Untyped_AST_Kind::Assignment, "Cannot assign in expression context.");
         return expr;
     }
@@ -296,12 +294,12 @@ struct Parser {
         verify(token.kind != Token_Kind::Eof, "Unexpected end of input.");
         
         auto prev = parse_prefix(token);
-        verify(prev != nullptr, "Expected expression.");
+        verify(prev, "Expected expression.");
         
         while (prec <= token_precedence(peek())) {
             auto token = next();
             prev = parse_infix(token, std::move(prev));
-            verify(prev != nullptr, "Unexpected token in middle of expression.");
+            verify(prev, "Unexpected token in middle of expression.");
         }
         return prev;
     }
@@ -469,12 +467,12 @@ struct Parser {
     }
     
     Ref<Untyped_AST_Multiary> parse_comma_separated_expressions(Ref<Untyped_AST> prev) {
-        auto block = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
-        block->add(std::move(prev));
+        auto comma = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
+        comma->add(std::move(prev));
         do {
-            block->add(parse_precedence(Precedence::Comma + 1));
+            comma->add(parse_precedence(Precedence::Comma + 1));
         } while (match(Token_Kind::Comma) && has_more());
-        return block;
+        return comma;
     }
     
     Ref<Untyped_AST_Binary> parse_dot_operator(Ref<Untyped_AST> lhs) {
