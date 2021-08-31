@@ -12,4 +12,4 @@
 #include "ast.h"
 #include "tokenizer.h"
 
-Ref<Untyped_AST_Block> parse(const std::vector<Token> &tokens);
+Ref<Untyped_AST_Multiary> parse(const std::vector<Token> &tokens);

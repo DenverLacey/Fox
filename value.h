@@ -66,6 +66,8 @@ struct Ptr_Type_Data {
 struct Tuple_Type_Data {
     size_t num_subtypes;
     Value_Type *subtypes;
+    
+    Size offset_of_type(size_t idx);
 };
 
 struct Struct_Type_Data {
@@ -108,6 +110,7 @@ inline const Value_Type Ptr = { Value_Type_Kind::Ptr };
 inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
 
 Value_Type ptr_to(Value_Type *subtype);
+Value_Type tup_from(size_t count, Value_Type *subtypes);
 
 template<typename T, typename ...Ts>
 constexpr size_t count_types() {

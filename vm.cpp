@@ -235,6 +235,14 @@ void VM::run() {
                 Size size = READ(Size, frame);
                 stack.pop(size);
             } break;
+            case Opcode::Allocate: {
+                Size size = READ(Size, frame);
+                stack.alloc(size);
+            } break;
+            case Opcode::Clear_Allocate: {
+                Size size = READ(Size, frame);
+                stack.calloc(size);
+            } break;
             case Opcode::Flush: {
                 Address flush_point = READ(Address, frame);
                 flush_point += frame->stack_bottom;
@@ -556,7 +564,17 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
             case Opcode::Pop: {
                 MARK(i);
                 Size size = READ(Size, i);
-                printf(IDX "Pop %ub\n", mark, size);
+                printf(IDX "Pop %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Allocate: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf(IDX "Allocate %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Clear_Allocate: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf(IDX "Clear_Allocate %ub\n", mark, size * 8);
             } break;
             case Opcode::Flush: {
                 MARK(i);
@@ -566,7 +584,7 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
             case Opcode::Return: {
                 MARK(i);
                 Size size = READ(Size, i);
-                printf(IDX "Return %ub\n", mark, size);
+                printf(IDX "Return %ub\n", mark, size * 8);
             } break;
                 
             // Branching

@@ -43,12 +43,15 @@ enum class Typed_AST_Kind {
     While,
     And,
     Or,
+    Dot,
+    Dot_Tuple,
     
     // ternary
     
-    // block
+    // multiary
     Block,
     Comma,
+    Tuple,
     
     // unique
     If,
@@ -135,10 +138,10 @@ struct Typed_AST_Ternary : public Typed_AST {
     void compile(Compiler &c) override;
 };
 
-struct Typed_AST_Block : public Typed_AST {
+struct Typed_AST_Multiary : public Typed_AST {
     std::vector<Ref<Typed_AST>> nodes;
     
-    Typed_AST_Block(Typed_AST_Kind kind);
+    Typed_AST_Multiary(Typed_AST_Kind kind);
     void add(Ref<Typed_AST> node);
     void compile(Compiler &c) override;
 };
@@ -170,5 +173,5 @@ struct Typed_AST_Let : public Typed_AST {
     void compile(Compiler &c) override;
 };
 
-struct Untyped_AST_Block;
-Ref<Typed_AST_Block> typecheck(Untyped_AST_Block *node);
+struct Untyped_AST_Multiary;
+Ref<Typed_AST_Multiary> typecheck(Untyped_AST_Multiary *node);

@@ -142,6 +142,14 @@ bool operator!=(const Value_Type &a, const Value_Type &b) {
     return !(a == b);
 }
 
+Size Tuple_Type_Data::offset_of_type(size_t idx) {
+    Size size = 0;
+    for (size_t i = 0; i < idx; i++) {
+        size += subtypes[i].size();
+    }
+    return size;
+}
+
 namespace value_types {
     Value_Type ptr_to(Value_Type *subtype) {
         auto pty = Ptr;
@@ -150,4 +158,12 @@ namespace value_types {
     }
     
     void copy_subtypes_into_buffer(Value_Type *buffer) {}
+    
+    Value_Type tup_from(size_t count, Value_Type *subtypes) {
+        Value_Type ty;
+        ty.kind = Value_Type_Kind::Tuple;
+        ty.data.tuple.num_subtypes = count;
+        ty.data.tuple.subtypes = subtypes;
+        return ty;
+    }
 }

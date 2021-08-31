@@ -79,6 +79,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Right_Angle_Eq: return Precedence::Comparison;
         case Token_Kind::Ampersand: return Precedence::BitAnd;
         case Token_Kind::Ampersand_Mut: return Precedence::Unary;
+        case Token_Kind::Dot: return Precedence::Call;
             
         // assignment operator
         case Token_Kind::Eq: return Precedence::Assignment;
@@ -193,9 +194,12 @@ struct Parser {
             specified_type = make<Untyped_AST_Type_Signiture>(std::move(type));
         }
         
-        expect(Token_Kind::Eq, "Expected '=' before initializer expression.");
+        Ref<Untyped_AST> initializer = nullptr;
+        if (match(Token_Kind::Eq)) {
+            initializer = parse_expression();
+        }
         
-        auto initializer = parse_expression();
+        verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
         
         return make<Untyped_AST_Let>(id, is_mut, std::move(specified_type), std::move(initializer));
     }
@@ -231,6 +235,21 @@ struct Parser {
                 } else {
                     type->data.ptr.subtype = parse_type_signiture().release();
                 }
+            } break;
+            case Token_Kind::Left_Paren: {
+                std::vector<Ref<Value_Type>> subtypes;
+                if (!check(Token_Kind::Right_Paren)) {
+                    do {
+                        subtypes.push_back(parse_type_signiture());
+                    } while (match(Token_Kind::Comma) && has_more());
+                }
+                expect(Token_Kind::Right_Paren, "Expected ')' in type signiture.");
+                
+                // @TODO: Check for '->' if function signiture
+                
+                Value_Type *buffer = flatten(subtypes);
+                
+                *type = value_types::tup_from(subtypes.size(), buffer);
             } break;
             default:
                 assert(false);
@@ -293,6 +312,9 @@ struct Parser {
             case Token_Kind::Left_Paren:
                 a = parse_expression();
                 expect(Token_Kind::Right_Paren, "Expected ')' to terminate parenthesized expression.");
+                if (a->kind == Untyped_AST_Kind::Comma) {
+                    a->kind = Untyped_AST_Kind::Tuple;
+                }
                 break;
                 
             // literals
@@ -408,6 +430,9 @@ struct Parser {
             case Token_Kind::Or:
                 a = parse_binary(Untyped_AST_Kind::Or, prec, std::move(prev));
                 break;
+            case Token_Kind::Dot:
+                a = parse_dot_operator(std::move(prev));
+                break;
                 
             default:
                 break;
@@ -432,8 +457,8 @@ struct Parser {
         return make<Untyped_AST_Binary>(Untyped_AST_Kind::Assignment, std::move(lhs), std::move(rhs));
     }
     
-    Ref<Untyped_AST_Block> parse_block() {
-        auto block = make<Untyped_AST_Block>(Untyped_AST_Kind::Block);
+    Ref<Untyped_AST_Multiary> parse_block() {
+        auto block = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Block);
         expect(Token_Kind::Left_Curly, "Expected '{' to begin block.");
         while (!check(Token_Kind::Right_Curly) && has_more()) {
             block->add(parse_declaration());
@@ -442,19 +467,39 @@ struct Parser {
         return block;
     }
     
-    Ref<Untyped_AST_Block> parse_comma_separated_expressions(Ref<Untyped_AST> prev) {
-        auto block = make<Untyped_AST_Block>(Untyped_AST_Kind::Comma);
+    Ref<Untyped_AST_Multiary> parse_comma_separated_expressions(Ref<Untyped_AST> prev) {
+        auto block = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
         block->add(std::move(prev));
         do {
             block->add(parse_precedence(Precedence::Comma + 1));
         } while (match(Token_Kind::Comma) && has_more());
         return block;
     }
+    
+    Ref<Untyped_AST_Binary> parse_dot_operator(Ref<Untyped_AST> lhs) {
+        Ref<Untyped_AST> rhs;
+        Untyped_AST_Kind kind;
+        if (check(Token_Kind::Int)) {
+            auto i = next().data.i;
+            rhs = make<Untyped_AST_Int>(i);
+            kind = Untyped_AST_Kind::Dot_Tuple;
+        } else {
+            verify(check(Token_Kind::Ident), "Expected an identifier after '.'.");
+            auto s = next().data.s.clone();
+            rhs = make<Untyped_AST_Ident>(s);
+            if (match(Token_Kind::Left_Paren)) {
+                // dot call
+                assert(false);
+            }
+            kind = Untyped_AST_Kind::Dot;
+        }
+        return make<Untyped_AST_Binary>(kind, std::move(lhs), std::move(rhs));
+    }
 };
 
-Ref<Untyped_AST_Block> parse(const std::vector<Token> &tokens) {
+Ref<Untyped_AST_Multiary> parse(const std::vector<Token> &tokens) {
     Parser p(tokens);
-    auto nodes = make<Untyped_AST_Block>(Untyped_AST_Kind::Block);
+    auto nodes = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Block);
     
     while (p.has_more()) {
         nodes->add(p.parse_declaration());

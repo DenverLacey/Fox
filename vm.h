@@ -92,9 +92,9 @@ enum class Opcode : uint8_t {
     Push_Global_Pointer,    // BYTE_PUSH_GLOBAL_POINTER,
     Push_Global_Value,  // BYTE_PUSH_GLOBAL_VALUE,
     Pop,    // BYTE_POP,
-//    BYTE_ALLOCATE,
+    Allocate, //    BYTE_ALLOCATE,
+    Clear_Allocate, //    BYTE_ZERO,
 //    BYTE_HEAP_ALLOCATE,
-//    BYTE_ZERO,
     Flush,  // BYTE_FLUSH,
     Return, // BYTE_RETURN,
     

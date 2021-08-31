@@ -221,6 +221,18 @@ static Token punctuation(Source_Iterator &src) {
                 t.kind = Token_Kind::Ampersand;
             }
             break;
+        case '.':
+            if (src.match('.')) {
+                assert(false);
+                if (src.match('=')) {
+                    
+                } else {
+                    
+                }
+            } else {
+                t.kind = Token_Kind::Dot;
+            }
+            break;
             
         default:
             auto _c = utf8char_t::from_char32(c);

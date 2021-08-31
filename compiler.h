@@ -77,7 +77,7 @@ struct Compiler {
     Compiler(Function_Definition *function);
     Compiler(Compiler *parent, Function_Definition *function);
     
-    Function_Definition *compile(Typed_AST_Block *node);
+    Function_Definition *compile(Typed_AST_Multiary *node);
     
     void emit_byte(uint8_t byte);
     void emit_opcode(Opcode op);
@@ -86,7 +86,7 @@ struct Compiler {
     size_t emit_jump(Opcode jump_code);
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
-    Variable &emit_variable(String id, Typed_AST *initializer);
+    Variable &put_variable(String id, Value_Type type);
     std::pair<bool, Variable *> find_variable(String id);
     
     template<typename T>

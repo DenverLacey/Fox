@@ -24,10 +24,10 @@ Compiler::Compiler(Compiler *parent, Function_Definition *function) {
     this->function = function;
 }
 
-Function_Definition *Compiler::compile(Typed_AST_Block *block) {
+Function_Definition *Compiler::compile(Typed_AST_Multiary *multi) {
     begin_scope();
     global_scope = &current_scope();
-    for (auto &n : block->nodes) {
+    for (auto &n : multi->nodes) {
         n->compile(*this);
     }
     
@@ -73,12 +73,11 @@ void Compiler::emit_loop(size_t loop_start) {
     emit_value<size_t>(jump);
 }
 
-Variable &Compiler::emit_variable(String id, Typed_AST *initializer) {
+Variable &Compiler::put_variable(String id, Value_Type type) {
     std::string sid(id.c_str(), id.size());
     Compiler_Scope &s = current_scope();
     Address address = (Address)stack_top;
-    initializer->compile(*this);
-    Variable v = { initializer->type, address };
+    Variable v = { type, address };
     s.variables[sid] = v;
     return s.variables[sid];
 }
@@ -483,6 +482,43 @@ void compile_logical_operator(Compiler &c, Typed_AST_Binary &b) {
     c.stack_top = stack_top + size_of_bool;
 }
 
+void compile_tuple_dot_operator(Compiler &c, Typed_AST_Binary &dot) {
+    int stack_top = c.stack_top;
+    
+    auto i = dynamic_cast<Typed_AST_Int *>(dot.rhs.get());
+    Size offset = dot.lhs->type.data.tuple.offset_of_type(i->value);
+    
+    auto [status, address] = find_static_address(c, *dot.lhs.get());
+    switch (status) {
+        case Find_Static_Address_Result::Found:
+            c.emit_opcode(Opcode::Push_Value);
+            c.emit_size(dot.type.size());
+            c.emit_address(address + offset);
+            break;
+        case Find_Static_Address_Result::Found_Global:
+            c.emit_opcode(Opcode::Push_Global_Value);
+            c.emit_size(dot.type.size());
+            c.emit_address(address + offset);
+            break;
+        case Find_Static_Address_Result::Not_Found:
+            bool success = emit_dynamic_address_code(c, *dot.lhs.get());
+            verify(success, "Cannot access this value.");
+            if (offset == 0) {
+                // do nothing
+            } else if (offset == 1) {
+                c.emit_opcode(Opcode::Lit_1);
+                c.emit_opcode(Opcode::Int_Add);
+            } else {
+                c.emit_opcode(Opcode::Lit_Int);
+                c.emit_value<runtime::Int>(offset);
+                c.emit_opcode(Opcode::Int_Add);
+            }
+            break;
+    }
+    
+    c.stack_top = stack_top + dot.type.size();
+}
+
 void Typed_AST_Binary::compile(Compiler &c) {
     int stack_top = c.stack_top;
     
@@ -518,6 +554,9 @@ void Typed_AST_Binary::compile(Compiler &c) {
         case Typed_AST_Kind::And:
         case Typed_AST_Kind::Or:
             compile_logical_operator(c, *this);
+            return;
+        case Typed_AST_Kind::Dot_Tuple:
+            compile_tuple_dot_operator(c, *this);
             return;
     }
     
@@ -596,7 +635,7 @@ void Typed_AST_Ternary::compile(Compiler &c) {
     c.stack_top = stack_top + type.size();
 }
 
-void Typed_AST_Block::compile(Compiler &c) {
+void Typed_AST_Multiary::compile(Compiler &c) {
     if (kind == Typed_AST_Kind::Block) c.begin_scope();
     for (auto &node : nodes) {
         node->compile(c);
@@ -625,6 +664,16 @@ void Typed_AST_Type_Signiture::compile(Compiler &c) {
 
 void Typed_AST_Let::compile(Compiler &c) {
     int stack_top = c.stack_top;
-    c.emit_variable(id, initializer.get());
-    c.stack_top = stack_top + initializer->type.size();
+    
+    Value_Type type = initializer ? initializer->type : *specified_type->value_type;
+    c.put_variable(id, type);
+    
+    if (initializer) {
+        initializer->compile(c);
+    } else {
+        c.emit_opcode(Opcode::Clear_Allocate);
+        c.emit_size(type.size());
+    }
+    
+    c.stack_top = stack_top + type.size();
 }

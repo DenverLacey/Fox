@@ -44,12 +44,15 @@ enum class Untyped_AST_Kind {
     And,
     Or,
     While,
+    Dot,
+    Dot_Tuple,
     
     // ternary
     
-    // block
+    // multiary
     Block,
     Comma,
+    Tuple,
     
     // unique
     If,
@@ -146,10 +149,10 @@ struct Untyped_AST_Ternary : public Untyped_AST {
     Ref<Untyped_AST> clone() override;
 };
 
-struct Untyped_AST_Block : public Untyped_AST {
+struct Untyped_AST_Multiary : public Untyped_AST {
     std::vector<Ref<Untyped_AST>> nodes;
     
-    Untyped_AST_Block(Untyped_AST_Kind kind);
+    Untyped_AST_Multiary(Untyped_AST_Kind kind);
     void add(Ref<Untyped_AST> node);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;

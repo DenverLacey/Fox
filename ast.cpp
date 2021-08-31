@@ -106,16 +106,16 @@ Ref<Untyped_AST> Untyped_AST_Ternary::clone() {
     return make<Untyped_AST_Ternary>(kind, lhs->clone(), mid->clone(), rhs->clone());
 }
 
-Untyped_AST_Block::Untyped_AST_Block(Untyped_AST_Kind kind) {
+Untyped_AST_Multiary::Untyped_AST_Multiary(Untyped_AST_Kind kind) {
     this->kind = kind;
 }
 
-void Untyped_AST_Block::add(Ref<Untyped_AST> node) {
+void Untyped_AST_Multiary::add(Ref<Untyped_AST> node) {
     nodes.push_back(std::move(node));
 }
 
-Ref<Untyped_AST> Untyped_AST_Block::clone() {
-    auto block = make<Untyped_AST_Block>(kind);
+Ref<Untyped_AST> Untyped_AST_Multiary::clone() {
+    auto block = make<Untyped_AST_Multiary>(kind);
     for (auto &n : nodes) {
         block->add(n->clone());
     }
@@ -198,7 +198,7 @@ static void print_ternary_at_indent(const char *id, const Untyped_AST_Ternary *t
     print_sub_at_indent("rhs", t->rhs.get(), indent + 1);
 }
 
-static void print_block_at_indent(const char *id, const Untyped_AST_Block *b, size_t indent) {
+static void print_multiary_at_indent(const char *id, const Untyped_AST_Multiary *b, size_t indent) {
     printf("(%s)\n", id);
     for (size_t i = 0; i < b->nodes.size(); i++) {
         const Untyped_AST *node = b->nodes[i].get();
@@ -290,6 +290,10 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
         case Untyped_AST_Kind::Or: {
             print_binary_at_indent("or", (Untyped_AST_Binary *)node, indent);
         } break;
+        case Untyped_AST_Kind::Dot:
+        case Untyped_AST_Kind::Dot_Tuple: {
+            print_binary_at_indent(".", (Untyped_AST_Binary *)node, indent);
+        } break;
         case Untyped_AST_Kind::If: {
             Untyped_AST_If *t = (Untyped_AST_If *)node;
             printf("(if)\n");
@@ -300,10 +304,13 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
             }
         } break;
         case Untyped_AST_Kind::Block: {
-            print_block_at_indent("block", (Untyped_AST_Block *)node, indent);
+            print_multiary_at_indent("block", (Untyped_AST_Multiary *)node, indent);
         } break;
         case Untyped_AST_Kind::Comma: {
-            print_block_at_indent(",", (Untyped_AST_Block *)node, indent);
+            print_multiary_at_indent(",", (Untyped_AST_Multiary *)node, indent);
+        } break;
+        case Untyped_AST_Kind::Tuple: {
+            print_multiary_at_indent("tuple", (Untyped_AST_Multiary *)node, indent);
         } break;
         case Untyped_AST_Kind::Let: {
             Untyped_AST_Let *let = (Untyped_AST_Let *)node;
@@ -316,7 +323,9 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
             if (let->specified_type) {
                 print_sub_at_indent("type", let->specified_type.get(), indent + 1);
             }
-            print_sub_at_indent("init", let->initializer.get(), indent + 1);
+            if (let->initializer) {
+                print_sub_at_indent("init", let->initializer.get(), indent + 1);
+            }
         } break;
         case Untyped_AST_Kind::Type_Signiture: {
             Untyped_AST_Type_Signiture *sig = (Untyped_AST_Type_Signiture *)node;
