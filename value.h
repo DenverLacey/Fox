@@ -55,11 +55,12 @@ union Value {
     runtime::Pointer p;
 };
 
+struct Value_Type;
+
 struct Unresolved_Type_Data {
     String id;
 };
 
-struct Value_Type;
 struct Ptr_Type_Data {
     Value_Type *subtype;
 };

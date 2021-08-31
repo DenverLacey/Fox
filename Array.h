@@ -9,6 +9,7 @@
 #pragma once
 
 #include "typedefs.h"
+#include <memory>
 
 template<typename T>
 class Array {
@@ -55,6 +56,12 @@ public:
         _size++;
         _data = (T *)realloc(_data, _size);
         _data[_size-1] = item;
+    }
+    
+    void add(T &&item) {
+        _size++;
+        _data = (T *)realloc(_data, _size);
+        _data[_size-1] = std::forward<T>(item);
     }
     
     size_t reserve(size_t additional) {

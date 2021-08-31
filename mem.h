@@ -35,22 +35,15 @@ Ref<To> cast(Ref<From> &&from) {
     return cast<To>(from);
 }
 
-template<typename = void>
-struct remove_ref;
-
-template<typename T>
-struct remove_ref<Ref<T>> {
-    using type = T;
-};
-
-template<typename T>
-struct remove_ref<T*> {
-    using type = T;
-};
+template<typename = void> struct remove_ref;
+template<typename T> struct remove_ref<Ref<T>> { using type = T; };
+template<typename T> struct remove_ref<T*> { using type = T; };
 
 template<typename C>
 auto flatten(const C &container) {
-    using R = typename C::value_type;
+    using R = typename std::remove_reference<
+                            decltype(std::declval<C>()[size_t{}])
+                        >::type;
     using T = typename remove_ref<R>::type;
     T *buffer = new T[container.size()];
     for (size_t i = 0; i < container.size(); i++) {
@@ -61,7 +54,7 @@ auto flatten(const C &container) {
 
 template<typename C, typename F>
 auto flatten(const C &container, F producer) {
-    using T = decltype(producer(container, 0));
+    using T = decltype(producer(container, size_t{}));
     T *buffer = new T[container.size()];
     for (size_t i = 0; i < container.size(); i++) {
         buffer[i] = producer(container, i);
