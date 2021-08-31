@@ -200,6 +200,7 @@ struct Parser {
         }
         
         verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
+        verify(initializer || is_mut, "'let' statements without an initializer must be marked 'mut'.");
         
         return make<Untyped_AST_Let>(id, is_mut, std::move(specified_type), std::move(initializer));
     }

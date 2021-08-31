@@ -511,7 +511,7 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given (%s).", lhs->type.debug_str());
             auto i = cast<Typed_AST_Int>(rhs);
             internal_verify(i, "Dot_Tuple got a rhs that wasn't an int.");
-            verify(i->value < lhs->type.data.tuple.num_subtypes, "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
+            verify(i->value < lhs->type.data.tuple.subtypes.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.subtypes[i->value], std::move(lhs), std::move(i));
         } break;
             

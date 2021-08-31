@@ -7,7 +7,7 @@
 //
 
 // @TODOS:
-// [ ]  Add checking that variable declarations are marked 'mut'.
+// [x]  Add checking that variable declarations are marked 'mut'.
 //
 
 #include <iostream>

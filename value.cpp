@@ -36,7 +36,7 @@ Size Value_Type::size() const {
             return sizeof(runtime::Pointer);
         case Value_Type_Kind::Tuple: {
             Size size = 0;
-            for (size_t i = 0; i < data.tuple.num_subtypes; i++) {
+            for (size_t i = 0; i < data.tuple.subtypes.size(); i++) {
                 size += data.tuple.subtypes[i].size();
             }
             return size;
@@ -91,9 +91,9 @@ char *Value_Type::debug_str() const {
             break;
         case Value_Type_Kind::Tuple:
             s << "(";
-            for (size_t i = 0; i < data.tuple.num_subtypes; i++) {
+            for (size_t i = 0; i < data.tuple.subtypes.size(); i++) {
                 s << data.tuple.subtypes[i].debug_str();
-                if (i + 1 < data.tuple.num_subtypes) s << ", ";
+                if (i + 1 < data.tuple.subtypes.size()) s << ", ";
             }
             s << ")";
             break;
@@ -118,10 +118,10 @@ bool operator==(const Value_Type &a, const Value_Type &b) {
         case Value_Type_Kind::Ptr:
             return *a.data.ptr.subtype == *b.data.ptr.subtype;
         case Value_Type_Kind::Tuple:
-            if (a.data.tuple.num_subtypes != b.data.tuple.num_subtypes) {
+            if (a.data.tuple.subtypes.size() != b.data.tuple.subtypes.size()) {
                 return false;
             }
-            for (size_t i = 0; i < a.data.tuple.num_subtypes; i++) {
+            for (size_t i = 0; i < a.data.tuple.subtypes.size(); i++) {
                 auto ai = a.data.tuple.subtypes[i];
                 auto bi = b.data.tuple.subtypes[i];
                 if (ai != bi) {
@@ -162,8 +162,7 @@ namespace value_types {
     Value_Type tup_from(size_t count, Value_Type *subtypes) {
         Value_Type ty;
         ty.kind = Value_Type_Kind::Tuple;
-        ty.data.tuple.num_subtypes = count;
-        ty.data.tuple.subtypes = subtypes;
+        ty.data.tuple.subtypes = Array { count, subtypes };
         return ty;
     }
 }

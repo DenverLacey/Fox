@@ -9,6 +9,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "Array.h"
 #include "String.h"
 #include "mem.h"
 
@@ -64,8 +65,7 @@ struct Ptr_Type_Data {
 };
 
 struct Tuple_Type_Data {
-    size_t num_subtypes;
-    Value_Type *subtypes;
+    Array<Value_Type> subtypes;
     
     Size offset_of_type(size_t idx);
 };
@@ -142,8 +142,7 @@ Value_Type tup_of(Ts ...subtypes) {
     
     Value_Type ty;
     ty.kind = Value_Type_Kind::Tuple;
-    ty.data.tuple.num_subtypes = num_types;
-    ty.data.tuple.subtypes = buffer;
+    ty.data.tuple.subtypes = Array { num_types, buffer };
     return ty;
 }
 } // namespace value_types
