@@ -222,6 +222,9 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
             Typed_AST_Str *lit = (Typed_AST_Str *)node;
             printf("%.*s\n", lit->value.size(), lit->value.c_str());
         } break;
+        case Typed_AST_Kind::Negation: {
+            print_unary_at_indent("-", (Typed_AST_Unary *)node, indent);
+        } break;
         case Typed_AST_Kind::Not: {
             print_unary_at_indent("!", (Typed_AST_Unary *)node, indent);
         } break;
@@ -400,6 +403,11 @@ Ref<Typed_AST> Untyped_AST_Str::typecheck(Typer &t) {
 Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
     auto sub = this->sub->typecheck(t);
     switch (kind) {
+        case Untyped_AST_Kind::Negation:
+            verify(sub->type.kind == Value_Type_Kind::Int ||
+                   sub->type.kind == Value_Type_Kind::Float,
+                   "(-) requires operand to be an (int) or a (float) but was given (%s).", sub->type.debug_str());
+            return make<Typed_AST_Unary>(Typed_AST_Kind::Negation, sub->type, std::move(sub));
         case Untyped_AST_Kind::Not:
             verify(sub->type.kind == Value_Type_Kind::Bool, "(!) requires operand to be a (bool) but got a (%s).", sub->type.debug_str());
             return make<Typed_AST_Unary>(Typed_AST_Kind::Not, value_types::Bool, std::move(sub));

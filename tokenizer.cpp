@@ -46,6 +46,14 @@ struct Source_Iterator {
         return utf8::unchecked::peek_next(cur);
     }
     
+    char32_t peek_n(size_t n) const {
+        char *it = cur;
+        while (n-- > 0) {
+            utf8::next(it, end);
+        }
+        return utf8::next(it, end);
+    }
+    
     bool match(char32_t c) {
         if (peek() == c) {
             next();
@@ -76,10 +84,31 @@ struct Source_Iterator {
     }
 };
 
+static bool is_beginning_of_number(Source_Iterator &src) {
+    return isdigit(src.peek()) ||
+    ((src.peek() == '-' || src.peek() == '.') && isdigit(src.peek_n(1))) ||
+    ((src.peek() == '-' && src.peek_n(1) == '.') && isdigit(src.peek_n(2)));
+}
+
+static void remove_underscores(char *s, size_t len) {
+    int i = 0;
+    while (i < len) {
+        if (s[i] == '_') {
+            memmove(&s[i], &s[i + 1], len - i);
+            continue;
+        }
+        i++;
+    }
+}
+
 static Token number(Source_Iterator &src) {
     char *word = src.cur;
+    if (src.peek() == '-') src.next();
     char *word_end = src.cur;
-    while (isdigit(src.peek())) {
+    bool underscores = false;
+    
+    while (isdigit(src.peek()) || src.peek() == '_') {
+        if (src.peek() == '_') underscores = true;
         src.next();
         word_end = src.cur;
     }
@@ -87,24 +116,27 @@ static Token number(Source_Iterator &src) {
     bool is_float = false;
     if (src.match('.')) {
         is_float = true;
-        while (isdigit(src.peek())) {
+        while (isdigit(src.peek()) || src.peek() == '_') {
+            if (src.peek() == '_') underscores = true;
             src.next();
             word_end = src.cur;
         }
     }
     
-    String num_str = String::copy(word, word_end - word);
+    size_t len = word_end - word;
+    char *num_str = strndup(word, len);
+    if (underscores) remove_underscores(num_str, len);
     Token t;
     
     if (is_float) {
         t.kind = Token_Kind::Float;
-        t.data.f = atof(num_str.c_str());
+        t.data.f = atof(num_str);
     } else {
         t.kind = Token_Kind::Int;
-        t.data.i = atoll(num_str.c_str());
+        t.data.i = atoll(num_str);
     }
     
-    num_str.free();
+    free(num_str);
     
     return t;
 }
@@ -147,6 +179,9 @@ static Token punctuation(Source_Iterator &src) {
         case ')': t.kind = Token_Kind::Right_Paren; break;
         case '{': t.kind = Token_Kind::Left_Curly; break;
         case '}': t.kind = Token_Kind::Right_Curly; break;
+            
+        // keywords
+        case '_': t.kind = Token_Kind::Underscore; break;
             
         // operators
         case '+':
@@ -242,14 +277,14 @@ static Token punctuation(Source_Iterator &src) {
     return t;
 }
 
-static bool is_alphabetic(char32_t c) {
-    return !(isdigit(c) || ispunct(c) || isspace(c) || isblank(c) || iscntrl(c));
+static bool is_ident_char(char32_t c) {
+    return c == '_' || !(ispunct(c) || isspace(c) || isblank(c) || iscntrl(c));
 }
 
 static Token identifier_or_keyword(Source_Iterator &src) {
     char *_word = src.cur;
     char *_word_end = src.cur;
-    while (is_alphabetic(src.peek())) {
+    while (is_ident_char(src.peek())) {
         src.next();
         _word_end = src.cur;
     }
@@ -286,7 +321,7 @@ static Token identifier_or_keyword(Source_Iterator &src) {
 static Token next_token(Source_Iterator &src) {
     auto c = src.peek();
     Token t;
-    if (isdigit(c)) {
+    if (is_beginning_of_number(src)) {
         t = number(src);
     } else if (c == '\'') {
         t = character(src);

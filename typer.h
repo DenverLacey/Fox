@@ -22,6 +22,7 @@ enum class Typed_AST_Kind {
     Str,
     
     // unary
+    Negation,
     Not,
     Address_Of,
     Address_Of_Mut,

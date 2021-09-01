@@ -35,6 +35,7 @@ enum class Token_Kind {
     Right_Curly,    // }
     
     // keyword
+    Underscore,
     Let,
     Mut,
     If,

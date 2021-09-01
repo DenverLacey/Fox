@@ -403,6 +403,13 @@ static bool emit_address_code(Compiler &c, Typed_AST &node) {
 void Typed_AST_Unary::compile(Compiler &c) {
     int stack_top = c.stack_top;
     switch (kind) {
+        case Typed_AST_Kind::Negation:
+            sub->compile(c);
+            if (sub->type.kind == Value_Type_Kind::Int)
+                c.emit_opcode(Opcode::Int_Neg);
+            else
+                c.emit_opcode(Opcode::Float_Neg);
+            break;
         case Typed_AST_Kind::Not:
             sub->compile(c);
             c.emit_opcode(Opcode::Not);

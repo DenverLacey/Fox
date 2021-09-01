@@ -340,6 +340,9 @@ struct Parser {
                 break;
                 
             // operators
+            case Token_Kind::Dash:
+                a = parse_unary(Untyped_AST_Kind::Negation);
+                break;
             case Token_Kind::Bang:
                 a = parse_unary(Untyped_AST_Kind::Not);
                 break;

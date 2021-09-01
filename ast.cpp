@@ -233,6 +233,9 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
             Untyped_AST_Str *lit = (Untyped_AST_Str *)node;
             printf("%.*s\n", lit->value.size(), lit->value.c_str());
         } break;
+        case Untyped_AST_Kind::Negation: {
+            print_unary_at_indent("-", (Untyped_AST_Unary *)node, indent);
+        } break;
         case Untyped_AST_Kind::Not: {
             print_unary_at_indent("!", (Untyped_AST_Unary *)node, indent);
         } break;
