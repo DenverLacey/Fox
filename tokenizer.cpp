@@ -141,10 +141,67 @@ static Token number(Source_Iterator &src) {
     return t;
 }
 
+static size_t replace_escape_sequence(char *s, size_t len) {
+    int i = 0;
+    while (i < len) {
+        if (s[i] != '\\') {
+            i++;
+            continue;
+        }
+        
+        switch (s[i+1]) {
+            case '0':
+                s[i] = '\0';
+                break;
+            case 'n':
+                s[i] = '\n';
+                break;
+            case 't':
+                s[i] = '\t';
+                break;
+            case '\\':
+                s[i] = '\\';
+                break;
+            case '"':
+                s[i] = '"';
+                break;
+            case '\'':
+                s[i] = '\'';
+                break;
+                
+            default:
+                error("Expected an escape sequence but got '%.*s'", len-i, &s[i]);
+                break;
+        }
+        
+        memmove(&s[i+1], &s[i+2], len - i - 1);
+        i++;
+        len--;
+    }
+    
+    return len;
+}
+
 static Token character(Source_Iterator &src) {
     verify(src.next() == '\'', "Character literals must start with a '.");
-    auto c = src.next();
+    
+    char *word = src.cur;
+    char *word_end = src.cur;
+    while (src.peek() != '\'') {
+        if (src.peek() == '\\') src.next();
+        src.next();
+        word_end = src.cur;
+    }
+    
     verify(src.next() == '\'', "Character literals must end with a '.");
+    
+    size_t len = word_end - word;
+    char *cs = strndup(word, len);
+    len = replace_escape_sequence(cs, len);
+    verify(len == 1, "Character literals must contain exactly one character.");
+    char c = *cs;
+    free(cs);
+    
     Token t;
     t.kind = Token_Kind::Char;
     t.data.c = c;
@@ -152,13 +209,22 @@ static Token character(Source_Iterator &src) {
 }
 
 static Token string(Source_Iterator &src) {
-    src.next(); // skip first "
+    verify(src.next() == '"', "String literals must start with a \".");
+    
     char *word = src.cur;
     char *word_end = src.cur;
-    while (src.next() != '"') {
+    while (src.peek() != '"') {
+        if (src.peek() == '\\') src.next();
+        src.next();
         word_end = src.cur;
     }
-    String s(word, word_end - word);
+    
+    verify(src.next() == '"', "String literals must end with a \".");
+    
+    size_t len = word_end - word;
+    char *cs = strndup(word, len);
+    len = replace_escape_sequence(cs, len);
+    String s(cs, len);
     
     Token t;
     t.kind = Token_Kind::String;

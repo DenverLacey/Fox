@@ -336,7 +336,7 @@ struct Parser {
                  a = make<Untyped_AST_Char>(token.data.c);
                 break;
             case Token_Kind::String:
-                 a = make<Untyped_AST_Str>(token.data.s.clone());
+                 a = make<Untyped_AST_Str>(token.data.s);
                 break;
                 
             // operators

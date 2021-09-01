@@ -204,7 +204,7 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
         } break;
         case Typed_AST_Kind::Char: {
             Typed_AST_Char *lit = (Typed_AST_Char *)node;
-            printf("%s\n", utf8char_t::from_char32(lit->value).buf);
+            printf("'%s'\n", utf8char_t::from_char32(lit->value).buf);
         } break;
         case Typed_AST_Kind::Float: {
             Typed_AST_Float *lit = (Typed_AST_Float *)node;
@@ -220,7 +220,7 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
         } break;
         case Typed_AST_Kind::Str: {
             Typed_AST_Str *lit = (Typed_AST_Str *)node;
-            printf("%.*s\n", lit->value.size(), lit->value.c_str());
+            printf("\"%.*s\"\n", lit->value.size(), lit->value.c_str());
         } break;
         case Typed_AST_Kind::Negation: {
             print_unary_at_indent("-", (Typed_AST_Unary *)node, indent);

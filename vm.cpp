@@ -348,7 +348,7 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
             case Opcode::Lit_Char: {
                 MARK(i);
                 runtime::Char c = READ(runtime::Char, i);
-                printf(IDX "Lit_Char (%s)\n", mark, utf8char_t::from_char32(c).buf);
+                printf(IDX "Lit_Char '%s'\n", mark, utf8char_t::from_char32(c).buf);
             } break;
             case Opcode::Lit_Int: {
                 MARK(i);
@@ -367,7 +367,7 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 size_t constant = READ(size_t, i);
                 size_t len = *(size_t *)&str_constants[constant];
                 char *s    = (char *)&str_constants[constant + sizeof(size_t)];
-                printf(IDX "Load_Const_String [%zu] (%.*s)\n", mark, constant, len, s);
+                printf(IDX "Load_Const_String [%zu] \"%.*s\"\n", mark, constant, len, s);
             } break;
             case Opcode::Load_Const: {
                 MARK(i);

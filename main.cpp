@@ -9,7 +9,7 @@
 // @TODOS:
 // [x]  Beef-up the tokenizer to accept more complicated number literals and
 //      identifiers.
-// [ ]  Beef-up the tokenizer to accept more complicated string and char literals
+// [x]  Beef-up the tokenizer to accept more complicated string and char literals
 //      with escape characters.
 // [x]  Add negation operation.
 // [ ]  Maybe add absolute-value operator (unary +)?
