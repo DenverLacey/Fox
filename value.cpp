@@ -121,6 +121,68 @@ char *Value_Type::debug_str() const {
     return debug_str;
 }
 
+Value_Type *Value_Type::child_type() {
+    switch (kind) {
+        case Value_Type_Kind::Ptr:
+            return data.ptr.child_type;
+        case Value_Type_Kind::Array:
+            return data.array.element_type;
+        case Value_Type_Kind::Slice:
+            return data.slice.element_type;
+        case Value_Type_Kind::Tuple:
+            return data.tuple.child_types.data();
+    }
+    
+    return nullptr;
+}
+
+Value_Type Value_Type::clone() const {
+    Value_Type ty;
+    ty.kind = kind;
+    switch (kind) {
+        case Value_Type_Kind::Unresolved_Type:
+            ty.data.unresolved.id = data.unresolved.id.clone();
+            break;
+        case Value_Type_Kind::Ptr: {
+            Value_Type *child = make<Value_Type>().release();
+            *child = data.ptr.child_type->clone();
+            ty.data.ptr.child_type = child;
+        } break;
+        case Value_Type_Kind::Array: {
+            Value_Type *child = make<Value_Type>().release();
+            *child = data.array.element_type->clone();
+            ty.data.array.element_type = child;
+        } break;
+        case Value_Type_Kind::Slice: {
+            Value_Type *child = make<Value_Type>().release();
+            *child = data.array.element_type->clone();
+            ty.data.slice.element_type = child;
+        } break;
+        case Value_Type_Kind::Tuple:
+            ty.data.tuple.child_types = data.tuple.child_types.clone();
+            break;
+            
+        case Value_Type_Kind::None:  break;
+        case Value_Type_Kind::Void:  break;
+        case Value_Type_Kind::Bool:  break;
+        case Value_Type_Kind::Char:  break;
+        case Value_Type_Kind::Int:   break;
+        case Value_Type_Kind::Float: break;
+        case Value_Type_Kind::Str:   break;
+            
+        case Value_Type_Kind::Struct:
+        case Value_Type_Kind::Enum:
+            internal_error("Struct and Enum can't be cloned yet.");
+            break;
+            
+        default:
+            internal_error("Unknown Value_Type_Kind: %d.", kind);
+            break;
+    }
+    
+    return ty;
+}
+
 bool operator==(const Value_Type &a, const Value_Type &b) {
     if (a.kind != b.kind) {
         return false;
@@ -187,10 +249,10 @@ Value_Type slice_of(Value_Type *element_type) {
     return ty;
 }
     
-Value_Type tup_from(size_t count, Value_Type *subtypes) {
+Value_Type tup_from(size_t count, Value_Type *child_types) {
     Value_Type ty;
     ty.kind = Value_Type_Kind::Tuple;
-    ty.data.tuple.child_types = ::Array { count, subtypes };
+    ty.data.tuple.child_types = ::Array { count, child_types };
     return ty;
 }
 } // namespace value_types

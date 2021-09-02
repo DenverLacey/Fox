@@ -592,11 +592,21 @@ Ref<Typed_AST> Untyped_AST_Multiary::typecheck(Typer &t) {
     return multi;
 }
 
+//
+// @NOTE:
+//      Changing element_type here also modifies the Untyped node which might
+//      not be ok in the future.
+//
 Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
     auto element_nodes = cast<Typed_AST_Multiary>(this->element_nodes->typecheck(t));
-    Value_Type element_type = *(kind == Untyped_AST_Kind::Array ? array_type->data.array.element_type : array_type->data.slice.element_type);
+    Value_Type *element_type = array_type->child_type();
+    internal_verify(element_type, "Could not get pointer to element type of array type.");
+    if (element_type->kind == Value_Type_Kind::None) {
+        verify(element_nodes->nodes.size() > 0, "Cannot infer element type of empty array literal.");
+        *element_type = element_nodes->nodes[0]->type;
+    }
     for (size_t i = 0; i < element_nodes->nodes.size(); i++) {
-        verify(element_nodes->nodes[i]->type == element_type, "Element %zu in array literal does not match the expected type (%s).", i+1, element_type.debug_str());
+        verify(element_nodes->nodes[i]->type == *element_type, "Element %zu in array literal does not match the expected type (%s).", i+1, element_type->debug_str());
     }
     return make<Typed_AST_Array>(*array_type, to_typed(kind), count, std::move(array_type), std::move(element_nodes));
 }

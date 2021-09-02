@@ -522,7 +522,13 @@ struct Parser {
             expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
         }
         
-        auto element_type = parse_type_signiture().release();
+        Value_Type *element_type = nullptr;
+        if (check(Token_Kind::Left_Curly)) {
+            element_type = make<Value_Type>().release();
+            element_type->kind = Value_Type_Kind::None;
+        } else {
+            element_type = parse_type_signiture().release();
+        }
         
         expect(Token_Kind::Left_Curly, "Expected '{' in array literal.");
         auto element_nodes = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
@@ -530,8 +536,8 @@ struct Parser {
             do {
                 element_nodes->add(parse_precedence(Precedence::Comma + 1));
             } while (match(Token_Kind::Comma) && has_more());
-            expect(Token_Kind::Right_Curly, "Expected '}' to terminate array literal.");
         }
+        expect(Token_Kind::Right_Curly, "Expected '}' to terminate array literal.");
         
         if (!infer_count) {
             verify(count == element_nodes->nodes.size(), "Incorrect number of elements in array literal. Expected %zu but was given %zu.", count, element_nodes->nodes.size());

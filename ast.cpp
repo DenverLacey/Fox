@@ -128,8 +128,9 @@ Untyped_AST_Type_Signiture::Untyped_AST_Type_Signiture(Ref<Value_Type> value_typ
 }
 
 Ref<Untyped_AST> Untyped_AST_Type_Signiture::clone() {
-    assert(false);
-    return nullptr;
+    Ref<Value_Type> type = make<Value_Type>();
+    *type = value_type->clone();
+    return make<Untyped_AST_Type_Signiture>(std::move(type));
 }
 
 Untyped_AST_Array::Untyped_AST_Array(
@@ -145,8 +146,14 @@ Untyped_AST_Array::Untyped_AST_Array(
 }
 
 Ref<Untyped_AST> Untyped_AST_Array::clone() {
-    assert(false);
-    return nullptr;
+    Ref<Value_Type> type = make<Value_Type>();
+    *type = array_type->clone();
+    return make<Untyped_AST_Array>(
+        kind,
+        count,
+        std::move(type),
+        cast<Untyped_AST_Multiary>(element_nodes->clone())
+    );
 }
 
 Untyped_AST_If::Untyped_AST_If(

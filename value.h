@@ -107,6 +107,8 @@ struct Value_Type {
     
     Size size() const;
     char *debug_str() const;
+    Value_Type *child_type();
+    Value_Type clone() const;
 };
 
 bool operator==(const Value_Type &a, const Value_Type &b);
@@ -128,16 +130,16 @@ inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
 Value_Type ptr_to(Value_Type *child_type);
 Value_Type array_of(size_t count, Value_Type *element_type);
 Value_Type slice_of(Value_Type *element_type);
-Value_Type tup_from(size_t count, Value_Type *subtypes);
+Value_Type tup_from(size_t count, Value_Type *child_types);
 
 template<typename ...Ts>
-Value_Type tup_of(Ts ...subtypes) {
+Value_Type tup_of(Ts ...child_types) {
     size_t num_types = sizeof...(Ts);
     
     Value_Type *buffer = nullptr;
     if (num_types != 0) {
         buffer = new Value_Type[num_types];
-        std::initializer_list<Value_Type> subtype_list = { subtypes... };
+        std::initializer_list<Value_Type> subtype_list = { child_types... };
         Value_Type *it = buffer;
         for (auto &ty : subtype_list) {
             *it = ty;
