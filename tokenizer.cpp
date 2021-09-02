@@ -46,7 +46,7 @@ struct Source_Iterator {
         return utf8::unchecked::peek_next(cur);
     }
     
-    char32_t peek_n(size_t n) const {
+    char32_t peek(size_t n) const {
         char *it = cur;
         while (n-- > 0) {
             utf8::next(it, end);
@@ -86,8 +86,8 @@ struct Source_Iterator {
 
 static bool is_beginning_of_number(Source_Iterator &src) {
     return isdigit(src.peek()) ||
-    ((src.peek() == '-' || src.peek() == '.') && isdigit(src.peek_n(1))) ||
-    ((src.peek() == '-' && src.peek_n(1) == '.') && isdigit(src.peek_n(2)));
+    ((src.peek() == '-' || src.peek() == '.') && isdigit(src.peek(1))) ||
+    ((src.peek() == '-' && src.peek(1) == '.') && isdigit(src.peek(2)));
 }
 
 static void remove_underscores(char *s, size_t len) {
@@ -187,8 +187,12 @@ static Token character(Source_Iterator &src) {
     
     char *word = src.cur;
     char *word_end = src.cur;
-    while (src.peek() != '\'') {
-        if (src.peek() == '\\') src.next();
+    bool escape_sequences = false;
+    while (src.peek() != '"') {
+        if (src.peek() == '\\') {
+            escape_sequences = true;
+            src.next();
+        }
         src.next();
         word_end = src.cur;
     }
@@ -197,7 +201,7 @@ static Token character(Source_Iterator &src) {
     
     size_t len = word_end - word;
     char *cs = strndup(word, len);
-    len = replace_escape_sequence(cs, len);
+    if (escape_sequences) len = replace_escape_sequence(cs, len);
     verify(len == 1, "Character literals must contain exactly one character.");
     char c = *cs;
     free(cs);
@@ -213,8 +217,12 @@ static Token string(Source_Iterator &src) {
     
     char *word = src.cur;
     char *word_end = src.cur;
+    bool escape_sequences = false;
     while (src.peek() != '"') {
-        if (src.peek() == '\\') src.next();
+        if (src.peek() == '\\') {
+            escape_sequences = true;
+            src.next();
+        }
         src.next();
         word_end = src.cur;
     }
@@ -223,7 +231,7 @@ static Token string(Source_Iterator &src) {
     
     size_t len = word_end - word;
     char *cs = strndup(word, len);
-    len = replace_escape_sequence(cs, len);
+    if (escape_sequences) len = replace_escape_sequence(cs, len);
     String s(cs, len);
     
     Token t;
@@ -245,6 +253,8 @@ static Token punctuation(Source_Iterator &src) {
         case ')': t.kind = Token_Kind::Right_Paren; break;
         case '{': t.kind = Token_Kind::Left_Curly; break;
         case '}': t.kind = Token_Kind::Right_Curly; break;
+        case '[': t.kind = Token_Kind::Left_Bracket; break;
+        case ']': t.kind = Token_Kind::Right_Bracket; break;
             
         // keywords
         case '_': t.kind = Token_Kind::Underscore; break;

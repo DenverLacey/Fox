@@ -20,6 +20,8 @@ enum class Typed_AST_Kind {
     Ident,
     Int,
     Str,
+    Array,
+    Slice,
     
     // unary
     Negation,
@@ -144,6 +146,15 @@ struct Typed_AST_Multiary : public Typed_AST {
     
     Typed_AST_Multiary(Typed_AST_Kind kind);
     void add(Ref<Typed_AST> node);
+    void compile(Compiler &c) override;
+};
+
+struct Typed_AST_Array : public Typed_AST {
+    size_t count;
+    Ref<Value_Type> array_type;
+    Ref<Typed_AST_Multiary> element_nodes;
+    
+    Typed_AST_Array(Value_Type type, Typed_AST_Kind kind, size_t count, Ref<Value_Type> array_type, Ref<Typed_AST_Multiary> element_nodes);
     void compile(Compiler &c) override;
 };
 

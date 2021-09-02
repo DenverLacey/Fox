@@ -13,7 +13,7 @@
 
 #include "utfcpp/utf8.h"
 
-String::String(char *data, std::size_t size)
+String::String(char *data, size_t size)
     : _data(data), _size(size)
 {
 }

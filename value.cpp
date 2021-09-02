@@ -34,10 +34,14 @@ Size Value_Type::size() const {
             return sizeof(runtime::String);
         case Value_Type_Kind::Ptr:
             return sizeof(runtime::Pointer);
+        case Value_Type_Kind::Array:
+            return data.array.count * data.array.element_type->size();
+        case Value_Type_Kind::Slice:
+            return sizeof(runtime::Slice);
         case Value_Type_Kind::Tuple: {
             Size size = 0;
-            for (size_t i = 0; i < data.tuple.subtypes.size(); i++) {
-                size += data.tuple.subtypes[i].size();
+            for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
+                size += data.tuple.child_types[i].size();
             }
             return size;
         }
@@ -87,13 +91,21 @@ char *Value_Type::debug_str() const {
             break;
         case Value_Type_Kind::Ptr:
             s << "*";
-            s << data.ptr.subtype->debug_str();
+            s << data.ptr.child_type->debug_str();
+            break;
+        case Value_Type_Kind::Array:
+            s << "[" << data.array.count << "]";
+            s << data.array.element_type->debug_str();
+            break;
+        case Value_Type_Kind::Slice:
+            s << "[]";
+            s << data.slice.element_type->debug_str();
             break;
         case Value_Type_Kind::Tuple:
             s << "(";
-            for (size_t i = 0; i < data.tuple.subtypes.size(); i++) {
-                s << data.tuple.subtypes[i].debug_str();
-                if (i + 1 < data.tuple.subtypes.size()) s << ", ";
+            for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
+                s << data.tuple.child_types[i].debug_str();
+                if (i + 1 < data.tuple.child_types.size()) s << ", ";
             }
             s << ")";
             break;
@@ -116,14 +128,18 @@ bool operator==(const Value_Type &a, const Value_Type &b) {
     
     switch (a.kind) {
         case Value_Type_Kind::Ptr:
-            return *a.data.ptr.subtype == *b.data.ptr.subtype;
+            return *a.data.ptr.child_type == *b.data.ptr.child_type;
+        case Value_Type_Kind::Array:
+            return a.data.array.count == b.data.array.count && *a.data.array.element_type == *b.data.array.element_type;
+        case Value_Type_Kind::Slice:
+            return *a.data.slice.element_type == *b.data.slice.element_type;
         case Value_Type_Kind::Tuple:
-            if (a.data.tuple.subtypes.size() != b.data.tuple.subtypes.size()) {
+            if (a.data.tuple.child_types.size() != b.data.tuple.child_types.size()) {
                 return false;
             }
-            for (size_t i = 0; i < a.data.tuple.subtypes.size(); i++) {
-                auto ai = a.data.tuple.subtypes[i];
-                auto bi = b.data.tuple.subtypes[i];
+            for (size_t i = 0; i < a.data.tuple.child_types.size(); i++) {
+                auto ai = a.data.tuple.child_types[i];
+                auto bi = b.data.tuple.child_types[i];
                 if (ai != bi) {
                     return false;
                 }
@@ -145,22 +161,36 @@ bool operator!=(const Value_Type &a, const Value_Type &b) {
 Size Tuple_Type_Data::offset_of_type(size_t idx) {
     Size size = 0;
     for (size_t i = 0; i < idx; i++) {
-        size += subtypes[i].size();
+        size += child_types[i].size();
     }
     return size;
 }
 
 namespace value_types {
-    Value_Type ptr_to(Value_Type *subtype) {
-        auto pty = Ptr;
-        pty.data.ptr.subtype = subtype;
-        return pty;
-    }
-    
-    Value_Type tup_from(size_t count, Value_Type *subtypes) {
-        Value_Type ty;
-        ty.kind = Value_Type_Kind::Tuple;
-        ty.data.tuple.subtypes = Array { count, subtypes };
-        return ty;
-    }
+Value_Type ptr_to(Value_Type *child_type) {
+    auto pty = Ptr;
+    pty.data.ptr.child_type = child_type;
+    return pty;
 }
+
+Value_Type array_of(size_t count, Value_Type *element_type) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Array;
+    ty.data.array = { count, element_type };
+    return ty;
+}
+
+Value_Type slice_of(Value_Type *element_type) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Slice;
+    ty.data.slice = { element_type };
+    return ty;
+}
+    
+Value_Type tup_from(size_t count, Value_Type *subtypes) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Tuple;
+    ty.data.tuple.child_types = ::Array { count, subtypes };
+    return ty;
+}
+} // namespace value_types

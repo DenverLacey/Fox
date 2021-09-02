@@ -87,6 +87,20 @@ void Typed_AST_Multiary::add(Ref<Typed_AST> node) {
     nodes.push_back(std::move(node));
 }
 
+Typed_AST_Array::Typed_AST_Array(
+    Value_Type type,
+    Typed_AST_Kind kind,
+    size_t count,
+    Ref<Value_Type> array_type,
+    Ref<Typed_AST_Multiary> element_nodes)
+{
+    this->type = type;
+    this->kind = kind;
+    this->count = count;
+    this->array_type = std::move(array_type);
+    this->element_nodes = std::move(element_nodes);
+}
+
 Typed_AST_If::Typed_AST_If(
     Value_Type type,
     Ref<Typed_AST> cond,
@@ -130,6 +144,9 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Ident:           return Typed_AST_Kind::Ident;
         case Untyped_AST_Kind::Int:             return Typed_AST_Kind::Int;
         case Untyped_AST_Kind::Str:             return Typed_AST_Kind::Str;
+        case Untyped_AST_Kind::Array:           return Typed_AST_Kind::Array;
+        case Untyped_AST_Kind::Slice:           return Typed_AST_Kind::Slice;
+        case Untyped_AST_Kind::Negation:        return Typed_AST_Kind::Negation;
         case Untyped_AST_Kind::Not:             return Typed_AST_Kind::Not;
         case Untyped_AST_Kind::Address_Of:      return Typed_AST_Kind::Address_Of;
         case Untyped_AST_Kind::Address_Of_Mut:  return Typed_AST_Kind::Address_Of_Mut;
@@ -323,6 +340,18 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
             Typed_AST_Type_Signiture *sig = (Typed_AST_Type_Signiture *)node;
             printf("%s\n", sig->value_type->debug_str());
         } break;
+        case Typed_AST_Kind::Array:
+        case Typed_AST_Kind::Slice: {
+            Typed_AST_Array *array = (Typed_AST_Array *)node;
+            if (array->array_type->kind == Value_Type_Kind::Array) {
+                printf("(array)\n");
+            } else {
+                printf("(slice)\n");
+            }
+            printf("%*scount: %zu\n", (indent + 1) * INDENT_SIZE, "", array->count);
+            printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
+            print_sub_at_indent("elems", array->element_nodes.get(), indent + 1);
+        } break;
             
         default:
             assert(false);
@@ -414,7 +443,7 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Address_Of: {
             verify(sub->type.kind != Value_Type_Kind::None, "Cannot take a pointer to something that doesn't return a value.");
             auto pty = value_types::ptr_to(&sub->type);
-            pty.data.ptr.subtype->is_mut = false;
+            pty.data.ptr.child_type->is_mut = false;
             return make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of, pty, std::move(sub));
         }
         case Untyped_AST_Kind::Address_Of_Mut: {
@@ -425,7 +454,7 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
         }
         case Untyped_AST_Kind::Deref:
             verify(sub->type.kind == Value_Type_Kind::Ptr, "Cannot dereference something of type (%s) because it is not a pointer type.", sub->type.debug_str());
-            return make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.subtype, std::move(sub));
+            return make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.child_type, std::move(sub));
             
         default:
             assert(false);
@@ -519,8 +548,8 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given (%s).", lhs->type.debug_str());
             auto i = cast<Typed_AST_Int>(rhs);
             internal_verify(i, "Dot_Tuple got a rhs that wasn't an int.");
-            verify(i->value < lhs->type.data.tuple.subtypes.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.subtypes[i->value], std::move(lhs), std::move(i));
+            verify(i->value < lhs->type.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
+            return make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.child_types[i->value], std::move(lhs), std::move(i));
         } break;
             
         case Untyped_AST_Kind::While:
@@ -561,6 +590,15 @@ Ref<Typed_AST> Untyped_AST_Multiary::typecheck(Typer &t) {
     }
     
     return multi;
+}
+
+Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
+    auto element_nodes = cast<Typed_AST_Multiary>(this->element_nodes->typecheck(t));
+    Value_Type element_type = *(kind == Untyped_AST_Kind::Array ? array_type->data.array.element_type : array_type->data.slice.element_type);
+    for (size_t i = 0; i < element_nodes->nodes.size(); i++) {
+        verify(element_nodes->nodes[i]->type == element_type, "Element %zu in array literal does not match the expected type (%s).", i+1, element_type.debug_str());
+    }
+    return make<Typed_AST_Array>(*array_type, to_typed(kind), count, std::move(array_type), std::move(element_nodes));
 }
 
 Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {

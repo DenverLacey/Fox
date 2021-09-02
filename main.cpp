@@ -13,6 +13,8 @@
 //      with escape characters.
 // [x]  Add negation operation.
 // [ ]  Maybe add absolute-value operator (unary +)?
+// [x]  Add array types.
+// [ ]  Add slice types.
 //
 
 #include <iostream>

@@ -51,6 +51,8 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Right_Paren: return Precedence::None;
         case Token_Kind::Left_Curly: return Precedence::None;
         case Token_Kind::Right_Curly: return Precedence::None;
+        case Token_Kind::Left_Bracket: return Precedence::Call;
+        case Token_Kind::Right_Bracket: return Precedence::None;
             
         // keywords
         case Token_Kind::Let: return Precedence::None;
@@ -231,10 +233,10 @@ struct Parser {
             case Token_Kind::Star: {
                 type->kind = Value_Type_Kind::Ptr;
                 if (match(Token_Kind::Mut)) {
-                    type->data.ptr.subtype = parse_type_signiture().release();
-                    type->data.ptr.subtype->is_mut = true;
+                    type->data.ptr.child_type = parse_type_signiture().release();
+                    type->data.ptr.child_type->is_mut = true;
                 } else {
-                    type->data.ptr.subtype = parse_type_signiture().release();
+                    type->data.ptr.child_type = parse_type_signiture().release();
                 }
             } break;
             case Token_Kind::Left_Paren: {
@@ -314,6 +316,9 @@ struct Parser {
                 if (a->kind == Untyped_AST_Kind::Comma) {
                     a->kind = Untyped_AST_Kind::Tuple;
                 }
+                break;
+            case Token_Kind::Left_Bracket:
+                a = parse_array_literal();
                 break;
                 
             // literals
@@ -496,6 +501,56 @@ struct Parser {
             kind = Untyped_AST_Kind::Dot;
         }
         return make<Untyped_AST_Binary>(kind, std::move(lhs), std::move(rhs));
+    }
+    
+    Ref<Untyped_AST_Array> parse_array_literal() {
+        Value_Type_Kind array_kind = Value_Type_Kind::Array;
+        bool infer_count = false;
+        size_t count = 0;
+        
+        if (match(Token_Kind::Right_Bracket)) {
+            array_kind = Value_Type_Kind::Slice;
+            infer_count = true;
+        } else {
+            if (match(Token_Kind::Underscore)) {
+                infer_count = true;
+            } else {
+                auto count_tok = next();
+                verify(count_tok.kind == Token_Kind::Int, "Expected an int to specify count for array literal.");
+                count = count_tok.data.i;
+            }
+            expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
+        }
+        
+        auto element_type = parse_type_signiture().release();
+        
+        expect(Token_Kind::Left_Curly, "Expected '{' in array literal.");
+        auto element_nodes = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
+        if (!check(Token_Kind::Right_Curly)) {
+            do {
+                element_nodes->add(parse_precedence(Precedence::Comma + 1));
+            } while (match(Token_Kind::Comma) && has_more());
+            expect(Token_Kind::Right_Curly, "Expected '}' to terminate array literal.");
+        }
+        
+        if (!infer_count) {
+            verify(count == element_nodes->nodes.size(), "Incorrect number of elements in array literal. Expected %zu but was given %zu.", count, element_nodes->nodes.size());
+        }
+        
+        count = element_nodes->nodes.size();
+        
+        Ref<Value_Type> array_type = nullptr;
+        if (array_kind == Value_Type_Kind::Array) {
+            array_type = make<Value_Type>(value_types::array_of(count, element_type));
+        } else {
+            array_type = make<Value_Type>(value_types::slice_of(element_type));
+        }
+        
+        return make<Untyped_AST_Array>(
+            array_kind == Value_Type_Kind::Array ? Untyped_AST_Kind::Array : Untyped_AST_Kind::Slice,
+            count,
+            std::move(array_type),
+            std::move(element_nodes));
     }
 };
 

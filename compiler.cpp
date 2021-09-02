@@ -14,6 +14,7 @@ Compiler::Compiler(Function_Definition *function) {
     stack_top = 0;
     parent = nullptr;
     global = this;
+    global_scope = nullptr;
     this->function = function;
 }
 
@@ -21,6 +22,7 @@ Compiler::Compiler(Compiler *parent, Function_Definition *function) {
     stack_top = parent->stack_top;
     this->parent = parent;
     global = parent->global;
+    global_scope = parent->global_scope;
     this->function = function;
 }
 
@@ -419,7 +421,7 @@ void Typed_AST_Unary::compile(Compiler &c) {
             emit_address_code(c, *sub.get());
             break;
         case Typed_AST_Kind::Deref: {
-            Size size = sub->type.data.ptr.subtype->size();
+            Size size = sub->type.data.ptr.child_type->size();
             sub->compile(c);
             c.emit_opcode(Opcode::Load);
             c.emit_size(size);
@@ -648,6 +650,14 @@ void Typed_AST_Multiary::compile(Compiler &c) {
         node->compile(c);
     }
     if (kind == Typed_AST_Kind::Block) c.end_scope();
+}
+
+void Typed_AST_Array::compile(Compiler &c) {
+    if (kind == Typed_AST_Kind::Array) {
+        element_nodes->compile(c);
+    } else {
+        internal_error("Slices not yet compilable.");
+    }
 }
 
 void Typed_AST_If::compile(Compiler &c) {

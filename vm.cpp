@@ -18,6 +18,7 @@
 #include <fstream>
 
 #define PRINT_DEBUG_DIAGNOSTICS 1
+#define TYPECHECK 1
 #define COMPILE_AST 1
 #define RUN_VIRTUAL_MACHINE 1
 
@@ -664,6 +665,7 @@ void interpret(const char *path) {
     ast->print();
 #endif
 
+#if TYPECHECK
     auto typed_ast = typecheck(ast.get());
     
 #if PRINT_DEBUG_DIAGNOSTICS
@@ -693,4 +695,5 @@ void interpret(const char *path) {
     
 #endif // RUN_VIRTUAL_MACHINE
 #endif // COMPILE_AST
+#endif // TYPECHECK
 }

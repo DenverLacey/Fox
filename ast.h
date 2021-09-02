@@ -21,6 +21,8 @@ enum class Untyped_AST_Kind {
     Ident,
     Int,
     Str,
+    Array,
+    Slice,
     
     // unary
     Negation,
@@ -155,6 +157,16 @@ struct Untyped_AST_Multiary : public Untyped_AST {
     
     Untyped_AST_Multiary(Untyped_AST_Kind kind);
     void add(Ref<Untyped_AST> node);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Array : public Untyped_AST {
+    size_t count;
+    Ref<Value_Type> array_type;
+    Ref<Untyped_AST_Multiary> element_nodes;
+    
+    Untyped_AST_Array(Untyped_AST_Kind kind, size_t count, Ref<Value_Type> array_type, Ref<Untyped_AST_Multiary> element_nodes);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

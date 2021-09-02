@@ -33,6 +33,8 @@ enum class Token_Kind {
     Right_Paren,    // )
     Left_Curly,     // {
     Right_Curly,    // }
+    Left_Bracket,   // [
+    Right_Bracket,  // ]
     
     // keyword
     Underscore,

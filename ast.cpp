@@ -132,6 +132,23 @@ Ref<Untyped_AST> Untyped_AST_Type_Signiture::clone() {
     return nullptr;
 }
 
+Untyped_AST_Array::Untyped_AST_Array(
+    Untyped_AST_Kind kind,
+    size_t count,
+    Ref<Value_Type> array_type,
+    Ref<Untyped_AST_Multiary> element_nodes)
+{
+    this->kind = kind;
+    this->count = count;
+    this->array_type = std::move(array_type);
+    this->element_nodes = std::move(element_nodes);
+}
+
+Ref<Untyped_AST> Untyped_AST_Array::clone() {
+    assert(false);
+    return nullptr;
+}
+
 Untyped_AST_If::Untyped_AST_If(
     Ref<Untyped_AST> cond,
     Ref<Untyped_AST> then,
@@ -333,6 +350,18 @@ static void print_at_indent(const Untyped_AST *node, size_t indent) {
         case Untyped_AST_Kind::Type_Signiture: {
             Untyped_AST_Type_Signiture *sig = (Untyped_AST_Type_Signiture *)node;
             printf("%s\n", sig->value_type->debug_str());
+        } break;
+        case Untyped_AST_Kind::Array:
+        case Untyped_AST_Kind::Slice: {
+            Untyped_AST_Array *array = (Untyped_AST_Array *)node;
+            if (array->array_type->kind == Value_Type_Kind::Array) {
+                printf("(array)\n");
+            } else {
+                printf("(slice)\n");
+            }
+            printf("%*scount: %zu\n", (indent + 1) * INDENT_SIZE, "", array->count);
+            printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
+            print_sub_at_indent("elems", array->element_nodes.get(), indent + 1);
         } break;
             
         default:

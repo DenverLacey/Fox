@@ -23,6 +23,8 @@ enum class Value_Type_Kind : uint8_t {
     Float,
     Str,
     Ptr,
+    Array,
+    Slice,
     Tuple,
     Struct,
     Enum,
@@ -62,11 +64,20 @@ struct Unresolved_Type_Data {
 };
 
 struct Ptr_Type_Data {
-    Value_Type *subtype;
+    Value_Type *child_type;
+};
+
+struct Array_Type_Data {
+    size_t count;
+    Value_Type *element_type;
+};
+
+struct Slice_Type_Data {
+    Value_Type *element_type;
 };
 
 struct Tuple_Type_Data {
-    Array<Value_Type> subtypes;
+    Array<Value_Type> child_types;
     
     Size offset_of_type(size_t idx);
 };
@@ -82,6 +93,8 @@ struct Enum_Type_Data {
 union Value_Type_Data {
     Ptr_Type_Data ptr;
     Unresolved_Type_Data unresolved;
+    Array_Type_Data array;
+    Slice_Type_Data slice;
     Tuple_Type_Data tuple;
     Struct_Type_Data struct_;
     Enum_Type_Data enum_;
@@ -108,9 +121,13 @@ inline const Value_Type Int = { Value_Type_Kind::Int };
 inline const Value_Type Float = { Value_Type_Kind::Float };
 inline const Value_Type Str = { Value_Type_Kind::Str };
 inline const Value_Type Ptr = { Value_Type_Kind::Ptr };
+inline const Value_Type Array = { Value_Type_Kind::Array };
+inline const Value_Type Slice = { Value_Type_Kind::Slice };
 inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
 
-Value_Type ptr_to(Value_Type *subtype);
+Value_Type ptr_to(Value_Type *child_type);
+Value_Type array_of(size_t count, Value_Type *element_type);
+Value_Type slice_of(Value_Type *element_type);
 Value_Type tup_from(size_t count, Value_Type *subtypes);
 
 template<typename ...Ts>
@@ -130,7 +147,7 @@ Value_Type tup_of(Ts ...subtypes) {
     
     Value_Type ty;
     ty.kind = Value_Type_Kind::Tuple;
-    ty.data.tuple.subtypes = Array { num_types, buffer };
+    ty.data.tuple.child_types = ::Array { num_types, buffer };
     return ty;
 }
 } // namespace value_types

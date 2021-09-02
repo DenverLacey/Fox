@@ -9,12 +9,12 @@
 #include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 static void error_impl(const char *err_type, const char *err_msg, va_list args) {
     fprintf(stderr, err_type);
     vfprintf(stderr, err_msg, args);
     fprintf(stderr, "\n");
-    exit(EXIT_FAILURE);
 }
 
 void error(const char *err, ...) {
@@ -26,6 +26,7 @@ void error(const char *err, ...) {
 
 void error(const char *err, va_list args) {
     error_impl("Error: ", err, args);
+    exit(EXIT_FAILURE);
 }
 
 void internal_error(const char *err, ...) {
@@ -37,4 +38,5 @@ void internal_error(const char *err, ...) {
 
 void internal_error(const char *err, va_list args) {
     error_impl("Internal Error: ", err, args);
+    assert(false);
 }
