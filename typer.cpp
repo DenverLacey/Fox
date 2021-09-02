@@ -603,7 +603,9 @@ Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
     internal_verify(element_type, "Could not get pointer to element type of array type.");
     if (element_type->kind == Value_Type_Kind::None) {
         verify(element_nodes->nodes.size() > 0, "Cannot infer element type of empty array literal.");
+        bool is_mut = element_type->is_mut;
         *element_type = element_nodes->nodes[0]->type;
+        element_type->is_mut = is_mut;
     }
     for (size_t i = 0; i < element_nodes->nodes.size(); i++) {
         verify(element_nodes->nodes[i]->type == *element_type, "Element %zu in array literal does not match the expected type (%s).", i+1, element_type->debug_str());

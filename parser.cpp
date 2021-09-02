@@ -114,6 +114,13 @@ struct Parser {
         return tokens[current];
     }
     
+    Token peek(size_t n) {
+        if (current + n >= tokens.size()) {
+            return tokens.back();
+        }
+        return tokens[current + n];
+    }
+    
     Token next() {
         auto t = peek();
         if (current < tokens.size()) {
@@ -124,6 +131,10 @@ struct Parser {
     
     bool check(Token_Kind kind) {
         return peek().kind == kind;
+    }
+    
+    bool check(Token_Kind kind, size_t n) {
+        return peek(n).kind == kind;
     }
     
     bool match(Token_Kind kind) {
@@ -526,6 +537,15 @@ struct Parser {
         if (check(Token_Kind::Left_Curly)) {
             element_type = make<Value_Type>().release();
             element_type->kind = Value_Type_Kind::None;
+        } else if (match(Token_Kind::Mut)) {
+            if (check(Token_Kind::Left_Curly)) {
+                element_type = make<Value_Type>().release();
+                element_type->kind = Value_Type_Kind::None;
+                element_type->is_mut = true;
+            } else {
+                element_type = parse_type_signiture().release();
+                element_type->is_mut = true;
+            }
         } else {
             element_type = parse_type_signiture().release();
         }
