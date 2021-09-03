@@ -12,6 +12,165 @@
 #include "utfcpp/utf8.h"
 #include "mem.h"
 
+void Token::print() const {
+    switch (kind) {
+        case Token_Kind::Eof:
+            printf("EOF\n");
+            break;
+        case Token_Kind::Err:
+            printf("Err (%.*s)\n", data.s.size(), data.s.c_str());
+            break;
+        case Token_Kind::True:
+            printf("True\n");
+            break;
+        case Token_Kind::False:
+            printf("False\n");
+            break;
+        case Token_Kind::Int:
+            printf("Int (%lld)\n", data.i);
+            break;
+        case Token_Kind::Float:
+            printf("Float (%f)\n", data.f);
+            break;
+        case Token_Kind::Char:
+            printf("Char '%s'\n", utf8char_t::from_char32(data.c).buf);
+            break;
+        case Token_Kind::String:
+            printf("String \"%.*s\"\n", data.s.size(), data.s.c_str());
+            break;
+        case Token_Kind::Ident:
+            printf("Ident `%.*s`\n", data.s.size(), data.s.c_str());
+            break;
+        case Token_Kind::Semi:
+            printf("Semi\n");
+            break;
+        case Token_Kind::Colon:
+            printf("Colon\n");
+            break;
+        case Token_Kind::Comma:
+            printf("Comma\n");
+            break;
+        case Token_Kind::Left_Paren:
+            printf("Left_Paren\n");
+            break;
+        case Token_Kind::Right_Paren:
+            printf("Right_Paren\n");
+            break;
+        case Token_Kind::Left_Curly:
+            printf("Left_Curly\n");
+            break;
+        case Token_Kind::Right_Curly:
+            printf("Right_Curly\n");
+            break;
+        case Token_Kind::Left_Bracket:
+            printf("Left_Bracket\n");
+            break;
+        case Token_Kind::Right_Bracket:
+            printf("Right_Bracket\n");
+            break;
+        case Token_Kind::Underscore:
+            printf("Underscore\n");
+            break;
+        case Token_Kind::Let:
+            printf("Let\n");
+            break;
+        case Token_Kind::Mut:
+            printf("Mut\n");
+            break;
+        case Token_Kind::If:
+            printf("If\n");
+            break;
+        case Token_Kind::Else:
+            printf("Else\n");
+            break;
+        case Token_Kind::While:
+            printf("While\n");
+            break;
+        case Token_Kind::Fn:
+            printf("Fn\n");
+            break;
+        case Token_Kind::Struct:
+            printf("Struct\n");
+            break;
+        case Token_Kind::Enum:
+            printf("Enum\n");
+            break;
+        case Token_Kind::And:
+            printf("And\n");
+            break;
+        case Token_Kind::Or:
+            printf("Or\n");
+            break;
+        case Token_Kind::Plus:
+            printf("Plus\n");
+            break;
+        case Token_Kind::Plus_Eq:
+            printf("Plus_Eq\n");
+            break;
+        case Token_Kind::Dash:
+            printf("Dash\n");
+            break;
+        case Token_Kind::Dash_Eq:
+            printf("Dash_Eq\n");
+            break;
+        case Token_Kind::Star:
+            printf("Star\n");
+            break;
+        case Token_Kind::Star_Eq:
+            printf("Star_Eq\n");
+            break;
+        case Token_Kind::Slash:
+            printf("Slash\n");
+            break;
+        case Token_Kind::Slash_Eq:
+            printf("Slash_Eq\n");
+            break;
+        case Token_Kind::Percent:
+            printf("Percent\n");
+            break;
+        case Token_Kind::Percent_Eq:
+            printf("Percent_Eq\n");
+            break;
+        case Token_Kind::Bang:
+            printf("Bang\n");
+            break;
+        case Token_Kind::Bang_Eq:
+            printf("Bang_Eq\n");
+            break;
+        case Token_Kind::Eq:
+            printf("Eq\n");
+            break;
+        case Token_Kind::Double_Eq:
+            printf("Double_Eq\n");
+            break;
+        case Token_Kind::Left_Angle:
+            printf("Left_Angle\n");
+            break;
+        case Token_Kind::Left_Angle_Eq:
+            printf("Left_Angle_Eq\n");
+            break;
+        case Token_Kind::Right_Angle:
+            printf("Right_Angle\n");
+            break;
+        case Token_Kind::Right_Angle_Eq:
+            printf("Right_Angle_Eq\n");
+            break;
+        case Token_Kind::Ampersand:
+            printf("Ampersand\n");
+            break;
+        case Token_Kind::Ampersand_Mut:
+            printf("Ampersand_Mut\n");
+            break;
+        case Token_Kind::Dot:
+            printf("Dot\n");
+            break;
+            
+        default:
+            internal_error("Unknown Token_Kind: %d.", kind);
+            break;
+    }
+}
+
 static Token eof_token() {
     Token t;
     t.kind = Token_Kind::Eof;

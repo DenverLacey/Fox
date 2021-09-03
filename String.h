@@ -29,6 +29,7 @@ public:
     char *end();
     
     char *c_str();
+    char *c_str() const;
     size_t size() const;
     size_t len() const;
     

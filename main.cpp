@@ -17,6 +17,7 @@
 // [ ]  Add slice types.
 // [x]  Implement Allocation strategy for strings.
 // [x]  Implement Allocation strategy for AST Nodes.
+// [ ]  Fix issue where tokenizer confuses Dot_Tuple for a floating point literal.
 //
 
 #include <iostream>

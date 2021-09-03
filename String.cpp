@@ -56,6 +56,10 @@ char *String::c_str() {
     return _data;
 }
 
+char *String::c_str() const {
+    return _data;
+}
+
 size_t String::size() const {
     return _size;
 }

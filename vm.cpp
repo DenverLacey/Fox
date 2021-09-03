@@ -656,12 +656,25 @@ static String read_entire_file(const char *path) {
     return source;
 }
 
+void print_tokens(const std::vector<Token> &tokens) {
+    for (size_t i = 0; i < tokens.size(); i++) {
+        printf("%04zu: ", i);
+        tokens[i].print();
+    }
+}
+
 void interpret(const char *path) {
     String source = read_entire_file(path);
     auto tokens = tokenize(source);
+    
+#if PRINT_DEBUG_DIAGNOSTICS
+    print_tokens(tokens);
+#endif
+    
     auto ast = parse(tokens);
     
 #if PRINT_DEBUG_DIAGNOSTICS
+    printf("------\n");
     ast->print();
 #endif
 
@@ -669,7 +682,7 @@ void interpret(const char *path) {
     auto typed_ast = typecheck(ast);
     
 #if PRINT_DEBUG_DIAGNOSTICS
-    printf("\n------\n\n");
+    printf("------\n");
     typed_ast->print();
 #endif
     
@@ -679,7 +692,7 @@ void interpret(const char *path) {
     global.compile(typed_ast);
     
 #if PRINT_DEBUG_DIAGNOSTICS
-    printf("\n------\n\n");
+    printf("------\n");
     print_code(program.bytecode, global.constants, global.str_constants);
 #endif
     
@@ -692,7 +705,7 @@ void interpret(const char *path) {
     vm.run();
     
 #if PRINT_DEBUG_DIAGNOSTICS
-    printf("\n------\n\n");
+    printf("------\n");
     vm.print_stack();
 #endif
     

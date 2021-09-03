@@ -83,6 +83,8 @@ union Token_Data {
 struct Token {
     Token_Kind kind;
     Token_Data data;
+    
+    void print() const;
 };
 
 std::vector<Token> tokenize(String source);
