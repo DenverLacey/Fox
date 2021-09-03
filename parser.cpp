@@ -137,6 +137,20 @@ struct Parser {
         return peek(n).kind == kind;
     }
     
+    bool check_terminating_delimeter() {
+        Token t = peek();
+        switch (t.kind) {
+            case Token_Kind::Semi:
+            case Token_Kind::Right_Paren:
+            case Token_Kind::Right_Curly:
+            case Token_Kind::Left_Bracket:
+            case Token_Kind::Right_Bracket:
+                return true;
+        }
+        
+        return false;
+    }
+    
     bool match(Token_Kind kind) {
         if (check(kind)) {
             next();
@@ -485,10 +499,13 @@ struct Parser {
         return block;
     }
     
-    Ref<Untyped_AST_Multiary> parse_comma_separated_expressions(Ref<Untyped_AST> prev) {
+    Ref<Untyped_AST_Multiary> parse_comma_separated_expressions(
+        Ref<Untyped_AST> prev = nullptr)
+    {
         auto comma = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
-        comma->add(prev);
+        if (prev) comma->add(prev);
         do {
+            if (check_terminating_delimeter()) break;
             comma->add(parse_precedence(Precedence::Comma + 1));
         } while (match(Token_Kind::Comma) && has_more());
         return comma;
@@ -550,12 +567,7 @@ struct Parser {
         }
         
         expect(Token_Kind::Left_Curly, "Expected '{' in array literal.");
-        auto element_nodes = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
-        if (!check(Token_Kind::Right_Curly)) {
-            do {
-                element_nodes->add(parse_precedence(Precedence::Comma + 1));
-            } while (match(Token_Kind::Comma) && has_more());
-        }
+        auto element_nodes = parse_comma_separated_expressions();
         expect(Token_Kind::Right_Curly, "Expected '}' to terminate array literal.");
         
         if (!infer_count) {
