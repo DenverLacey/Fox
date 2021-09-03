@@ -73,7 +73,7 @@ Ref<Untyped_AST> Untyped_AST_Str::clone() {
 
 Untyped_AST_Unary::Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub) {
     this->kind = kind;
-    this->sub = std::move(sub);
+    this->sub = sub;
 }
 
 Ref<Untyped_AST> Untyped_AST_Unary::clone() {
@@ -82,8 +82,8 @@ Ref<Untyped_AST> Untyped_AST_Unary::clone() {
 
 Untyped_AST_Binary::Untyped_AST_Binary(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs, Ref<Untyped_AST> rhs) {
     this->kind = kind;
-    this->lhs = std::move(lhs);
-    this->rhs = std::move(rhs);
+    this->lhs = lhs;
+    this->rhs = rhs;
 }
 
 Ref<Untyped_AST> Untyped_AST_Binary::clone() {
@@ -97,9 +97,9 @@ Untyped_AST_Ternary::Untyped_AST_Ternary(
     Ref<Untyped_AST> rhs)
 {
     this->kind = kind;
-    this->lhs = std::move(lhs);
-    this->mid = std::move(mid);
-    this->rhs = std::move(rhs);
+    this->lhs = lhs;
+    this->mid = mid;
+    this->rhs = rhs;
 }
 
 Ref<Untyped_AST> Untyped_AST_Ternary::clone() {
@@ -111,7 +111,7 @@ Untyped_AST_Multiary::Untyped_AST_Multiary(Untyped_AST_Kind kind) {
 }
 
 void Untyped_AST_Multiary::add(Ref<Untyped_AST> node) {
-    nodes.push_back(std::move(node));
+    nodes.push_back(node);
 }
 
 Ref<Untyped_AST> Untyped_AST_Multiary::clone() {
@@ -124,13 +124,13 @@ Ref<Untyped_AST> Untyped_AST_Multiary::clone() {
 
 Untyped_AST_Type_Signiture::Untyped_AST_Type_Signiture(Ref<Value_Type> value_type) {
     this->kind = Untyped_AST_Kind::Type_Signiture;
-    this->value_type = std::move(value_type);
+    this->value_type = value_type;
 }
 
 Ref<Untyped_AST> Untyped_AST_Type_Signiture::clone() {
     Ref<Value_Type> type = make<Value_Type>();
     *type = value_type->clone();
-    return make<Untyped_AST_Type_Signiture>(std::move(type));
+    return make<Untyped_AST_Type_Signiture>(type);
 }
 
 Untyped_AST_Array::Untyped_AST_Array(
@@ -141,8 +141,8 @@ Untyped_AST_Array::Untyped_AST_Array(
 {
     this->kind = kind;
     this->count = count;
-    this->array_type = std::move(array_type);
-    this->element_nodes = std::move(element_nodes);
+    this->array_type = array_type;
+    this->element_nodes = element_nodes;
 }
 
 Ref<Untyped_AST> Untyped_AST_Array::clone() {
@@ -151,7 +151,7 @@ Ref<Untyped_AST> Untyped_AST_Array::clone() {
     return make<Untyped_AST_Array>(
         kind,
         count,
-        std::move(type),
+        type,
         element_nodes->clone().cast<Untyped_AST_Multiary>()
     );
 }
@@ -162,16 +162,16 @@ Untyped_AST_If::Untyped_AST_If(
     Ref<Untyped_AST> else_)
 {
     this->kind = Untyped_AST_Kind::If;
-    this->cond = std::move(cond);
-    this->then = std::move(then);
-    this->else_ = std::move(else_);
+    this->cond = cond;
+    this->then = then;
+    this->else_ = else_;
 }
 
 Ref<Untyped_AST> Untyped_AST_If::clone() {
     auto cond = this->cond->clone();
     auto then = this->then->clone();
     auto else_ = this->else_ ? this->else_->clone() : nullptr;
-    return make<Untyped_AST_If>(std::move(cond), std::move(then), std::move(else_));
+    return make<Untyped_AST_If>(cond, then, else_);
 }
 
 Untyped_AST_Let::Untyped_AST_Let(
@@ -183,8 +183,8 @@ Untyped_AST_Let::Untyped_AST_Let(
     kind = Untyped_AST_Kind::Let;
     this->id = id;
     this->is_mut = is_mut;
-    this->specified_type = std::move(specified_type);
-    this->initializer = std::move(initializer);
+    this->specified_type = specified_type;
+    this->initializer = initializer;
 }
 
 Untyped_AST_Let::~Untyped_AST_Let() {
@@ -193,7 +193,7 @@ Untyped_AST_Let::~Untyped_AST_Let() {
 
 Ref<Untyped_AST> Untyped_AST_Let::clone() {
     auto sig = specified_type ? specified_type->clone().cast<Untyped_AST_Type_Signiture>() : nullptr;
-    return make<Untyped_AST_Let>(id.clone(), is_mut, std::move(sig), initializer->clone());
+    return make<Untyped_AST_Let>(id.clone(), is_mut, sig, initializer->clone());
 }
 
 constexpr size_t INDENT_SIZE = 2;

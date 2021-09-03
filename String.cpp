@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #include "utfcpp/utf8.h"
+#include "mem.h"
 
 String::String(char *data, size_t size)
     : _data(data), _size(size)
@@ -24,19 +25,19 @@ String::String(char *data)
 }
 
 String String::with_size(size_t size) {
-    return { (char *)malloc(size), size };
+    return { SA.allocate(size), size };
 }
 
 String String::copy(const char *data) {
-    return { strdup(data), strlen(data) };
+    return { SA.duplicate(data), strlen(data) };
 }
 
 String String::copy(const char *data, size_t size) {
-    return { strndup(data, size), size };
+    return { SA.duplicate(data, size), size };
 }
 
 void String::free() {
-    std::free(_data);
+    SA.deallocate(_data, _size);
 }
 
 String String::clone() const {

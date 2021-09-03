@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <vector>
 
 template<typename T>
 class Ref {
@@ -21,12 +22,27 @@ class Ref {
 public:
     Ref() : ptr(nullptr) {}
     Ref(std::nullptr_t) : ptr(nullptr) {}
-    Ref(const Ref &other) : ptr(other.ptr) {}
-    Ref(Ref &&other) : ptr(std::exchange(other.ptr, nullptr)) {}
+    Ref(const Ref<T> &other) : ptr(other.ptr) {}
+    Ref(Ref<T> &&other) : ptr(std::exchange(other.ptr, nullptr)) {}
     
     template<typename Derived>
     Ref(Derived *ptr) : ptr(ptr) {
         static_assert(std::is_base_of_v<T, Derived>);
+    }
+    
+    Ref<T> &operator=(T *ptr) {
+        this->ptr = ptr;
+        return *this;
+    }
+    
+    Ref<T> &operator=(const Ref<T> &other) {
+        ptr = other.ptr;
+        return *this;
+    }
+    
+    Ref<T> &operator=(Ref<T> &&other) {
+        ptr = std::exchange(other.ptr, nullptr);
+        return *this;
     }
     
     template<typename Derived>
@@ -128,3 +144,33 @@ auto flatten(const C &container, F producer) {
     }
     return buffer;
 }
+
+class String_Allocator {
+    struct Chunk {
+        Chunk *next;
+    };
+    
+    static constexpr size_t Minimum_Allocation_Size = 32 * sizeof(Chunk);
+    
+    Chunk *current;
+    std::vector<Chunk *> blocks;
+    
+public:
+    String_Allocator() = default;
+    ~String_Allocator();
+    String_Allocator(const String_Allocator&) = delete;
+    String_Allocator(String_Allocator&&) = delete;
+    
+public:
+    char *allocate(size_t size);
+    char *duplicate(const char *s);
+    char *duplicate(const char *s, size_t size);
+    void deallocate(char *s);
+    void deallocate(char *s, size_t size);
+    
+private:
+    Chunk *allocate_block(size_t size);
+    size_t allign_size(size_t size);
+};
+
+inline String_Allocator SA{};

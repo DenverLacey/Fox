@@ -204,7 +204,7 @@ struct Parser {
         Ref<Untyped_AST_Type_Signiture> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
             auto type = parse_type_signiture();
-            specified_type = make<Untyped_AST_Type_Signiture>(std::move(type));
+            specified_type = make<Untyped_AST_Type_Signiture>(type);
         }
         
         Ref<Untyped_AST> initializer = nullptr;
@@ -215,7 +215,7 @@ struct Parser {
         verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
         verify(initializer || is_mut, "'let' statements without an initializer must be marked 'mut'.");
         
-        return make<Untyped_AST_Let>(id, is_mut, std::move(specified_type), std::move(initializer));
+        return make<Untyped_AST_Let>(id, is_mut, specified_type, initializer);
     }
     
     Ref<Value_Type> parse_type_signiture() {
@@ -283,13 +283,13 @@ struct Parser {
             }
         }
         
-        return make<Untyped_AST_If>(std::move(cond), std::move(then), std::move(else_));
+        return make<Untyped_AST_If>(cond, then, else_);
     }
     
     Ref<Untyped_AST_Binary> parse_while_statement() {
         auto cond = parse_expression();
         auto body = parse_block();
-        return make<Untyped_AST_Binary>(Untyped_AST_Kind::While, std::move(cond), std::move(body));
+        return make<Untyped_AST_Binary>(Untyped_AST_Kind::While, cond, body);
     }
     
     Ref<Untyped_AST> parse_expression_or_assignment() {
@@ -311,7 +311,7 @@ struct Parser {
         
         while (prec <= token_precedence(peek())) {
             auto token = next();
-            prev = parse_infix(token, std::move(prev));
+            prev = parse_infix(token, prev);
             verify(prev, "Unexpected token in middle of expression.");
         }
         return prev;
@@ -387,69 +387,69 @@ struct Parser {
                 // a = parse_invocation(prev);
                 break;
             case Token_Kind::Comma:
-                a = parse_comma_separated_expressions(std::move(prev));
+                a = parse_comma_separated_expressions(prev);
                 break;
                 
             // operators
             case Token_Kind::Plus:
-                a = parse_binary(Untyped_AST_Kind::Addition, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Addition, prec, prev);
                 break;
             case Token_Kind::Plus_Eq:
-                a = parse_operator_assignment(Untyped_AST_Kind::Addition, std::move(prev));
+                a = parse_operator_assignment(Untyped_AST_Kind::Addition, prev);
                 break;
             case Token_Kind::Dash:
-                a = parse_binary(Untyped_AST_Kind::Subtraction, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Subtraction, prec, prev);
                 break;
             case Token_Kind::Dash_Eq:
-                a = parse_operator_assignment(Untyped_AST_Kind::Subtraction, std::move(prev));
+                a = parse_operator_assignment(Untyped_AST_Kind::Subtraction, prev);
                 break;
             case Token_Kind::Star:
-                a = parse_binary(Untyped_AST_Kind::Multiplication, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Multiplication, prec, prev);
                 break;
             case Token_Kind::Star_Eq:
-                a = parse_operator_assignment(Untyped_AST_Kind::Multiplication, std::move(prev));
+                a = parse_operator_assignment(Untyped_AST_Kind::Multiplication, prev);
                 break;
             case Token_Kind::Slash:
-                a = parse_binary(Untyped_AST_Kind::Division, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Division, prec, prev);
                 break;
             case Token_Kind::Slash_Eq:
-                a = parse_operator_assignment(Untyped_AST_Kind::Division, std::move(prev));
+                a = parse_operator_assignment(Untyped_AST_Kind::Division, prev);
                 break;
             case Token_Kind::Percent:
-                a = parse_binary(Untyped_AST_Kind::Mod, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Mod, prec, prev);
                 break;
             case Token_Kind::Percent_Eq:
-                a = parse_operator_assignment(Untyped_AST_Kind::Mod, std::move(prev));
+                a = parse_operator_assignment(Untyped_AST_Kind::Mod, prev);
                 break;
             case Token_Kind::Eq:
-                a = parse_binary(Untyped_AST_Kind::Assignment, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Assignment, prec, prev);
                 break;
             case Token_Kind::Double_Eq:
-                a = parse_binary(Untyped_AST_Kind::Equal, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Equal, prec, prev);
                 break;
             case Token_Kind::Bang_Eq:
-                a = parse_binary(Untyped_AST_Kind::Not_Equal, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Not_Equal, prec, prev);
                 break;
             case Token_Kind::Left_Angle:
-                a = parse_binary(Untyped_AST_Kind::Less, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Less, prec, prev);
                 break;
             case Token_Kind::Left_Angle_Eq:
-                a = parse_binary(Untyped_AST_Kind::Less_Eq, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Less_Eq, prec, prev);
                 break;
             case Token_Kind::Right_Angle:
-                a = parse_binary(Untyped_AST_Kind::Greater, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Greater, prec, prev);
                 break;
             case Token_Kind::Right_Angle_Eq:
-                a = parse_binary(Untyped_AST_Kind::Greater_Eq, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Greater_Eq, prec, prev);
                 break;
             case Token_Kind::And:
-                a = parse_binary(Untyped_AST_Kind::And, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::And, prec, prev);
                 break;
             case Token_Kind::Or:
-                a = parse_binary(Untyped_AST_Kind::Or, prec, std::move(prev));
+                a = parse_binary(Untyped_AST_Kind::Or, prec, prev);
                 break;
             case Token_Kind::Dot:
-                a = parse_dot_operator(std::move(prev));
+                a = parse_dot_operator(prev);
                 break;
                 
             default:
@@ -460,19 +460,19 @@ struct Parser {
     
     Ref<Untyped_AST_Unary> parse_unary(Untyped_AST_Kind kind) {
         auto sub = parse_precedence(Precedence::Unary);
-        return make<Untyped_AST_Unary>(kind, std::move(sub));
+        return make<Untyped_AST_Unary>(kind, sub);
     }
     
     Ref<Untyped_AST_Binary> parse_binary(Untyped_AST_Kind kind, Precedence prec, Ref<Untyped_AST> lhs) {
         auto rhs = parse_precedence(prec + 1);
-        return make<Untyped_AST_Binary>(kind, std::move(lhs), std::move(rhs));
+        return make<Untyped_AST_Binary>(kind, lhs, rhs);
     }
     
     Ref<Untyped_AST_Binary> parse_operator_assignment(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs) {
         auto rhs_lhs = lhs->clone();
         auto rhs_rhs = parse_expression();
-        auto rhs = make<Untyped_AST_Binary>(kind, std::move(rhs_lhs), std::move(rhs_rhs));
-        return make<Untyped_AST_Binary>(Untyped_AST_Kind::Assignment, std::move(lhs), std::move(rhs));
+        auto rhs = make<Untyped_AST_Binary>(kind, rhs_lhs, rhs_rhs);
+        return make<Untyped_AST_Binary>(Untyped_AST_Kind::Assignment, lhs, rhs);
     }
     
     Ref<Untyped_AST_Multiary> parse_block() {
@@ -487,7 +487,7 @@ struct Parser {
     
     Ref<Untyped_AST_Multiary> parse_comma_separated_expressions(Ref<Untyped_AST> prev) {
         auto comma = make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
-        comma->add(std::move(prev));
+        comma->add(prev);
         do {
             comma->add(parse_precedence(Precedence::Comma + 1));
         } while (match(Token_Kind::Comma) && has_more());
@@ -511,7 +511,7 @@ struct Parser {
             }
             kind = Untyped_AST_Kind::Dot;
         }
-        return make<Untyped_AST_Binary>(kind, std::move(lhs), std::move(rhs));
+        return make<Untyped_AST_Binary>(kind, lhs, rhs);
     }
     
     Ref<Untyped_AST_Array> parse_array_literal() {
@@ -574,8 +574,8 @@ struct Parser {
         return make<Untyped_AST_Array>(
             array_kind == Value_Type_Kind::Array ? Untyped_AST_Kind::Array : Untyped_AST_Kind::Slice,
             count,
-            std::move(array_type),
-            std::move(element_nodes)
+            array_type,
+            element_nodes
         );
     }
 };
