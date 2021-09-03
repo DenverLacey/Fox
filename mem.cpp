@@ -10,9 +10,7 @@
 #include <assert.h>
 
 String_Allocator::~String_Allocator() {
-    for (Chunk b : blocks) {
-        free(b);
-    }
+    clear();
 }
 
 char *String_Allocator::allocate(size_t size) {
@@ -46,6 +44,13 @@ bool String_Allocator::deallocate(char *s, size_t size) {
     current += size + 1; // plus one for null-terminator
     return true;
 }
+
+void String_Allocator::clear() {
+    for (Chunk b : blocks) {
+        free(b);
+    }
+    blocks.clear();
+}
     
 void String_Allocator::allocate_chunk(size_t size) {
     size_t alloc_size = Minimum_Chunk_Size;
@@ -60,7 +65,7 @@ String_Allocator::Chunk String_Allocator::current_chunk() {
 }
 
 Mem_Allocator::~Mem_Allocator() {
-    deallocate();
+    clear();
 }
 
 void *Mem_Allocator::allocate(size_t size) {
@@ -72,7 +77,7 @@ void *Mem_Allocator::allocate(size_t size) {
     return &b[current];
 }
 
-void Mem_Allocator::deallocate() {
+void Mem_Allocator::clear() {
     for (Bucket b : buckets) {
         free(b);
     }

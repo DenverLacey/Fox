@@ -125,7 +125,7 @@ static Token number(Source_Iterator &src) {
     }
     
     size_t len = word_end - word;
-    char *num_str = SA.duplicate(word, len);
+    char *num_str = SMem.duplicate(word, len);
     if (underscores) remove_underscores(num_str, len);
     Token t;
     
@@ -137,7 +137,7 @@ static Token number(Source_Iterator &src) {
         t.data.i = atoll(num_str);
     }
     
-    SA.deallocate(num_str, len);
+    SMem.deallocate(num_str, len);
     
     return t;
 }
@@ -201,11 +201,11 @@ static Token character(Source_Iterator &src) {
     verify(src.next() == '\'', "Character literals must end with a '.");
     
     size_t len = word_end - word;
-    char *cs = SA.duplicate(word, len);
+    char *cs = SMem.duplicate(word, len);
     if (escape_sequences) len = replace_escape_sequence(cs, len);
     verify(len == 1, "Character literals must contain exactly one character.");
     char c = *cs;
-    SA.deallocate(cs, word_end - word);
+    SMem.deallocate(cs, word_end - word);
     
     Token t;
     t.kind = Token_Kind::Char;
@@ -231,7 +231,7 @@ static Token string(Source_Iterator &src) {
     verify(src.next() == '"', "String literals must end with a \".");
     
     size_t len = word_end - word;
-    char *cs = SA.duplicate(word, len);
+    char *cs = SMem.duplicate(word, len);
     if (escape_sequences) len = replace_escape_sequence(cs, len);
     String s(cs, len);
     

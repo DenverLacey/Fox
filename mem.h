@@ -155,13 +155,14 @@ public:
     char *duplicate(const char *s, size_t size);
     bool deallocate(char *s);
     bool deallocate(char *s, size_t size);
+    void clear();
     
 private:
     void allocate_chunk(size_t size);
     Chunk current_chunk();
 };
 
-inline String_Allocator SA{};
+inline String_Allocator SMem{};
 
 class Mem_Allocator {
     static constexpr size_t Minimum_Bucket_Size = 1024;
@@ -177,7 +178,7 @@ public:
     Mem_Allocator(Mem_Allocator &&) = delete;
     
 public:
-    void deallocate();
+    void clear();
     
     template<typename T>
     Ref<T> allocate(size_t n) {

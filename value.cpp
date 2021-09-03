@@ -117,7 +117,7 @@ char *Value_Type::debug_str() const {
             break;
     }
     
-    char *debug_str = SA.duplicate(s.str().c_str(), s.str().size());
+    char *debug_str = SMem.duplicate(s.str().c_str(), s.str().size());
     return debug_str;
 }
 

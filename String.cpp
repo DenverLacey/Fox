@@ -25,19 +25,19 @@ String::String(char *data)
 }
 
 String String::with_size(size_t size) {
-    return { SA.allocate(size), size };
+    return { SMem.allocate(size), size };
 }
 
 String String::copy(const char *data) {
-    return { SA.duplicate(data), strlen(data) };
+    return { SMem.duplicate(data), strlen(data) };
 }
 
 String String::copy(const char *data, size_t size) {
-    return { SA.duplicate(data, size), size };
+    return { SMem.duplicate(data, size), size };
 }
 
 void String::free() {
-    SA.deallocate(_data, _size);
+    SMem.deallocate(_data, _size);
 }
 
 String String::clone() const {

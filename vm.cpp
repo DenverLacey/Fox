@@ -683,6 +683,9 @@ void interpret(const char *path) {
     print_code(program.bytecode, global.constants, global.str_constants);
 #endif
     
+    Mem.clear();
+    SMem.clear();
+    
 #if RUN_VIRTUAL_MACHINE
     VM vm(std::move(global.constants), std::move(global.str_constants));
     vm.call(&program, 0);
