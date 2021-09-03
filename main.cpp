@@ -16,7 +16,7 @@
 // [x]  Add array types.
 // [ ]  Add slice types.
 // [x]  Implement Allocation strategy for strings.
-// [ ]  Implement Allocation strategy for AST Nodes.
+// [x]  Implement Allocation strategy for AST Nodes.
 //
 
 #include <iostream>

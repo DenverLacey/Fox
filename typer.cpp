@@ -404,29 +404,29 @@ Ref<Typed_AST_Multiary> typecheck(Ref<Untyped_AST_Multiary> node) {
 }
 
 Ref<Typed_AST> Untyped_AST_Bool::typecheck(Typer &t) {
-    return make<Typed_AST_Bool>(value);
+    return Mem.make<Typed_AST_Bool>(value);
 }
 
 Ref<Typed_AST> Untyped_AST_Char::typecheck(Typer &t) {
-    return make<Typed_AST_Char>(value);
+    return Mem.make<Typed_AST_Char>(value);
 }
 
 Ref<Typed_AST> Untyped_AST_Float::typecheck(Typer &t) {
-    return make<Typed_AST_Float>(value);
+    return Mem.make<Typed_AST_Float>(value);
 }
 
 Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     Value_Type ty;
     verify(t.type_of_variable(id.c_str(), ty), "Unresolved identifier '%s'.", id.c_str());
-    return make<Typed_AST_Ident>(id.clone(), ty);
+    return Mem.make<Typed_AST_Ident>(id.clone(), ty);
 }
 
 Ref<Typed_AST> Untyped_AST_Int::typecheck(Typer &t) {
-    return make<Typed_AST_Int>(value);
+    return Mem.make<Typed_AST_Int>(value);
 }
 
 Ref<Typed_AST> Untyped_AST_Str::typecheck(Typer &t) {
-    return make<Typed_AST_Str>(value.clone());
+    return Mem.make<Typed_AST_Str>(value.clone());
 }
 
 Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
@@ -436,25 +436,25 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
             verify(sub->type.kind == Value_Type_Kind::Int ||
                    sub->type.kind == Value_Type_Kind::Float,
                    "(-) requires operand to be an (int) or a (float) but was given (%s).", sub->type.debug_str());
-            return make<Typed_AST_Unary>(Typed_AST_Kind::Negation, sub->type, sub);
+            return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Negation, sub->type, sub);
         case Untyped_AST_Kind::Not:
             verify(sub->type.kind == Value_Type_Kind::Bool, "(!) requires operand to be a (bool) but got a (%s).", sub->type.debug_str());
-            return make<Typed_AST_Unary>(Typed_AST_Kind::Not, value_types::Bool, sub);
+            return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Not, value_types::Bool, sub);
         case Untyped_AST_Kind::Address_Of: {
             verify(sub->type.kind != Value_Type_Kind::None, "Cannot take a pointer to something that doesn't return a value.");
             auto pty = value_types::ptr_to(&sub->type);
             pty.data.ptr.child_type->is_mut = false;
-            return make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of, pty, sub);
+            return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of, pty, sub);
         }
         case Untyped_AST_Kind::Address_Of_Mut: {
             verify(sub->type.kind != Value_Type_Kind::None, "Cannot take a pointer to something that doesn't return a value.");
             verify(sub->type.is_mut, "Cannot take a mutable pointer to something that isn't itself mutable.");
             auto pty = value_types::ptr_to(&sub->type);
-            return make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of_Mut, pty, sub);
+            return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of_Mut, pty, sub);
         }
         case Untyped_AST_Kind::Deref:
             verify(sub->type.kind == Value_Type_Kind::Ptr, "Cannot dereference something of type (%s) because it is not a pointer type.", sub->type.debug_str());
-            return make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.child_type, sub);
+            return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.child_type, sub);
             
         default:
             assert(false);
@@ -472,75 +472,75 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
                    lhs->type.kind == Value_Type_Kind::Float, "(+) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
                    rhs->type.kind == Value_Type_Kind::Float, "(+) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Addition, lhs->type, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Addition, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Subtraction:
             verify(lhs->type.kind == rhs->type.kind, "(-) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float, "(-) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
                    rhs->type.kind == Value_Type_Kind::Float, "(-) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Subtraction, lhs->type, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Subtraction, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Multiplication:
             verify(lhs->type.kind == rhs->type.kind, "(*) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
                    rhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Multiplication, lhs->type, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Multiplication, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Division:
             verify(lhs->type.kind == rhs->type.kind, "(/) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
                    rhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Division, lhs->type, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Division, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Mod:
             verify(lhs->type.kind == rhs->type.kind, "(+) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Mod, value_types::Int, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Mod, value_types::Int, lhs, rhs);
         case Untyped_AST_Kind::Assignment:
             verify(lhs->type == rhs->type, "(=) requires both operands to be the same type.");
             verify(lhs->type.is_mut, "Cannot assign to something of type (%s) because it isn't mutable.", lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Assignment, value_types::None, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Assignment, value_types::None, lhs, rhs);
         case Untyped_AST_Kind::Equal:
             verify(lhs->type == rhs->type, "(==) requires both operands to be the same type.");
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Equal, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Equal, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Not_Equal:
             verify(lhs->type == rhs->type, "(!=) requires both operands to be the same type.");
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Not_Equal, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Not_Equal, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Less:
             verify(lhs->type == rhs->type, "(<) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(<) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Less, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Greater:
             verify(lhs->type == rhs->type, "(>) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(>) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Greater, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Greater, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Less_Eq:
             verify(lhs->type == rhs->type, "(<=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(<=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Less_Eq, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less_Eq, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Greater_Eq:
             verify(lhs->type == rhs->type, "(>=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(>=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Greater_Eq, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Greater_Eq, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::And:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(and) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Bool, "(and) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::And, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::And, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Or:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(or) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Or, value_types::Bool, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Or, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Dot:
             assert(false);
             break;
@@ -549,12 +549,12 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             auto i = rhs.cast<Typed_AST_Int>();
             internal_verify(i, "Dot_Tuple got a rhs that wasn't an int.");
             verify(i->value < lhs->type.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.child_types[i->value], lhs, i);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.child_types[i->value], lhs, i);
         } break;
             
         case Untyped_AST_Kind::While:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
-            return make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs);
             
         default:
             assert(false);
@@ -576,7 +576,7 @@ Ref<Typed_AST> Untyped_AST_Ternary::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Multiary::typecheck(Typer &t) {
     if (kind == Untyped_AST_Kind::Block) t.begin_scope();
-    auto multi = make<Typed_AST_Multiary>(to_typed(kind));
+    auto multi = Mem.make<Typed_AST_Multiary>(to_typed(kind));
     for (auto &node : nodes) {
         multi->add(node->typecheck(t));
     }
@@ -610,7 +610,7 @@ Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
     for (size_t i = 0; i < element_nodes->nodes.size(); i++) {
         verify(element_nodes->nodes[i]->type == *element_type, "Element %zu in array literal does not match the expected type (%s).", i+1, element_type->debug_str());
     }
-    return make<Typed_AST_Array>(*array_type, to_typed(kind), count, array_type, element_nodes);
+    return Mem.make<Typed_AST_Array>(*array_type, to_typed(kind), count, array_type, element_nodes);
 }
 
 Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
@@ -618,11 +618,11 @@ Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
     auto then = this->then->typecheck(t);
     auto else_ = this->else_ ? this->else_->typecheck(t) : nullptr;
     verify(!else_ || then->type == else_->type, "Both branches of (if) must be the same. (%s) vs (%s).", then->type.debug_str(), else_->type.debug_str());
-    return make<Typed_AST_If>(then->type, cond, then, else_);
+    return Mem.make<Typed_AST_If>(then->type, cond, then, else_);
 }
 
 Ref<Typed_AST> Untyped_AST_Type_Signiture::typecheck(Typer &t) {
-    return make<Typed_AST_Type_Signiture>(value_type);
+    return Mem.make<Typed_AST_Type_Signiture>(value_type);
 }
 
 Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
@@ -645,5 +645,5 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
 
     t.put_variable(id.c_str(), ty, is_mut);
     
-    return make<Typed_AST_Let>(id.clone(), is_mut, sig, init);
+    return Mem.make<Typed_AST_Let>(id.clone(), is_mut, sig, init);
 }

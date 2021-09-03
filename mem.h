@@ -11,6 +11,7 @@
 #include <memory>
 #include <type_traits>
 #include <vector>
+#include <forward_list>
 
 template<typename T>
 class Ref {
@@ -108,16 +109,6 @@ public:
     }
 };
 
-//
-// @INCOMPLETE:
-//      Eventually this will be a method on an allocator instead of just 'new'ing.
-//
-template<typename T, typename ...Args>
-Ref<T> make(Args &&...args) {
-    T *p = new T{ args... };
-    return Ref<T>(p);
-}
-
 template<typename = void> struct remove_ref;
 template<typename T> struct remove_ref<Ref<T>> { using type = T; };
 template<typename T> struct remove_ref<T*> { using type = T; };
@@ -158,8 +149,8 @@ class String_Allocator {
 public:
     String_Allocator() = default;
     ~String_Allocator();
-    String_Allocator(const String_Allocator&) = delete;
-    String_Allocator(String_Allocator&&) = delete;
+    String_Allocator(const String_Allocator &) = delete;
+    String_Allocator(String_Allocator &&) = delete;
     
 public:
     char *allocate(size_t size);
@@ -174,3 +165,39 @@ private:
 };
 
 inline String_Allocator SA{};
+
+class Mem_Allocator {
+    static constexpr size_t Minimum_Size = 1024;
+    using Bucket = uint8_t *;
+    
+    size_t current;
+    std::forward_list<Bucket> buckets;
+    
+public:
+    Mem_Allocator() = default;
+    ~Mem_Allocator();
+    Mem_Allocator(const Mem_Allocator &) = delete;
+    Mem_Allocator(Mem_Allocator &&) = delete;
+    
+public:
+    void deallocate();
+    
+    template<typename T>
+    Ref<T> allocate(size_t n) {
+        return Ref<T>((T *)allocate(n * sizeof(T)));
+    }
+    
+    template<typename T, typename ...Args>
+    Ref<T> make(Args &&...args) {
+        Ref<T> r = allocate<T>(1);
+        new(r.raw()) T{ args... };
+        return r;
+    }
+    
+private:
+    void *allocate(size_t size);
+    Bucket current_bucket();
+    void allocate_bucket(size_t size);
+};
+
+inline Mem_Allocator Mem{};

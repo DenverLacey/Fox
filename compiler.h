@@ -12,7 +12,7 @@
 #include <stack>
 #include <string>
 #include <unordered_map>
-#include <list> // replace this with something that doesn't totally suck
+#include <forward_list> // replace this with something that doesn't totally suck
 
 #include "ast.h"
 #include "typer.h"
@@ -53,7 +53,7 @@ struct Compiler {
     Function_Definition *function;
     
     Compiler_Scope *global_scope;
-    std::list<Compiler_Scope> scopes;
+    std::forward_list<Compiler_Scope> scopes;
     
     static constexpr size_t Constants_Allignment = 8;
     Data_Section constants;

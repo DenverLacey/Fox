@@ -15,7 +15,7 @@ Untyped_AST_Bool::Untyped_AST_Bool(bool value) {
 }
 
 Ref<Untyped_AST> Untyped_AST_Bool::clone() {
-    return make<Untyped_AST_Bool>(value);
+    return Mem.make<Untyped_AST_Bool>(value);
 }
 
 Untyped_AST_Char::Untyped_AST_Char(char32_t value) {
@@ -24,7 +24,7 @@ Untyped_AST_Char::Untyped_AST_Char(char32_t value) {
 }
 
 Ref<Untyped_AST> Untyped_AST_Char::clone() {
-    return make<Untyped_AST_Char>(value);
+    return Mem.make<Untyped_AST_Char>(value);
 }
 
 Untyped_AST_Float::Untyped_AST_Float(double value) {
@@ -33,7 +33,7 @@ Untyped_AST_Float::Untyped_AST_Float(double value) {
 }
 
 Ref<Untyped_AST> Untyped_AST_Float::clone() {
-    return make<Untyped_AST_Float>(value);
+    return Mem.make<Untyped_AST_Float>(value);
 }
 
 Untyped_AST_Ident::Untyped_AST_Ident(String id) {
@@ -46,7 +46,7 @@ Untyped_AST_Ident::~Untyped_AST_Ident() {
 }
 
 Ref<Untyped_AST> Untyped_AST_Ident::clone() {
-    return make<Untyped_AST_Ident>(id.clone());
+    return Mem.make<Untyped_AST_Ident>(id.clone());
 }
 
 Untyped_AST_Int::Untyped_AST_Int(int64_t value) {
@@ -55,7 +55,7 @@ Untyped_AST_Int::Untyped_AST_Int(int64_t value) {
 }
 
 Ref<Untyped_AST> Untyped_AST_Int::clone() {
-    return make<Untyped_AST_Int>(value);
+    return Mem.make<Untyped_AST_Int>(value);
 }
 
 Untyped_AST_Str::Untyped_AST_Str(String value) {
@@ -68,7 +68,7 @@ Untyped_AST_Str::~Untyped_AST_Str() {
 }
 
 Ref<Untyped_AST> Untyped_AST_Str::clone() {
-    return make<Untyped_AST_Str>(value.clone());
+    return Mem.make<Untyped_AST_Str>(value.clone());
 }
 
 Untyped_AST_Unary::Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub) {
@@ -77,7 +77,7 @@ Untyped_AST_Unary::Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub
 }
 
 Ref<Untyped_AST> Untyped_AST_Unary::clone() {
-    return make<Untyped_AST_Unary>(kind, sub->clone());
+    return Mem.make<Untyped_AST_Unary>(kind, sub->clone());
 }
 
 Untyped_AST_Binary::Untyped_AST_Binary(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs, Ref<Untyped_AST> rhs) {
@@ -87,7 +87,7 @@ Untyped_AST_Binary::Untyped_AST_Binary(Untyped_AST_Kind kind, Ref<Untyped_AST> l
 }
 
 Ref<Untyped_AST> Untyped_AST_Binary::clone() {
-    return make<Untyped_AST_Binary>(kind, lhs->clone(), rhs->clone());
+    return Mem.make<Untyped_AST_Binary>(kind, lhs->clone(), rhs->clone());
 }
 
 Untyped_AST_Ternary::Untyped_AST_Ternary(
@@ -103,7 +103,7 @@ Untyped_AST_Ternary::Untyped_AST_Ternary(
 }
 
 Ref<Untyped_AST> Untyped_AST_Ternary::clone() {
-    return make<Untyped_AST_Ternary>(kind, lhs->clone(), mid->clone(), rhs->clone());
+    return Mem.make<Untyped_AST_Ternary>(kind, lhs->clone(), mid->clone(), rhs->clone());
 }
 
 Untyped_AST_Multiary::Untyped_AST_Multiary(Untyped_AST_Kind kind) {
@@ -115,7 +115,7 @@ void Untyped_AST_Multiary::add(Ref<Untyped_AST> node) {
 }
 
 Ref<Untyped_AST> Untyped_AST_Multiary::clone() {
-    auto block = make<Untyped_AST_Multiary>(kind);
+    auto block = Mem.make<Untyped_AST_Multiary>(kind);
     for (auto &n : nodes) {
         block->add(n->clone());
     }
@@ -128,9 +128,9 @@ Untyped_AST_Type_Signiture::Untyped_AST_Type_Signiture(Ref<Value_Type> value_typ
 }
 
 Ref<Untyped_AST> Untyped_AST_Type_Signiture::clone() {
-    Ref<Value_Type> type = make<Value_Type>();
+    Ref<Value_Type> type = Mem.make<Value_Type>();
     *type = value_type->clone();
-    return make<Untyped_AST_Type_Signiture>(type);
+    return Mem.make<Untyped_AST_Type_Signiture>(type);
 }
 
 Untyped_AST_Array::Untyped_AST_Array(
@@ -146,9 +146,9 @@ Untyped_AST_Array::Untyped_AST_Array(
 }
 
 Ref<Untyped_AST> Untyped_AST_Array::clone() {
-    Ref<Value_Type> type = make<Value_Type>();
+    Ref<Value_Type> type = Mem.make<Value_Type>();
     *type = array_type->clone();
-    return make<Untyped_AST_Array>(
+    return Mem.make<Untyped_AST_Array>(
         kind,
         count,
         type,
@@ -171,7 +171,7 @@ Ref<Untyped_AST> Untyped_AST_If::clone() {
     auto cond = this->cond->clone();
     auto then = this->then->clone();
     auto else_ = this->else_ ? this->else_->clone() : nullptr;
-    return make<Untyped_AST_If>(cond, then, else_);
+    return Mem.make<Untyped_AST_If>(cond, then, else_);
 }
 
 Untyped_AST_Let::Untyped_AST_Let(
@@ -193,7 +193,7 @@ Untyped_AST_Let::~Untyped_AST_Let() {
 
 Ref<Untyped_AST> Untyped_AST_Let::clone() {
     auto sig = specified_type ? specified_type->clone().cast<Untyped_AST_Type_Signiture>() : nullptr;
-    return make<Untyped_AST_Let>(id.clone(), is_mut, sig, initializer->clone());
+    return Mem.make<Untyped_AST_Let>(id.clone(), is_mut, sig, initializer->clone());
 }
 
 constexpr size_t INDENT_SIZE = 2;

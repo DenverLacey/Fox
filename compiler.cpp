@@ -169,7 +169,7 @@ Compiler_Scope &Compiler::current_scope() {
 }
 
 void Compiler::begin_scope() {
-    Compiler_Scope *parent = scopes.size() > 0 ? &current_scope() : nullptr;
+    Compiler_Scope *parent = scopes.empty() ? nullptr : &current_scope();
     Compiler_Scope next{};
     next.stack_bottom = stack_top;
     next.parent = parent;

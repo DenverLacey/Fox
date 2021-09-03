@@ -77,3 +77,35 @@ String_Allocator::Chunk *String_Allocator::allocate_block(size_t size) {
 size_t String_Allocator::allign_size(size_t size) {
     return (((size + sizeof(Chunk) - 1)) / sizeof(Chunk)) * sizeof(Chunk);
 }
+
+Mem_Allocator::~Mem_Allocator() {
+    deallocate();
+}
+
+void *Mem_Allocator::allocate(size_t size) {
+    if (current < size) {
+        allocate_bucket(size);
+    }
+    Bucket b = current_bucket();
+    current -= size;
+    return &b[current];
+}
+
+void Mem_Allocator::deallocate() {
+    for (Bucket b : buckets) {
+        free(b);
+    }
+    buckets.clear();
+}
+
+Mem_Allocator::Bucket Mem_Allocator::current_bucket() {
+    return buckets.front();
+}
+
+void Mem_Allocator::allocate_bucket(size_t size) {
+    size_t alloc_size = Minimum_Size;
+    if (alloc_size < size) alloc_size = size;
+    Bucket bucket = (Bucket)malloc(alloc_size);
+    buckets.push_front(bucket);
+    current = alloc_size;
+}
