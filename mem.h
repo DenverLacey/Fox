@@ -137,14 +137,11 @@ auto flatten(const C &container, F producer) {
 }
 
 class String_Allocator {
-    struct Chunk {
-        Chunk *next;
-    };
+    static constexpr size_t Minimum_Chunk_Size = 1024;
+    using Chunk = char *;
     
-    static constexpr size_t Minimum_Allocation_Size = 32 * sizeof(Chunk);
-    
-    Chunk *current;
-    std::vector<Chunk *> blocks;
+    size_t current;
+    std::forward_list<Chunk> blocks;
     
 public:
     String_Allocator() = default;
@@ -156,12 +153,12 @@ public:
     char *allocate(size_t size);
     char *duplicate(const char *s);
     char *duplicate(const char *s, size_t size);
-    void deallocate(char *s);
-    void deallocate(char *s, size_t size);
+    bool deallocate(char *s);
+    bool deallocate(char *s, size_t size);
     
 private:
-    Chunk *allocate_block(size_t size);
-    size_t allign_size(size_t size);
+    void allocate_chunk(size_t size);
+    Chunk current_chunk();
 };
 
 inline String_Allocator SA{};
