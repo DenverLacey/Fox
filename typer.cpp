@@ -179,150 +179,150 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
 }
 
 constexpr size_t INDENT_SIZE = 2;
-static void print_at_indent(const Typed_AST *node, size_t indent);
+static void print_at_indent(const Ref<Typed_AST> node, size_t indent);
 
-static void print_sub_at_indent(const char *name, const Typed_AST *sub, size_t indent) {
+static void print_sub_at_indent(const char *name, const Ref<Typed_AST> sub, size_t indent) {
     printf("%*s%s: ", indent * INDENT_SIZE, "", name);
     print_at_indent(sub, indent);
 }
 
-static void print_unary_at_indent(const char *id, const Typed_AST_Unary *u, size_t indent) {
+static void print_unary_at_indent(const char *id, const Ref<Typed_AST_Unary> u, size_t indent) {
     printf("(%s) %s\n", id, u->type.debug_str());
-    print_sub_at_indent("sub", u->sub.get(), indent + 1);
+    print_sub_at_indent("sub", u->sub, indent + 1);
 }
 
-static void print_binary_at_indent(const char *id, const Typed_AST_Binary *b, size_t indent) {
+static void print_binary_at_indent(const char *id, const Ref<Typed_AST_Binary> b, size_t indent) {
     printf("(%s) %s\n", id, b->type.debug_str());
-    print_sub_at_indent("lhs", b->lhs.get(), indent + 1);
-    print_sub_at_indent("rhs", b->rhs.get(), indent + 1);
+    print_sub_at_indent("lhs", b->lhs, indent + 1);
+    print_sub_at_indent("rhs", b->rhs, indent + 1);
 }
 
-static void print_ternary_at_indent(const char *id, const Typed_AST_Ternary *t, size_t indent) {
+static void print_ternary_at_indent(const char *id, const Ref<Typed_AST_Ternary> t, size_t indent) {
     printf("(%s) %s\n", id, t->type.debug_str());
-    print_sub_at_indent("lhs", t->lhs.get(), indent + 1);
-    print_sub_at_indent("mid", t->mid.get(), indent + 1);
-    print_sub_at_indent("rhs", t->rhs.get(), indent + 1);
+    print_sub_at_indent("lhs", t->lhs, indent + 1);
+    print_sub_at_indent("mid", t->mid, indent + 1);
+    print_sub_at_indent("rhs", t->rhs, indent + 1);
 }
 
-static void print_multiary_at_indent(const char *id, const Typed_AST_Multiary *m, size_t indent) {
+static void print_multiary_at_indent(const char *id, const Ref<Typed_AST_Multiary> m, size_t indent) {
     printf("(%s) %s\n", id, m->type.debug_str());
     for (size_t i = 0; i < m->nodes.size(); i++) {
-        const Typed_AST *node = m->nodes[i].get();
+        const Ref<Typed_AST> node = m->nodes[i];
         printf("%*s%zu: ", (indent + 1) * INDENT_SIZE, "", i);
         print_at_indent(node, indent + 1);
     }
 }
 
-static void print_at_indent(const Typed_AST *node, size_t indent) {
+static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
     switch (node->kind) {
         case Typed_AST_Kind::Bool: {
-            Typed_AST_Bool *lit = (Typed_AST_Bool *)node;
+            Ref<Typed_AST_Bool> lit = node.cast<Typed_AST_Bool>();
             printf("%s\n", lit->value ? "true" : "false");
         } break;
         case Typed_AST_Kind::Char: {
-            Typed_AST_Char *lit = (Typed_AST_Char *)node;
+            Ref<Typed_AST_Char> lit = node.cast<Typed_AST_Char>();
             printf("'%s'\n", utf8char_t::from_char32(lit->value).buf);
         } break;
         case Typed_AST_Kind::Float: {
-            Typed_AST_Float *lit = (Typed_AST_Float *)node;
+            Ref<Typed_AST_Float> lit = node.cast<Typed_AST_Float>();
             printf("%f\n", lit->value);
         } break;
         case Typed_AST_Kind::Ident: {
-            Typed_AST_Ident *id = (Typed_AST_Ident *)node;
+            Ref<Typed_AST_Ident> id = node.cast<Typed_AST_Ident>();
             printf("%.*s :: %s\n", id->id.size(), id->id.c_str(), id->type.debug_str());
         } break;
         case Typed_AST_Kind::Int: {
-            Typed_AST_Int *lit = (Typed_AST_Int *)node;
+            Ref<Typed_AST_Int> lit = node.cast<Typed_AST_Int>();
             printf("%lld\n", lit->value);
         } break;
         case Typed_AST_Kind::Str: {
-            Typed_AST_Str *lit = (Typed_AST_Str *)node;
+            Ref<Typed_AST_Str> lit = node.cast<Typed_AST_Str>();
             printf("\"%.*s\"\n", lit->value.size(), lit->value.c_str());
         } break;
         case Typed_AST_Kind::Negation: {
-            print_unary_at_indent("-", (Typed_AST_Unary *)node, indent);
+            print_unary_at_indent("-", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Not: {
-            print_unary_at_indent("!", (Typed_AST_Unary *)node, indent);
+            print_unary_at_indent("!", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Address_Of: {
-            print_unary_at_indent("&", (Typed_AST_Unary *)node, indent);
+            print_unary_at_indent("&", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Address_Of_Mut: {
-            print_unary_at_indent("&mut", (Typed_AST_Unary *)node, indent);
+            print_unary_at_indent("&mut", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Deref: {
-            print_unary_at_indent("*", (Typed_AST_Unary *)node, indent);
+            print_unary_at_indent("*", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Addition: {
-            print_binary_at_indent("+", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("+", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Subtraction: {
-            print_binary_at_indent("-", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("-", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Multiplication: {
-            print_binary_at_indent("*", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("*", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Division: {
-            print_binary_at_indent("/", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("/", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Mod: {
-            print_binary_at_indent("%", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("%", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Assignment: {
-            print_binary_at_indent("=", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Equal: {
-            print_binary_at_indent("==", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("==", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Not_Equal: {
-            print_binary_at_indent("!=", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("!=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Less: {
-            print_binary_at_indent("<", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("<", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Less_Eq: {
-            print_binary_at_indent("<=", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("<=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Greater: {
-            print_binary_at_indent(">", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent(">", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Greater_Eq: {
-            print_binary_at_indent(">=", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent(">=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::While: {
-            print_binary_at_indent("while", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("while", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::And: {
-            print_binary_at_indent("and", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("and", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Or: {
-            print_binary_at_indent("or", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent("or", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Dot:
         case Typed_AST_Kind::Dot_Tuple: {
-            print_binary_at_indent(".", (Typed_AST_Binary *)node, indent);
+            print_binary_at_indent(".", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::If: {
-            Typed_AST_If *t = (Typed_AST_If *)node;
+            Ref<Typed_AST_If> t = node.cast<Typed_AST_If>();
             printf("(if)\n");
-            print_sub_at_indent("cond", t->cond.get(), indent + 1);
-            print_sub_at_indent("then", t->then.get(), indent + 1);
+            print_sub_at_indent("cond", t->cond, indent + 1);
+            print_sub_at_indent("then", t->then, indent + 1);
             if (t->else_) {
-                print_sub_at_indent("else", t->else_.get(), indent + 1);
+                print_sub_at_indent("else", t->else_, indent + 1);
             }
         } break;
         case Typed_AST_Kind::Block: {
-            print_multiary_at_indent("block", (Typed_AST_Multiary *)node, indent);
+            print_multiary_at_indent("block", node.cast<Typed_AST_Multiary>(), indent);
         } break;
         case Typed_AST_Kind::Comma: {
-            print_multiary_at_indent(",", (Typed_AST_Multiary *)node, indent);
+            print_multiary_at_indent(",", node.cast<Typed_AST_Multiary>(), indent);
         } break;
         case Typed_AST_Kind::Tuple: {
-            print_multiary_at_indent("tuple", (Typed_AST_Multiary *)node, indent);
+            print_multiary_at_indent("tuple", node.cast<Typed_AST_Multiary>(), indent);
         } break;
         case Typed_AST_Kind::Let: {
-            Typed_AST_Let *let = (Typed_AST_Let *)node;
+            Ref<Typed_AST_Let> let = node.cast<Typed_AST_Let>();
             if (let->is_mut) {
                 printf("(let mut)\n");
             } else {
@@ -330,19 +330,19 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
             }
             printf("%*sid: `%.*s`\n", (indent + 1) * INDENT_SIZE, "", let->id.size(), let->id.c_str());
             if (let->specified_type) {
-                print_sub_at_indent("type", let->specified_type.get(), indent + 1);
+                print_sub_at_indent("type", let->specified_type, indent + 1);
             }
             if (let->initializer) {
-                print_sub_at_indent("init", let->initializer.get(), indent + 1);
+                print_sub_at_indent("init", let->initializer, indent + 1);
             }
         } break;
         case Typed_AST_Kind::Type_Signiture: {
-            Typed_AST_Type_Signiture *sig = (Typed_AST_Type_Signiture *)node;
+            Ref<Typed_AST_Type_Signiture> sig = node.cast<Typed_AST_Type_Signiture>();
             printf("%s\n", sig->value_type->debug_str());
         } break;
         case Typed_AST_Kind::Array:
         case Typed_AST_Kind::Slice: {
-            Typed_AST_Array *array = (Typed_AST_Array *)node;
+            Ref<Typed_AST_Array> array = node.cast<Typed_AST_Array>();
             if (array->array_type->kind == Value_Type_Kind::Array) {
                 printf("(array)\n");
             } else {
@@ -350,7 +350,7 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
             }
             printf("%*scount: %zu\n", (indent + 1) * INDENT_SIZE, "", array->count);
             printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
-            print_sub_at_indent("elems", array->element_nodes.get(), indent + 1);
+            print_sub_at_indent("elems", array->element_nodes, indent + 1);
         } break;
             
         default:
@@ -360,7 +360,7 @@ static void print_at_indent(const Typed_AST *node, size_t indent) {
 }
 
 void Typed_AST::print() const {
-    print_at_indent(this, 0);
+    print_at_indent(Ref<Typed_AST>((Typed_AST *)this), 0);
 }
 
 struct Typer_Scope {
@@ -398,9 +398,9 @@ struct Typer {
     }
 };
 
-Ref<Typed_AST_Multiary> typecheck(Untyped_AST_Multiary *node) {
+Ref<Typed_AST_Multiary> typecheck(Ref<Untyped_AST_Multiary> node) {
     Typer t;
-    return cast<Typed_AST_Multiary>(node->typecheck(t));
+    return node->typecheck(t).cast<Typed_AST_Multiary>();
 }
 
 Ref<Typed_AST> Untyped_AST_Bool::typecheck(Typer &t) {
@@ -546,7 +546,7 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             break;
         case Untyped_AST_Kind::Dot_Tuple: {
             verify(lhs->type.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given (%s).", lhs->type.debug_str());
-            auto i = cast<Typed_AST_Int>(rhs);
+            auto i = rhs.cast<Typed_AST_Int>();
             internal_verify(i, "Dot_Tuple got a rhs that wasn't an int.");
             verify(i->value < lhs->type.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
             return make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.child_types[i->value], std::move(lhs), std::move(i));
@@ -598,7 +598,7 @@ Ref<Typed_AST> Untyped_AST_Multiary::typecheck(Typer &t) {
 //      not be ok in the future.
 //
 Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
-    auto element_nodes = cast<Typed_AST_Multiary>(this->element_nodes->typecheck(t));
+    auto element_nodes = this->element_nodes->typecheck(t).cast<Typed_AST_Multiary>();
     Value_Type *element_type = array_type->child_type();
     internal_verify(element_type, "Could not get pointer to element type of array type.");
     if (element_type->kind == Value_Type_Kind::None) {
@@ -638,7 +638,7 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
         if (init) {
             verify(*specified_type->value_type == init->type, "Specified type (%s) does not match given type (%s).", specified_type->value_type->debug_str(), init->type.debug_str());
         }
-        sig = cast<Typed_AST_Type_Signiture>(specified_type->typecheck(t));
+        sig = specified_type->typecheck(t).cast<Typed_AST_Type_Signiture>();
         internal_verify(sig, "Failed to cast to Type_Sig in Untyped_AST_Let::typecheck().");
         ty = *sig->value_type;
     }

@@ -9,30 +9,97 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 
 template<typename T>
-using Ref = std::unique_ptr<T>;
+class Ref {
+    T *ptr;
+    
+    template<typename>
+    friend class Ref;
+    
+public:
+    Ref() : ptr(nullptr) {}
+    Ref(std::nullptr_t) : ptr(nullptr) {}
+    Ref(const Ref &other) : ptr(other.ptr) {}
+    Ref(Ref &&other) : ptr(std::exchange(other.ptr, nullptr)) {}
+    
+    template<typename Derived>
+    Ref(Derived *ptr) : ptr(ptr) {
+        static_assert(std::is_base_of_v<T, Derived>);
+    }
+    
+    template<typename Derived>
+    Ref<T> &operator=(Derived *ptr) {
+        static_assert(std::is_base_of_v<T, Derived>);
+        this->ptr = ptr;
+        return *this;
+    }
+    
+    template<typename Derived>
+    Ref<T> &operator=(const Ref<Derived> &other) {
+        static_assert(std::is_base_of_v<T, Derived>);
+        ptr = other.ptr;
+        return *this;
+    }
+    
+    template<typename Derived>
+    Ref<T> &operator=(Ref<Derived> &&other) {
+        static_assert(std::is_base_of_v<T, Derived>);
+        ptr = std::exchange(other.ptr, nullptr);
+        return *this;
+    }
+    
+public:
+    T &operator*() { return *ptr; }
+    const T &operator*() const { return *ptr; }
+    T *operator->() { return ptr; }
+    const T *operator->() const { return ptr; }
+    
+    operator bool() const { return ptr != nullptr; }
+    
+    template<typename U>
+    operator Ref<U>() {
+        static_assert(std::is_base_of_v<T, U> || std::is_base_of_v<U, T>);
+        return Ref<U>(ptr);
+    }
+    
+    template<typename U>
+    operator const Ref<U>() const {
+        static_assert(std::is_base_of_v<T, U> || std::is_base_of_v<U, T>);
+        return Ref<U>(ptr);
+    }
+    
+public:
+    template<typename U>
+    Ref<U> cast() {
+        U *p = dynamic_cast<U *>(ptr);
+        return Ref<U>(p);
+    }
+    
+    template<typename U>
+    const Ref<U> cast() const {
+        U *p = dynamic_cast<U *>(ptr);
+        return Ref<U>(p);
+    }
+    
+    T *raw() {
+        return ptr;
+    }
+    
+    const T *raw() const {
+        return ptr;
+    }
+};
 
+//
+// @INCOMPLETE:
+//      Eventually this will be a method on an allocator instead of just 'new'ing.
+//
 template<typename T, typename ...Args>
 Ref<T> make(Args &&...args) {
-    return std::make_unique<T>(std::forward<Args>(args)...);
-}
-
-template<typename T>
-Ref<T> take(T *raw_ptr) {
-    return std::unique_ptr<T>(raw_ptr);
-}
-
-template<typename To, typename From>
-Ref<To> cast(Ref<From> &from) {
-    To *p = dynamic_cast<To *>(from.get());
-    if (p) from.release();
-    return take(p);
-}
-
-template<typename To, typename From>
-Ref<To> cast(Ref<From> &&from) {
-    return cast<To>(from);
+    T *p = new T{ args... };
+    return Ref<T>(p);
 }
 
 template<typename = void> struct remove_ref;

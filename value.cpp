@@ -144,17 +144,17 @@ Value_Type Value_Type::clone() const {
             ty.data.unresolved.id = data.unresolved.id.clone();
             break;
         case Value_Type_Kind::Ptr: {
-            Value_Type *child = make<Value_Type>().release();
+            Value_Type *child = make<Value_Type>().raw();
             *child = data.ptr.child_type->clone();
             ty.data.ptr.child_type = child;
         } break;
         case Value_Type_Kind::Array: {
-            Value_Type *child = make<Value_Type>().release();
+            Value_Type *child = make<Value_Type>().raw();
             *child = data.array.element_type->clone();
             ty.data.array.element_type = child;
         } break;
         case Value_Type_Kind::Slice: {
-            Value_Type *child = make<Value_Type>().release();
+            Value_Type *child = make<Value_Type>().raw();
             *child = data.array.element_type->clone();
             ty.data.slice.element_type = child;
         } break;

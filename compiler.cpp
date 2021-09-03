@@ -26,7 +26,7 @@ Compiler::Compiler(Compiler *parent, Function_Definition *function) {
     this->function = function;
 }
 
-Function_Definition *Compiler::compile(Typed_AST_Multiary *multi) {
+Function_Definition *Compiler::compile(Ref<Typed_AST_Multiary> multi) {
     begin_scope();
     global_scope = &current_scope();
     for (auto &n : multi->nodes) {
@@ -104,10 +104,10 @@ std::pair<bool, Variable *> Compiler::find_variable(String id) {
 }
 
 size_t Compiler::add_constant(void *data, size_t size) {
-    size_t alligned_size = (((size + ConstantsAllignment - 1)) / ConstantsAllignment) * ConstantsAllignment;
+    size_t alligned_size = (((size + Constants_Allignment - 1)) / Constants_Allignment) * Constants_Allignment;
     
     // search for identical constant
-    for (size_t i = 0; i < constants.size(); i += ConstantsAllignment) {
+    for (size_t i = 0; i < constants.size(); i += Constants_Allignment) {
         if (i + alligned_size > constants.size()) {
             // this constant can't fit and therefore can't already be in
             // the constants data section
@@ -418,10 +418,10 @@ void Typed_AST_Unary::compile(Compiler &c) {
             break;
         case Typed_AST_Kind::Address_Of:
         case Typed_AST_Kind::Address_Of_Mut:
-            emit_address_code(c, *sub.get());
+            emit_address_code(c, *sub);
             break;
         case Typed_AST_Kind::Deref: {
-            Size size = sub->type.data.ptr.child_type->size();
+            Size size = sub->type.child_type()->size();
             sub->compile(c);
             c.emit_opcode(Opcode::Load);
             c.emit_size(size);
@@ -438,7 +438,7 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
     int stack_top = c.stack_top;
     
     b.rhs->compile(c);
-    bool success = emit_address_code(c, *b.lhs.get());
+    bool success = emit_address_code(c, *b.lhs);
     verify(success, "Cannot assign to this kind of expression.");
         
     Size size = b.rhs->type.size();
@@ -494,10 +494,10 @@ void compile_logical_operator(Compiler &c, Typed_AST_Binary &b) {
 void compile_tuple_dot_operator(Compiler &c, Typed_AST_Binary &dot) {
     int stack_top = c.stack_top;
     
-    auto i = dynamic_cast<Typed_AST_Int *>(dot.rhs.get());
+    auto i = dot.rhs.cast<Typed_AST_Int>();
     Size offset = dot.lhs->type.data.tuple.offset_of_type(i->value);
     
-    auto [status, address] = find_static_address(c, *dot.lhs.get());
+    auto [status, address] = find_static_address(c, *dot.lhs);
     switch (status) {
         case Find_Static_Address_Result::Found:
             c.emit_opcode(Opcode::Push_Value);
@@ -510,7 +510,7 @@ void compile_tuple_dot_operator(Compiler &c, Typed_AST_Binary &dot) {
             c.emit_address(address + offset);
             break;
         case Find_Static_Address_Result::Not_Found:
-            bool success = emit_dynamic_address_code(c, *dot.lhs.get());
+            bool success = emit_dynamic_address_code(c, *dot.lhs);
             verify(success, "Cannot access this value.");
             if (offset == 0) {
                 // do nothing

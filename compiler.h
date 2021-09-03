@@ -55,7 +55,7 @@ struct Compiler {
     Compiler_Scope *global_scope;
     std::list<Compiler_Scope> scopes;
     
-    static constexpr size_t ConstantsAllignment = 8;
+    static constexpr size_t Constants_Allignment = 8;
     Data_Section constants;
     Data_Section str_constants;
 //    int wb_top;
@@ -77,7 +77,7 @@ struct Compiler {
     Compiler(Function_Definition *function);
     Compiler(Compiler *parent, Function_Definition *function);
     
-    Function_Definition *compile(Typed_AST_Multiary *node);
+    Function_Definition *compile(Ref<Typed_AST_Multiary> node);
     
     void emit_byte(uint8_t byte);
     void emit_opcode(Opcode op);

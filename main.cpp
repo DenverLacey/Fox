@@ -15,6 +15,8 @@
 // [ ]  Maybe add absolute-value operator (unary +)?
 // [x]  Add array types.
 // [ ]  Add slice types.
+// [ ]  Implement Allocation strategy for strings.
+// [ ]  Implement Allocation strategy for AST Nodes.
 //
 
 #include <iostream>

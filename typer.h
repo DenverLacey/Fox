@@ -186,4 +186,4 @@ struct Typed_AST_Let : public Typed_AST {
 };
 
 struct Untyped_AST_Multiary;
-Ref<Typed_AST_Multiary> typecheck(Untyped_AST_Multiary *node);
+Ref<Typed_AST_Multiary> typecheck(Ref<Untyped_AST_Multiary> node);

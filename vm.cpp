@@ -666,7 +666,7 @@ void interpret(const char *path) {
 #endif
 
 #if TYPECHECK
-    auto typed_ast = typecheck(ast.get());
+    auto typed_ast = typecheck(ast);
     
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("\n------\n\n");
@@ -676,7 +676,7 @@ void interpret(const char *path) {
 #if COMPILE_AST
     Function_Definition program;
     Compiler global(&program);
-    global.compile(typed_ast.get());
+    global.compile(typed_ast);
     
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("\n------\n\n");

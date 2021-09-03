@@ -219,7 +219,7 @@ struct Parser {
     }
     
     Ref<Value_Type> parse_type_signiture() {
-        auto type = make<Value_Type>();
+        Ref<Value_Type> type = make<Value_Type>();
         auto token = next();
         switch (token.kind) {
             case Token_Kind::Ident: {
@@ -244,10 +244,10 @@ struct Parser {
             case Token_Kind::Star: {
                 type->kind = Value_Type_Kind::Ptr;
                 if (match(Token_Kind::Mut)) {
-                    type->data.ptr.child_type = parse_type_signiture().release();
+                    type->data.ptr.child_type = parse_type_signiture().raw();
                     type->data.ptr.child_type->is_mut = true;
                 } else {
-                    type->data.ptr.child_type = parse_type_signiture().release();
+                    type->data.ptr.child_type = parse_type_signiture().raw();
                 }
             } break;
             case Token_Kind::Left_Paren: {
@@ -533,21 +533,20 @@ struct Parser {
             expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
         }
         
-        Value_Type *element_type = nullptr;
+        Ref<Value_Type> element_type = nullptr;
         if (check(Token_Kind::Left_Curly)) {
-            element_type = make<Value_Type>().release();
+            element_type = make<Value_Type>();
             element_type->kind = Value_Type_Kind::None;
         } else if (match(Token_Kind::Mut)) {
             if (check(Token_Kind::Left_Curly)) {
-                element_type = make<Value_Type>().release();
+                element_type = make<Value_Type>();
                 element_type->kind = Value_Type_Kind::None;
-                element_type->is_mut = true;
             } else {
-                element_type = parse_type_signiture().release();
-                element_type->is_mut = true;
+                element_type = parse_type_signiture();
             }
+            element_type->is_mut = true;
         } else {
-            element_type = parse_type_signiture().release();
+            element_type = parse_type_signiture();
         }
         
         expect(Token_Kind::Left_Curly, "Expected '{' in array literal.");
@@ -567,16 +566,17 @@ struct Parser {
         
         Ref<Value_Type> array_type = nullptr;
         if (array_kind == Value_Type_Kind::Array) {
-            array_type = make<Value_Type>(value_types::array_of(count, element_type));
+            array_type = make<Value_Type>(value_types::array_of(count, element_type.raw()));
         } else {
-            array_type = make<Value_Type>(value_types::slice_of(element_type));
+            array_type = make<Value_Type>(value_types::slice_of(element_type.raw()));
         }
         
         return make<Untyped_AST_Array>(
             array_kind == Value_Type_Kind::Array ? Untyped_AST_Kind::Array : Untyped_AST_Kind::Slice,
             count,
             std::move(array_type),
-            std::move(element_nodes));
+            std::move(element_nodes)
+        );
     }
 };
 
