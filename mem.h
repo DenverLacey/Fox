@@ -167,7 +167,7 @@ private:
 inline String_Allocator SA{};
 
 class Mem_Allocator {
-    static constexpr size_t Minimum_Size = 1024;
+    static constexpr size_t Minimum_Bucket_Size = 1024;
     using Bucket = uint8_t *;
     
     size_t current;
@@ -190,7 +190,7 @@ public:
     template<typename T, typename ...Args>
     Ref<T> make(Args &&...args) {
         Ref<T> r = allocate<T>(1);
-        new(r.raw()) T{ args... };
+        new(r.raw()) T{ std::forward<Args>(args)... };
         return r;
     }
     

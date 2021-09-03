@@ -103,7 +103,7 @@ Mem_Allocator::Bucket Mem_Allocator::current_bucket() {
 }
 
 void Mem_Allocator::allocate_bucket(size_t size) {
-    size_t alloc_size = Minimum_Size;
+    size_t alloc_size = Minimum_Bucket_Size;
     if (alloc_size < size) alloc_size = size;
     Bucket bucket = (Bucket)malloc(alloc_size);
     buckets.push_front(bucket);
