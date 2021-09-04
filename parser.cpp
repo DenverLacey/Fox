@@ -370,9 +370,20 @@ struct Parser {
                 break;
                 
             // operators
-            case Token_Kind::Dash:
-                a = parse_unary(Untyped_AST_Kind::Negation);
-                break;
+            case Token_Kind::Dash: {
+                auto sub = parse_precedence(Precedence::Unary);
+                if (sub->kind == Untyped_AST_Kind::Int) {
+                    auto casted = sub.cast<Untyped_AST_Int>();
+                    casted->value = -casted->value;
+                    a = casted;
+                } else if (sub->kind == Untyped_AST_Kind::Float) {
+                    auto casted = sub.cast<Untyped_AST_Float>();
+                    casted->value = -casted->value;
+                    a = casted;
+                } else {
+                    a = Mem.make<Untyped_AST_Unary>(Untyped_AST_Kind::Negation, sub);
+                }
+            } break;
             case Token_Kind::Bang:
                 a = parse_unary(Untyped_AST_Kind::Not);
                 break;

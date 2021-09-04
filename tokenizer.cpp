@@ -190,9 +190,10 @@ static Token err_token(const char *err, ...) {
     return t;
 }
 
-struct Source_Iterator {
+struct Tokenizer {
     char *cur;
     char *end;
+    std::vector<Token> tokens;
     
     bool has_more() const {
         return cur != end;
@@ -244,10 +245,30 @@ struct Source_Iterator {
     }
 };
 
-static bool is_beginning_of_number(Source_Iterator &src) {
-    return isdigit(src.peek()) ||
-    ((src.peek() == '-' || src.peek() == '.') && isdigit(src.peek(1))) ||
-    ((src.peek() == '-' && src.peek(1) == '.') && isdigit(src.peek(2)));
+static bool might_evaluate_to_a_tuple(Token tok) {
+    switch (tok.kind) {
+        case Token_Kind::Ident:
+        case Token_Kind::Right_Paren:
+        case Token_Kind::Right_Bracket:
+            return true;
+    }
+    return false;
+}
+
+static bool is_beginning_of_number(Tokenizer &t) {
+    if (isdigit(t.peek()))
+        return true;
+    
+    bool result = false;
+    if (t.tokens.empty()) {
+        result = t.peek() == '.' && isdigit(t.peek(1));
+    } else if (t.peek() == '.') {
+        auto previous = t.tokens.back();
+        bool maybe_tuple = might_evaluate_to_a_tuple(previous);
+        result = !maybe_tuple && isdigit(t.peek(1));
+    }
+    
+    return result;
 }
 
 static void remove_underscores(char *s, size_t len) {
@@ -261,44 +282,44 @@ static void remove_underscores(char *s, size_t len) {
     }
 }
 
-static Token number(Source_Iterator &src) {
-    char *word = src.cur;
-    if (src.peek() == '-') src.next();
-    char *word_end = src.cur;
+static Token number(Tokenizer &t) {
+    char *word = t.cur;
+    if (t.peek() == '-') t.next();
+    char *word_end = t.cur;
     bool underscores = false;
     
-    while (isdigit(src.peek()) || src.peek() == '_') {
-        if (src.peek() == '_') underscores = true;
-        src.next();
-        word_end = src.cur;
+    while (isdigit(t.peek()) || t.peek() == '_') {
+        if (t.peek() == '_') underscores = true;
+        t.next();
+        word_end = t.cur;
     }
     
     bool is_float = false;
-    if (src.match('.')) {
+    if (t.match('.')) {
         is_float = true;
-        while (isdigit(src.peek()) || src.peek() == '_') {
-            if (src.peek() == '_') underscores = true;
-            src.next();
-            word_end = src.cur;
+        while (isdigit(t.peek()) || t.peek() == '_') {
+            if (t.peek() == '_') underscores = true;
+            t.next();
+            word_end = t.cur;
         }
     }
     
     size_t len = word_end - word;
     char *num_str = SMem.duplicate(word, len);
     if (underscores) remove_underscores(num_str, len);
-    Token t;
+    Token tok;
     
     if (is_float) {
-        t.kind = Token_Kind::Float;
-        t.data.f = atof(num_str);
+        tok.kind = Token_Kind::Float;
+        tok.data.f = atof(num_str);
     } else {
-        t.kind = Token_Kind::Int;
-        t.data.i = atoll(num_str);
+        tok.kind = Token_Kind::Int;
+        tok.data.i = atoll(num_str);
     }
     
     SMem.deallocate(num_str, len);
     
-    return t;
+    return tok;
 }
 
 static size_t replace_escape_sequence(char *s, size_t len) {
@@ -342,22 +363,22 @@ static size_t replace_escape_sequence(char *s, size_t len) {
     return len;
 }
 
-static Token character(Source_Iterator &src) {
-    verify(src.next() == '\'', "Character literals must start with a '.");
+static Token character(Tokenizer &t) {
+    verify(t.next() == '\'', "Character literals must start with a '.");
     
-    char *word = src.cur;
-    char *word_end = src.cur;
+    char *word = t.cur;
+    char *word_end = t.cur;
     bool escape_sequences = false;
-    while (src.peek() != '"') {
-        if (src.peek() == '\\') {
+    while (t.peek() != '"') {
+        if (t.peek() == '\\') {
             escape_sequences = true;
-            src.next();
+            t.next();
         }
-        src.next();
-        word_end = src.cur;
+        t.next();
+        word_end = t.cur;
     }
     
-    verify(src.next() == '\'', "Character literals must end with a '.");
+    verify(t.next() == '\'', "Character literals must end with a '.");
     
     size_t len = word_end - word;
     char *cs = SMem.duplicate(word, len);
@@ -366,142 +387,142 @@ static Token character(Source_Iterator &src) {
     char c = *cs;
     SMem.deallocate(cs, word_end - word);
     
-    Token t;
-    t.kind = Token_Kind::Char;
-    t.data.c = c;
-    return t;
+    Token tok;
+    tok.kind = Token_Kind::Char;
+    tok.data.c = c;
+    return tok;
 }
 
-static Token string(Source_Iterator &src) {
-    verify(src.next() == '"', "String literals must start with a \".");
+static Token string(Tokenizer &t) {
+    verify(t.next() == '"', "String literals must start with a \".");
     
-    char *word = src.cur;
-    char *word_end = src.cur;
+    char *word = t.cur;
+    char *word_end = t.cur;
     bool escape_sequences = false;
-    while (src.peek() != '"') {
-        if (src.peek() == '\\') {
+    while (t.peek() != '"') {
+        if (t.peek() == '\\') {
             escape_sequences = true;
-            src.next();
+            t.next();
         }
-        src.next();
-        word_end = src.cur;
+        t.next();
+        word_end = t.cur;
     }
     
-    verify(src.next() == '"', "String literals must end with a \".");
+    verify(t.next() == '"', "String literals must end with a \".");
     
     size_t len = word_end - word;
     char *cs = SMem.duplicate(word, len);
     if (escape_sequences) len = replace_escape_sequence(cs, len);
     String s(cs, len);
     
-    Token t;
-    t.kind = Token_Kind::String;
-    t.data.s = s;
-    return t;
+    Token tok;
+    tok.kind = Token_Kind::String;
+    tok.data.s = s;
+    return tok;
 }
 
-static Token punctuation(Source_Iterator &src) {
-    Token t;
+static Token punctuation(Tokenizer &t) {
+    Token tok;
     
-    auto c = src.next();
+    auto c = t.next();
     switch (c) {
         // delimeters
-        case ';': t.kind = Token_Kind::Semi; break;
-        case ':': t.kind = Token_Kind::Colon; break;
-        case ',': t.kind = Token_Kind::Comma; break;
-        case '(': t.kind = Token_Kind::Left_Paren; break;
-        case ')': t.kind = Token_Kind::Right_Paren; break;
-        case '{': t.kind = Token_Kind::Left_Curly; break;
-        case '}': t.kind = Token_Kind::Right_Curly; break;
-        case '[': t.kind = Token_Kind::Left_Bracket; break;
-        case ']': t.kind = Token_Kind::Right_Bracket; break;
+        case ';': tok.kind = Token_Kind::Semi; break;
+        case ':': tok.kind = Token_Kind::Colon; break;
+        case ',': tok.kind = Token_Kind::Comma; break;
+        case '(': tok.kind = Token_Kind::Left_Paren; break;
+        case ')': tok.kind = Token_Kind::Right_Paren; break;
+        case '{': tok.kind = Token_Kind::Left_Curly; break;
+        case '}': tok.kind = Token_Kind::Right_Curly; break;
+        case '[': tok.kind = Token_Kind::Left_Bracket; break;
+        case ']': tok.kind = Token_Kind::Right_Bracket; break;
             
         // keywords
-        case '_': t.kind = Token_Kind::Underscore; break;
+        case '_': tok.kind = Token_Kind::Underscore; break;
             
         // operators
         case '+':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Plus_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Plus_Eq;
             } else {
-                t.kind = Token_Kind::Plus;
+                tok.kind = Token_Kind::Plus;
             }
             break;
         case '-':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Dash_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Dash_Eq;
             } else {
-                t.kind = Token_Kind::Dash;
+                tok.kind = Token_Kind::Dash;
             }
             break;
         case '*':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Star_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Star_Eq;
             } else {
-                t.kind = Token_Kind::Star;
+                tok.kind = Token_Kind::Star;
             }
             break;
         case '/':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Slash_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Slash_Eq;
             } else {
-                t.kind = Token_Kind::Slash;
+                tok.kind = Token_Kind::Slash;
             }
             break;
         case '%':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Percent_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Percent_Eq;
             } else {
-                t.kind = Token_Kind::Percent;
+                tok.kind = Token_Kind::Percent;
             }
             break;
         case '!':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Bang_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Bang_Eq;
             } else {
-                t.kind = Token_Kind::Bang;
+                tok.kind = Token_Kind::Bang;
             }
             break;
         case '=':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Double_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Double_Eq;
             } else {
-                t.kind = Token_Kind::Eq;
+                tok.kind = Token_Kind::Eq;
             }
             break;
         case '<':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Left_Angle_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Left_Angle_Eq;
             } else {
-                t.kind = Token_Kind::Left_Angle;
+                tok.kind = Token_Kind::Left_Angle;
             }
             break;
         case '>':
-            if (src.match('=')) {
-                t.kind = Token_Kind::Right_Angle_Eq;
+            if (t.match('=')) {
+                tok.kind = Token_Kind::Right_Angle_Eq;
             } else {
-                t.kind = Token_Kind::Right_Angle;
+                tok.kind = Token_Kind::Right_Angle;
             }
             break;
         case '&':
-            if (src.match('=')) {
+            if (t.match('=')) {
                 assert(false);
-            } else if (src.match("mut")) {
-                t.kind = Token_Kind::Ampersand_Mut;
+            } else if (t.match("mut")) {
+                tok.kind = Token_Kind::Ampersand_Mut;
             } else {
-                t.kind = Token_Kind::Ampersand;
+                tok.kind = Token_Kind::Ampersand;
             }
             break;
         case '.':
-            if (src.match('.')) {
+            if (t.match('.')) {
                 assert(false);
-                if (src.match('=')) {
+                if (t.match('=')) {
                     
                 } else {
                     
                 }
             } else {
-                t.kind = Token_Kind::Dot;
+                tok.kind = Token_Kind::Dot;
             }
             break;
             
@@ -510,78 +531,77 @@ static Token punctuation(Source_Iterator &src) {
             error("Unexpected punctuation '%s'.\n", _c.buf);
     }
     
-    return t;
+    return tok;
 }
 
 static bool is_ident_char(char32_t c) {
     return c == '_' || !(ispunct(c) || isspace(c) || isblank(c) || iscntrl(c));
 }
 
-static Token identifier_or_keyword(Source_Iterator &src) {
-    char *_word = src.cur;
-    char *_word_end = src.cur;
-    while (is_ident_char(src.peek())) {
-        src.next();
-        _word_end = src.cur;
+static Token identifier_or_keyword(Tokenizer &t) {
+    char *_word = t.cur;
+    char *_word_end = t.cur;
+    while (is_ident_char(t.peek())) {
+        t.next();
+        _word_end = t.cur;
     }
     String word(_word, _word_end - _word);
     
-    Token t;
+    Token tok;
     
     if (word == "true") {
-        t.kind = Token_Kind::True;
+        tok.kind = Token_Kind::True;
     } else if (word == "false") {
-        t.kind = Token_Kind::False;
+        tok.kind = Token_Kind::False;
     } else if (word == "let") {
-        t.kind = Token_Kind::Let;
+        tok.kind = Token_Kind::Let;
     } else if (word == "mut") {
-        t.kind = Token_Kind::Mut;
+        tok.kind = Token_Kind::Mut;
     } else if (word == "if") {
-        t.kind = Token_Kind::If;
+        tok.kind = Token_Kind::If;
     } else if (word == "else") {
-        t.kind = Token_Kind::Else;
+        tok.kind = Token_Kind::Else;
     } else if (word == "while") {
-        t.kind = Token_Kind::While;
+        tok.kind = Token_Kind::While;
     } else if (word == "and") {
-        t.kind = Token_Kind::And;
+        tok.kind = Token_Kind::And;
     } else if (word == "or") {
-        t.kind = Token_Kind::Or;
+        tok.kind = Token_Kind::Or;
     } else {
-        t.kind = Token_Kind::Ident;
-        t.data.s = word;
+        tok.kind = Token_Kind::Ident;
+        tok.data.s = word;
     }
     
-    return t;
+    return tok;
 }
 
-static Token next_token(Source_Iterator &src) {
-    auto c = src.peek();
-    Token t;
-    if (is_beginning_of_number(src)) {
-        t = number(src);
+static Token next_token(Tokenizer &t) {
+    auto c = t.peek();
+    Token tok;
+    if (is_beginning_of_number(t)) {
+        tok = number(t);
     } else if (c == '\'') {
-        t = character(src);
+        tok = character(t);
     } else if (c == '"') {
-        t = string(src);
+        tok = string(t);
     } else if (ispunct(c)) {
-        t = punctuation(src);
+        tok = punctuation(t);
     } else {
-        t = identifier_or_keyword(src);
+        tok = identifier_or_keyword(t);
     }
-    return t;
+    return tok;
 }
 
 std::vector<Token> tokenize(String source) {
-    std::vector<Token> tokens;
-    Source_Iterator src = { source.begin(), source.end() };
+    Tokenizer t = { source.begin(), source.end() };
     
     while (true) {
-        src.skip_whitespace();
-        if (!src.has_more()) break;
-        tokens.push_back(next_token(src));
+        t.skip_whitespace();
+        if (!t.has_more()) break;
+        t.tokens.push_back(next_token(t));
     }
     
-    tokens.push_back(eof_token());
+    t.tokens.push_back(eof_token());
     
-    return tokens;
+    return t.tokens;
 }
