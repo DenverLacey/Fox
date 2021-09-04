@@ -31,8 +31,8 @@ enum class Precedence {
 Precedence token_precedence(Token token) {
     switch (token.kind) {
         // internal
-        case Token_Kind::Eof: return Precedence::Primary;
-        case Token_Kind::Err: return Precedence::Primary;
+        case Token_Kind::Eof: return Precedence::None;
+        case Token_Kind::Err: return Precedence::None;
             
         // literals
         case Token_Kind::True: return Precedence::None;

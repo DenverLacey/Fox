@@ -7,17 +7,10 @@
 //
 
 // @TODOS:
-// [x]  Beef-up the tokenizer to accept more complicated number literals and
-//      identifiers.
-// [x]  Beef-up the tokenizer to accept more complicated string and char literals
-//      with escape characters.
 // [x]  Add negation operation.
 // [ ]  Maybe add absolute-value operator (unary +)?
 // [x]  Add array types.
 // [ ]  Add slice types.
-// [x]  Implement Allocation strategy for strings.
-// [x]  Implement Allocation strategy for AST Nodes.
-// [x]  Fix issue where tokenizer confuses Dot_Tuple for a floating point literal.
 //
 
 #include <iostream>
