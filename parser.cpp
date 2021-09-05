@@ -143,7 +143,6 @@ struct Parser {
             case Token_Kind::Semi:
             case Token_Kind::Right_Paren:
             case Token_Kind::Right_Curly:
-            case Token_Kind::Left_Bracket:
             case Token_Kind::Right_Bracket:
                 return true;
         }
@@ -258,10 +257,10 @@ struct Parser {
             case Token_Kind::Star: {
                 type->kind = Value_Type_Kind::Ptr;
                 if (match(Token_Kind::Mut)) {
-                    type->data.ptr.child_type = parse_type_signiture().raw();
+                    type->data.ptr.child_type = parse_type_signiture().as_ptr();
                     type->data.ptr.child_type->is_mut = true;
                 } else {
-                    type->data.ptr.child_type = parse_type_signiture().raw();
+                    type->data.ptr.child_type = parse_type_signiture().as_ptr();
                 }
             } break;
             case Token_Kind::Left_Paren: {
@@ -414,6 +413,10 @@ struct Parser {
             case Token_Kind::Comma:
                 a = parse_comma_separated_expressions(prev);
                 break;
+            case Token_Kind::Left_Bracket:
+                a = parse_binary(Untyped_AST_Kind::Subscript, Precedence::Comma + 1, prev);
+                expect(Token_Kind::Right_Bracket, "Expected ']' in subscript expression.");
+                break;
                 
             // operators
             case Token_Kind::Plus:
@@ -531,13 +534,15 @@ struct Parser {
             kind = Untyped_AST_Kind::Dot_Tuple;
         } else {
             verify(check(Token_Kind::Ident), "Expected an identifier after '.'.");
-            auto s = next().data.s.clone();
-            rhs = Mem.make<Untyped_AST_Ident>(s);
+            auto id_str = next().data.s.clone();
+            auto id = Mem.make<Untyped_AST_Ident>(id_str);
             if (match(Token_Kind::Left_Paren)) {
                 // dot call
                 assert(false);
+            } else {
+                rhs = id;
+                kind = Untyped_AST_Kind::Dot;
             }
-            kind = Untyped_AST_Kind::Dot;
         }
         return Mem.make<Untyped_AST_Binary>(kind, lhs, rhs);
     }
@@ -589,9 +594,9 @@ struct Parser {
         
         Ref<Value_Type> array_type = nullptr;
         if (array_kind == Value_Type_Kind::Array) {
-            array_type = Mem.make<Value_Type>(value_types::array_of(count, element_type.raw()));
+            array_type = Mem.make<Value_Type>(value_types::array_of(count, element_type.as_ptr()));
         } else {
-            array_type = Mem.make<Value_Type>(value_types::slice_of(element_type.raw()));
+            array_type = Mem.make<Value_Type>(value_types::slice_of(element_type.as_ptr()));
         }
         
         return Mem.make<Untyped_AST_Array>(
@@ -604,7 +609,7 @@ struct Parser {
 };
 
 Ref<Untyped_AST_Multiary> parse(const std::vector<Token> &tokens) {
-    Parser p(tokens);
+    Parser p{tokens};
     auto nodes = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Block);
     
     while (p.has_more()) {

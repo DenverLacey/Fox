@@ -49,6 +49,7 @@ enum class Untyped_AST_Kind {
     While,
     Dot,
     Dot_Tuple,
+    Subscript,
     
     // ternary
     

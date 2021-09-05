@@ -48,6 +48,7 @@ enum class Typed_AST_Kind {
     Or,
     Dot,
     Dot_Tuple,
+    Subscript,
     
     // ternary
     

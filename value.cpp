@@ -144,17 +144,17 @@ Value_Type Value_Type::clone() const {
             ty.data.unresolved.id = data.unresolved.id.clone();
             break;
         case Value_Type_Kind::Ptr: {
-            Value_Type *child = Mem.make<Value_Type>().raw();
+            Value_Type *child = Mem.make<Value_Type>().as_ptr();
             *child = data.ptr.child_type->clone();
             ty.data.ptr.child_type = child;
         } break;
         case Value_Type_Kind::Array: {
-            Value_Type *child = Mem.make<Value_Type>().raw();
+            Value_Type *child = Mem.make<Value_Type>().as_ptr();
             *child = data.array.element_type->clone();
             ty.data.array.element_type = child;
         } break;
         case Value_Type_Kind::Slice: {
-            Value_Type *child = Mem.make<Value_Type>().raw();
+            Value_Type *child = Mem.make<Value_Type>().as_ptr();
             *child = data.array.element_type->clone();
             ty.data.slice.element_type = child;
         } break;
@@ -183,27 +183,40 @@ Value_Type Value_Type::clone() const {
     return ty;
 }
 
-bool operator==(const Value_Type &a, const Value_Type &b) {
-    if (a.kind != b.kind) {
+bool Value_Type::eq(const Value_Type &other) {
+    if (is_mut != other.is_mut) {
+        return false;
+    }
+    return eq_ignoring_mutability(other);
+}
+
+bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
+    if (kind != other.kind) {
         return false;
     }
     
-    switch (a.kind) {
+    bool match = true;
+    switch (kind) {
         case Value_Type_Kind::Ptr:
-            return *a.data.ptr.child_type == *b.data.ptr.child_type;
+            match = data.ptr.child_type->eq(*other.data.ptr.child_type);
+            break;
         case Value_Type_Kind::Array:
-            return a.data.array.count == b.data.array.count && *a.data.array.element_type == *b.data.array.element_type;
+            match = data.array.count == other.data.array.count && data.array.element_type->eq_ignoring_mutability(*other.data.array.element_type);
+            break;
         case Value_Type_Kind::Slice:
-            return *a.data.slice.element_type == *b.data.slice.element_type;
+            match = data.slice.element_type->eq(*other.data.slice.element_type);
+            break;
         case Value_Type_Kind::Tuple:
-            if (a.data.tuple.child_types.size() != b.data.tuple.child_types.size()) {
-                return false;
-            }
-            for (size_t i = 0; i < a.data.tuple.child_types.size(); i++) {
-                auto ai = a.data.tuple.child_types[i];
-                auto bi = b.data.tuple.child_types[i];
-                if (ai != bi) {
-                    return false;
+            if (data.tuple.child_types.size() != other.data.tuple.child_types.size()) {
+                match = false;
+            } else {
+                for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
+                    auto ai = data.tuple.child_types[i];
+                    auto bi = other.data.tuple.child_types[i];
+                    if (!ai.eq_ignoring_mutability(bi)) {
+                        match = false;
+                        break;
+                    }
                 }
             }
             break;
@@ -213,11 +226,61 @@ bool operator==(const Value_Type &a, const Value_Type &b) {
             assert(false);
     }
     
-    return true;
+    return match;
 }
 
-bool operator!=(const Value_Type &a, const Value_Type &b) {
-    return !(a == b);
+bool Value_Type::assignable_from(const Value_Type &other) {
+    if (kind != other.kind) {
+        return false;
+    }
+    
+    bool match = true;
+    switch (kind) {
+        case Value_Type_Kind::Ptr:
+            if (data.ptr.child_type->is_mut) {
+                match = data.ptr.child_type->eq(*other.data.ptr.child_type);
+            } else {
+                match = data.ptr.child_type->eq_ignoring_mutability(*other.data.ptr.child_type);
+            }
+            break;
+        case Value_Type_Kind::Array:
+            match = data.array.count == other.data.array.count;
+            if (!match) break;
+            
+            if (data.array.element_type->is_mut) {
+                match = data.array.element_type->eq(*other.data.array.element_type);
+            } else {
+                match = data.array.element_type->eq_ignoring_mutability(*other.data.array.element_type);
+            }
+            break;
+        case Value_Type_Kind::Slice:
+            if (data.slice.element_type->is_mut) {
+                match = data.slice.element_type->eq(*other.data.slice.element_type);
+            } else {
+                match = data.slice.element_type->eq_ignoring_mutability(*other.data.slice.element_type);
+            }
+            break;
+        case Value_Type_Kind::Tuple:
+            if (data.tuple.child_types.size() != other.data.tuple.child_types.size()) {
+                match = false;
+            } else {
+                for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
+                    auto ai = data.tuple.child_types[i];
+                    auto bi = other.data.tuple.child_types[i];
+                    if (!ai.eq_ignoring_mutability(bi)) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            break;
+        case Value_Type_Kind::Struct:
+            assert(false);
+        case Value_Type_Kind::Enum:
+            assert(false);
+    }
+    
+    return match;
 }
 
 Size Tuple_Type_Data::offset_of_type(size_t idx) {

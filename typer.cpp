@@ -303,6 +303,9 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
         case Typed_AST_Kind::Dot_Tuple: {
             print_binary_at_indent(".", node.cast<Typed_AST_Binary>(), indent);
         } break;
+        case Typed_AST_Kind::Subscript: {
+            print_binary_at_indent("[]", node.cast<Typed_AST_Binary>(), indent);
+        } break;
         case Typed_AST_Kind::If: {
             Ref<Typed_AST_If> t = node.cast<Typed_AST_If>();
             printf("(if)\n");
@@ -500,35 +503,35 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(rhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Mod, value_types::Int, lhs, rhs);
         case Untyped_AST_Kind::Assignment:
-            verify(lhs->type == rhs->type, "(=) requires both operands to be the same type.");
-            verify(lhs->type.is_mut, "Cannot assign to something of type (%s) because it isn't mutable.", lhs->type.debug_str());
+            verify(lhs->type.is_mut, "Cannot assign to something of type (%s) because it is immutable.", lhs->type.debug_str());
+            verify(lhs->type.assignable_from(rhs->type), "(=) requires both operands to be the same type.");
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Assignment, value_types::None, lhs, rhs);
         case Untyped_AST_Kind::Equal:
-            verify(lhs->type == rhs->type, "(==) requires both operands to be the same type.");
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(==) requires both operands to be the same type.");
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Equal, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Not_Equal:
-            verify(lhs->type == rhs->type, "(!=) requires both operands to be the same type.");
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(!=) requires both operands to be the same type.");
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Not_Equal, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Less:
-            verify(lhs->type == rhs->type, "(<) requires both operands to be the same type.");
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(<) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(<) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Greater:
-            verify(lhs->type == rhs->type, "(>) requires both operands to be the same type.");
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(>) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(>) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Greater, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Less_Eq:
-            verify(lhs->type == rhs->type, "(<=) requires both operands to be the same type.");
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(<=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(<=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less_Eq, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Greater_Eq:
-            verify(lhs->type == rhs->type, "(>=) requires both operands to be the same type.");
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(>=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
                    "(>=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
@@ -551,6 +554,12 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(i->value < lhs->type.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.child_types[i->value], lhs, i);
         } break;
+        case Untyped_AST_Kind::Subscript:
+            verify(lhs->type.kind == Value_Type_Kind::Array ||
+                   lhs->type.kind == Value_Type_Kind::Slice,
+                   "([]) requires first operand to be an array or slice but was given (%s).", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Int, "([]) requires second operand to be (int) but was given (%s).", rhs->type.debug_str());
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Subscript, *lhs->type.child_type(), lhs, rhs);
             
         case Untyped_AST_Kind::While:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
@@ -608,7 +617,7 @@ Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
         element_type->is_mut = is_mut;
     }
     for (size_t i = 0; i < element_nodes->nodes.size(); i++) {
-        verify(element_nodes->nodes[i]->type == *element_type, "Element %zu in array literal does not match the expected type (%s).", i+1, element_type->debug_str());
+        verify(element_nodes->nodes[i]->type.eq_ignoring_mutability(*element_type), "Element %zu in array literal does not match the expected type (%s).", i+1, element_type->debug_str());
     }
     return Mem.make<Typed_AST_Array>(*array_type, to_typed(kind), count, array_type, element_nodes);
 }
@@ -617,7 +626,7 @@ Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
     auto cond = this->cond->typecheck(t);
     auto then = this->then->typecheck(t);
     auto else_ = this->else_ ? this->else_->typecheck(t) : nullptr;
-    verify(!else_ || then->type == else_->type, "Both branches of (if) must be the same. (%s) vs (%s).", then->type.debug_str(), else_->type.debug_str());
+    verify(!else_ || then->type.eq(else_->type), "Both branches of (if) must be the same. (%s) vs (%s).", then->type.debug_str(), else_->type.debug_str());
     return Mem.make<Typed_AST_If>(then->type, cond, then, else_);
 }
 
@@ -636,7 +645,7 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
     Ref<Typed_AST_Type_Signiture> sig = nullptr;
     if (specified_type) {
         if (init) {
-            verify(*specified_type->value_type == init->type, "Specified type (%s) does not match given type (%s).", specified_type->value_type->debug_str(), init->type.debug_str());
+            verify(specified_type->value_type->assignable_from(init->type), "Specified type (%s) does not match given type (%s).", specified_type->value_type->debug_str(), init->type.debug_str());
         }
         sig = specified_type->typecheck(t).cast<Typed_AST_Type_Signiture>();
         internal_verify(sig, "Failed to cast to Type_Sig in Untyped_AST_Let::typecheck().");

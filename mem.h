@@ -68,9 +68,10 @@ public:
     }
     
 public:
-    T &operator*() { return *ptr; }
+    T &      operator*()       { return *ptr; }
     const T &operator*() const { return *ptr; }
-    T *operator->() { return ptr; }
+    
+    T *      operator->()       { return ptr; }
     const T *operator->() const { return ptr; }
     
     operator bool() const { return ptr != nullptr; }
@@ -100,13 +101,8 @@ public:
         return Ref<U>(p);
     }
     
-    T *raw() {
-        return ptr;
-    }
-    
-    const T *raw() const {
-        return ptr;
-    }
+    T *      as_ptr()       { return ptr; }
+    const T *as_ptr() const { return ptr; }
 };
 
 template<typename = void> struct remove_ref;
@@ -188,7 +184,7 @@ public:
     template<typename T, typename ...Args>
     Ref<T> make(Args &&...args) {
         Ref<T> r = allocate<T>(1);
-        new(r.raw()) T{ std::forward<Args>(args)... };
+        new(r.as_ptr()) T{ std::forward<Args>(args)... };
         return r;
     }
     

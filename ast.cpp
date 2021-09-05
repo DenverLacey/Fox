@@ -321,6 +321,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Dot_Tuple: {
             print_binary_at_indent(".", node.cast<Untyped_AST_Binary>(), indent);
         } break;
+        case Untyped_AST_Kind::Subscript: {
+            print_binary_at_indent("[]", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
         case Untyped_AST_Kind::If: {
             Ref<Untyped_AST_If> t = node.cast<Untyped_AST_If>();
             printf("(if)\n");

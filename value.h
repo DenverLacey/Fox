@@ -109,10 +109,11 @@ struct Value_Type {
     char *debug_str() const;
     Value_Type *child_type();
     Value_Type clone() const;
+    
+    bool eq(const Value_Type &other);
+    bool eq_ignoring_mutability(const Value_Type &other);
+    bool assignable_from(const Value_Type &other);
 };
-
-bool operator==(const Value_Type &a, const Value_Type &b);
-bool operator!=(const Value_Type &a, const Value_Type &b);
 
 namespace value_types {
 inline const Value_Type None = { Value_Type_Kind::None };

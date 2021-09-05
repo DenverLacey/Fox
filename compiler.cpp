@@ -203,7 +203,7 @@ void Typed_AST_Float::compile(Compiler &c) {
 void Typed_AST_Ident::compile(Compiler &c) {
     auto [is_global, v] = c.find_variable(id);
     verify(v, "Unresolved identifier '%s'.", id.c_str());
-    internal_verify(v->type == type, "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
+    internal_verify(v->type.eq(type), "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
     c.emit_opcode(is_global ? Opcode::Push_Global_Value : Opcode::Push_Value);
     c.emit_size(v->type.size());
     c.emit_address(v->address);
@@ -238,6 +238,8 @@ struct Find_Static_Address_Result {
     Address address;
 };
 
+static bool emit_address_code(Compiler &c, Typed_AST &node);
+
 static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &node) {
     auto status = Find_Static_Address_Result::Found;
     Address address;
@@ -256,26 +258,27 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             
             address = v->address;
         } break;
-//        case AST_SUBSCRIPT: {
-//            Binary *sub = (Binary *)ast;
-//            auto lhs_result = find_static_address(c, sub->lhs);
-//
-//            if (lhs_result.type == FSAR_NOT_FOUND)
-//                { type = FSAR_NOT_FOUND; break; }
-//
-//            // @TODO: can we make this more constant?
-//            if (!types_match(c, sub->lhs->inferred_type, TYPE_ARRAY))
-//                { type = FSAR_NOT_FOUND; break; }
-//
-//            // @TODO: implement constant evaluation
-//            if (sub->rhs->type != AST_INTEGER)
-//                { type = FSAR_NOT_FOUND; break; }
-//
-//            if (lhs_result.type == FSAR_FOUND_GLOBAL) type = FSAR_FOUND_GLOBAL;
-//
-//            Integer idx = ((Literal *)sub->rhs)->as.integer;
-//            addr = lhs_result.address + idx * size_of_type(c, sub->inferred_type);
-//        } break;
+        case Typed_AST_Kind::Subscript: {
+            auto sub = dynamic_cast<Typed_AST_Binary *>(&node);
+            internal_verify(sub, "Failed to cast node to a Binary* in find_static_address().");
+            
+            auto [array_status, array_address] = find_static_address(c, *sub->lhs);
+            
+            if (array_status == Find_Static_Address_Result::Not_Found ||
+                sub->lhs->type.kind != Value_Type_Kind::Array ||
+                sub->rhs->kind != Typed_AST_Kind::Int)
+            {
+                status = Find_Static_Address_Result::Not_Found;
+                break;
+            }
+            
+            if (array_status == Find_Static_Address_Result::Found_Global) {
+                status = Find_Static_Address_Result::Found_Global;
+            }
+            
+            runtime::Int index = sub->rhs.cast<Typed_AST_Int>()->value;
+            address = array_address + index * sub->type.size();
+        } break;
 //        case AST_DOT: {
 //            Binary *dot = (Binary *)ast;
 //            AST *lhs = dot->lhs;
@@ -323,26 +326,30 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
             internal_verify(deref, "Failed to cast node to Unary* in emit_dynamic_address_code().");
             deref->sub->compile(c);
         } break;
-//        case AST_SUBSCRIPT: {
-//            Binary *sub = (Binary *)ast;
-//
-//            ValueType *element_type = get_subtype(c, sub->lhs->inferred_type);
-//            TypeSize size = size_of_type(c, *element_type);
-//
-//            if (!emit_address_bytecode(c, sub->lhs)) return false;
-//            if (types_match(c, sub->lhs->inferred_type, TYPE_SLICE)) {
-//                emit_byte(c, BYTE_LOAD);
-//                emit_size(c, size_of_type(PTR_TYPE));
-//            }
-//
-//            emit_byte(c, BYTE_LOAD_CONST);
-//            emit_size(c, size_of_type(INT_TYPE));
-//            emit_value<Integer>(c, size);
-//            emit_bytecode(c, sub->rhs);
-//            emit_byte(c, BYTE_INTEGER_MUL);
-//
-//            emit_byte(c, BYTE_INTEGER_ADD);
-//        } break;
+        case Typed_AST_Kind::Subscript: {
+            auto sub = dynamic_cast<Typed_AST_Binary *>(&node);
+            internal_verify(sub, "Failed to cast node to Binary* in emit_dynamic_address_code().");
+            
+            Size element_size = sub->lhs->type.child_type()->size();
+            
+            if (!emit_address_code(c, *sub->lhs)) {
+                return false;
+            }
+            
+            if (sub->lhs->type.kind == Value_Type_Kind::Slice) {
+                c.emit_opcode(Opcode::Load);
+                c.emit_size(value_types::Ptr.size());
+            }
+            
+            // offset = rhs * element_size
+            sub->rhs->compile(c);
+            c.emit_opcode(Opcode::Lit_Int);
+            c.emit_value<runtime::Int>(element_size);
+            c.emit_opcode(Opcode::Int_Mul);
+            
+            // address = &lhs + offset
+            c.emit_opcode(Opcode::Int_Add);
+        } break;
 //        case AST_DOT: {
 //            Binary *dot = (Binary *)ast;
 //
@@ -528,6 +535,67 @@ void compile_tuple_dot_operator(Compiler &c, Typed_AST_Binary &dot) {
     c.stack_top = stack_top + dot.type.size();
 }
 
+static void emit_dynamic_offset_load(
+    Compiler &c,
+    Typed_AST &index,
+    Size element_size)
+{
+    // offset = index * element_size
+    index.compile(c);
+    
+    c.emit_opcode(Opcode::Lit_Int);
+    c.emit_value<runtime::Int>(element_size);
+    
+    c.emit_opcode(Opcode::Int_Mul);
+    
+    // element_ptr = &lhs + offset
+    c.emit_opcode(Opcode::Int_Add);
+    
+    // result = Load(element_size, element_ptr)
+    c.emit_opcode(Opcode::Load);
+    c.emit_size(element_size);
+}
+
+static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
+    int stack_top = c.stack_top;
+    
+    if (sub.lhs->type.kind == Value_Type_Kind::Array) {
+        Size element_size = sub.lhs->type.child_type()->size();
+        
+        if (sub.rhs->kind == Typed_AST_Kind::Int) {
+            runtime::Int index = sub.rhs.cast<Typed_AST_Int>()->value;
+            runtime::Int offset = index * element_size;
+            
+            auto [status, address] = find_static_address(c, *sub.lhs);
+            switch (status) {
+                case Find_Static_Address_Result::Found:
+                    c.emit_opcode(Opcode::Push_Value);
+                    c.emit_size(element_size);
+                    c.emit_address(address + offset);
+                    break;
+                case Find_Static_Address_Result::Found_Global:
+                    c.emit_opcode(Opcode::Push_Global_Value);
+                    c.emit_size(element_size);
+                    c.emit_address(address + offset);
+                    break;
+                case Find_Static_Address_Result::Not_Found:
+                    bool success = emit_dynamic_address_code(c, *sub.lhs);
+                    verify(success, "Cannot subscript this expression.");
+                    emit_dynamic_offset_load(c, *sub.rhs, element_size);
+                    break;
+            }
+        } else {
+            bool success = emit_address_code(c, *sub.lhs);
+            verify(success, "Cannot subscript this expression.");
+            emit_dynamic_offset_load(c, *sub.rhs, element_size);
+        }
+    } else {
+        internal_verify(sub.lhs->type.kind != Value_Type_Kind::Slice, "Can't subscript slices yet.");
+    }
+    
+    c.stack_top = stack_top + sub.type.size();
+}
+
 void Typed_AST_Binary::compile(Compiler &c) {
     int stack_top = c.stack_top;
     
@@ -566,6 +634,9 @@ void Typed_AST_Binary::compile(Compiler &c) {
             return;
         case Typed_AST_Kind::Dot_Tuple:
             compile_tuple_dot_operator(c, *this);
+            return;
+        case Typed_AST_Kind::Subscript:
+            compile_subscript_operator(c, *this);
             return;
     }
     
@@ -682,7 +753,7 @@ void Typed_AST_Type_Signiture::compile(Compiler &c) {
 void Typed_AST_Let::compile(Compiler &c) {
     int stack_top = c.stack_top;
     
-    Value_Type type = initializer ? initializer->type : *specified_type->value_type;
+    Value_Type type = specified_type ? *specified_type->value_type : initializer->type;
     c.put_variable(id, type);
     
     if (initializer) {
