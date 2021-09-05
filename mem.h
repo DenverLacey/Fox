@@ -164,7 +164,9 @@ class Mem_Allocator {
     static constexpr size_t Minimum_Bucket_Size = 1024;
     using Bucket = uint8_t *;
     
-    size_t current;
+    uint8_t *current;
+    uint8_t *previous;
+    uint8_t *end_of_current_bucket;
     std::forward_list<Bucket> buckets;
     
 public:
@@ -188,9 +190,20 @@ public:
         return r;
     }
     
+    template<typename T>
+    Ref<T> reallocate(Ref<T> ref, size_t new_n) {
+        return Ref<T>((T *)reallocate(ref.as_ptr(), new_n * sizeof(T)));
+    }
+    
+    template<typename T>
+    bool deallocate(Ref<T> ref) {
+        return deallocate(ref.as_ptr());
+    }
+    
 private:
     void *allocate(size_t size);
-    Bucket current_bucket();
+    void *reallocate(void *ptr, size_t new_size);
+    bool deallocate(void *ptr);
     void allocate_bucket(size_t size);
 };
 
