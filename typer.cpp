@@ -565,7 +565,9 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             auto i = rhs.cast<Typed_AST_Int>();
             internal_verify(i, "Dot_Tuple got a rhs that wasn't an int.");
             verify(i->value < ty.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
-            return Mem.make<Typed_AST_Dot>(Typed_AST_Kind::Dot_Tuple, ty.data.tuple.child_types[i->value], needs_deref, lhs, i);
+            Value_Type child_ty = ty.data.tuple.child_types[i->value];
+            child_ty.is_mut = ty.is_mut;
+            return Mem.make<Typed_AST_Dot>(Typed_AST_Kind::Dot_Tuple, child_ty, needs_deref, lhs, i);
         } break;
         case Untyped_AST_Kind::Subscript:
             verify(lhs->type.kind == Value_Type_Kind::Array ||
