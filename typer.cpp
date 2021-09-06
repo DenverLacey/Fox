@@ -136,6 +136,17 @@ Typed_AST_Let::~Typed_AST_Let() {
     id.free();
 }
 
+Typed_AST_Dot::Typed_AST_Dot(
+    Typed_AST_Kind kind,
+    Value_Type type,
+    bool deref,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST> rhs)
+        : Typed_AST_Binary(kind, type, lhs, rhs)
+{
+    this->deref = deref;
+}
+
 static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
     switch (kind) {
         case Untyped_AST_Kind::Bool:            return Typed_AST_Kind::Bool;
@@ -548,11 +559,13 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             assert(false);
             break;
         case Untyped_AST_Kind::Dot_Tuple: {
-            verify(lhs->type.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given (%s).", lhs->type.debug_str());
+            bool needs_deref = lhs->type.kind == Value_Type_Kind::Ptr;
+            Value_Type &ty = needs_deref ? *lhs->type.child_type() : lhs->type;
+            verify(ty.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given (%s).", lhs->type.debug_str());
             auto i = rhs.cast<Typed_AST_Int>();
             internal_verify(i, "Dot_Tuple got a rhs that wasn't an int.");
-            verify(i->value < lhs->type.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
-            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Dot_Tuple, lhs->type.data.tuple.child_types[i->value], lhs, i);
+            verify(i->value < ty.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
+            return Mem.make<Typed_AST_Dot>(Typed_AST_Kind::Dot_Tuple, ty.data.tuple.child_types[i->value], needs_deref, lhs, i);
         } break;
         case Untyped_AST_Kind::Subscript:
             verify(lhs->type.kind == Value_Type_Kind::Array ||
@@ -655,4 +668,9 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
     t.put_variable(id.c_str(), ty, is_mut);
     
     return Mem.make<Typed_AST_Let>(id.clone(), is_mut, sig, init);
+}
+
+Ref<Typed_AST> Untyped_AST_Generic_Specialization::typecheck(Typer &t) {
+    internal_error("Generic_Specialization::typecheck() not yet implemented.");
+    return nullptr;
 }

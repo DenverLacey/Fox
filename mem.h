@@ -186,7 +186,7 @@ public:
     template<typename T, typename ...Args>
     Ref<T> make(Args &&...args) {
         Ref<T> r = allocate<T>(1);
-        new(r.as_ptr()) T{ std::forward<Args>(args)... };
+        new(r.as_ptr()) T { std::forward<Args>(args)... };
         return r;
     }
     

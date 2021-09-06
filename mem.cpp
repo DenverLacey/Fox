@@ -104,6 +104,9 @@ void Mem_Allocator::clear() {
         free(b);
     }
     buckets.clear();
+    current = nullptr;
+    previous = nullptr;
+    end_of_current_bucket = nullptr;
 }
 
 void Mem_Allocator::allocate_bucket(size_t size) {
@@ -111,7 +114,7 @@ void Mem_Allocator::allocate_bucket(size_t size) {
     if (alloc_size < size) alloc_size = size;
     Bucket bucket = (Bucket)malloc(alloc_size);
     buckets.push_front(bucket);
-    current = bucket;
     previous = current;
+    current = bucket;
     end_of_current_bucket = bucket + alloc_size;
 }

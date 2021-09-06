@@ -46,8 +46,6 @@ enum class Typed_AST_Kind {
     While,
     And,
     Or,
-    Dot,
-    Dot_Tuple,
     Subscript,
     
     // ternary
@@ -61,6 +59,8 @@ enum class Typed_AST_Kind {
     If,
     Let,
     Type_Signiture,
+    Dot,
+    Dot_Tuple,
 };
 
 struct Compiler;
@@ -183,6 +183,13 @@ struct Typed_AST_Let : public Typed_AST {
     
     Typed_AST_Let(String id, bool is_mut, Ref<Typed_AST_Type_Signiture> specified_type, Ref<Typed_AST> initializer);
     ~Typed_AST_Let() override;
+    void compile(Compiler &c) override;
+};
+
+struct Typed_AST_Dot : public Typed_AST_Binary {
+    bool deref;
+    
+    Typed_AST_Dot(Typed_AST_Kind kind, Value_Type type, bool deref, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
     void compile(Compiler &c) override;
 };
 

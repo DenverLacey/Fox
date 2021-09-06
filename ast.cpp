@@ -196,6 +196,23 @@ Ref<Untyped_AST> Untyped_AST_Let::clone() {
     return Mem.make<Untyped_AST_Let>(id.clone(), is_mut, sig, initializer->clone());
 }
 
+Untyped_AST_Generic_Specialization::Untyped_AST_Generic_Specialization(
+    String id,
+    std::vector<Ref<Untyped_AST_Type_Signiture>> &&params)
+{
+    this->id = id;
+    this->params = std::move(params);
+}
+
+Untyped_AST_Generic_Specialization::~Untyped_AST_Generic_Specialization() {
+    id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Generic_Specialization::clone() {
+    auto copy = params;
+    return Mem.make<Untyped_AST_Generic_Specialization>(id.clone(), std::move(copy));
+}
+
 constexpr size_t INDENT_SIZE = 2;
 static void print_at_indent(const Ref<Untyped_AST> node, size_t indent);
 

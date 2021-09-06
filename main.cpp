@@ -11,6 +11,8 @@
 // [ ]  Maybe add absolute-value operator (unary +)?
 // [x]  Add array types.
 // [ ]  Add slice types.
+// [ ]  Change it so that qualifying a tuple variable as 'mut' makes the fields
+//      of the tuple mutable.
 //
 
 #include <iostream>

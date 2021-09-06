@@ -369,7 +369,7 @@ static Token character(Tokenizer &t) {
     char *word = t.cur;
     char *word_end = t.cur;
     bool escape_sequences = false;
-    while (t.peek() != '"') {
+    while (t.peek() != '\'') {
         if (t.peek() == '\\') {
             escape_sequences = true;
             t.next();

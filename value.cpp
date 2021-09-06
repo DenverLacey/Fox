@@ -284,11 +284,11 @@ bool Value_Type::assignable_from(const Value_Type &other) {
 }
 
 Size Tuple_Type_Data::offset_of_type(size_t idx) {
-    Size size = 0;
+    Size offset = 0;
     for (size_t i = 0; i < idx; i++) {
-        size += child_types[i].size();
+        offset += child_types[i].size();
     }
-    return size;
+    return offset;
 }
 
 namespace value_types {

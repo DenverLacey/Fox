@@ -279,6 +279,31 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             runtime::Int index = sub->rhs.cast<Typed_AST_Int>()->value;
             address = array_address + index * sub->type.size();
         } break;
+        case Typed_AST_Kind::Dot: {
+            internal_error("find_static_address() of Dot not yet implemented.");
+        } break;
+        case Typed_AST_Kind::Dot_Tuple: {
+            auto dot = dynamic_cast<Typed_AST_Dot *>(&node);
+            internal_verify(dot, "Failed to cast node to Dot* in find_static_address().");
+            
+            if (dot->deref) {
+                status = Find_Static_Address_Result::Not_Found;
+                break;
+            }
+            
+            auto [lhs_status, lhs_address] = find_static_address(c, *dot->lhs);
+            if (lhs_status == Find_Static_Address_Result::Not_Found) {
+                status = Find_Static_Address_Result::Not_Found;
+                break;
+            }
+            
+            status = lhs_status;
+            
+            auto index = dot->rhs.cast<Typed_AST_Int>()->value;
+            auto offset = dot->lhs->type.data.tuple.offset_of_type(index);
+            
+            address = lhs_address + offset;
+        } break;
 //        case AST_DOT: {
 //            Binary *dot = (Binary *)ast;
 //            AST *lhs = dot->lhs;
@@ -349,6 +374,36 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
             
             // address = &lhs + offset
             c.emit_opcode(Opcode::Int_Add);
+        } break;
+        case Typed_AST_Kind::Dot: {
+            internal_error("emit_dynamic_address_code() of Dot not yet implemented.");
+        } break;
+        case Typed_AST_Kind::Dot_Tuple: {
+            auto dot = dynamic_cast<Typed_AST_Dot *>(&node);
+            internal_verify(dot, "Failed to cast node to Dot* in emit_dynamic_address_code().");
+            
+            Value_Type *tuple_type;
+            if (dot->deref) {
+                dot->lhs->compile(c);
+                tuple_type = dot->lhs->type.child_type();
+            } else {
+                emit_address_code(c, *dot->lhs);
+                tuple_type = &dot->lhs->type;
+            }
+            
+            auto index = dot->rhs.cast<Typed_AST_Int>()->value;
+            auto offset = tuple_type->data.tuple.offset_of_type(index);
+            
+            if (offset == 0) {
+                // do nothing
+            } else if (offset == 1) {
+                c.emit_opcode(Opcode::Lit_1);
+                c.emit_opcode(Opcode::Int_Add);
+            } else {
+                c.emit_opcode(Opcode::Lit_Int);
+                c.emit_value<runtime::Int>(offset);
+                c.emit_opcode(Opcode::Int_Add);
+            }
         } break;
 //        case AST_DOT: {
 //            Binary *dot = (Binary *)ast;
@@ -455,7 +510,7 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
     c.stack_top = stack_top;
 }
 
-void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
+static void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     size_t loop_start = c.function->bytecode.size();
     int stack_top = c.stack_top;
     
@@ -469,7 +524,7 @@ void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     c.stack_top = stack_top;
 }
 
-void compile_logical_operator(Compiler &c, Typed_AST_Binary &b) {
+static void compile_logical_operator(Compiler &c, Typed_AST_Binary &b) {
     int stack_top = c.stack_top;
     Size size_of_bool = value_types::Bool.size();
     
@@ -496,43 +551,6 @@ void compile_logical_operator(Compiler &c, Typed_AST_Binary &b) {
     c.patch_jump(jump);
     
     c.stack_top = stack_top + size_of_bool;
-}
-
-void compile_tuple_dot_operator(Compiler &c, Typed_AST_Binary &dot) {
-    int stack_top = c.stack_top;
-    
-    auto i = dot.rhs.cast<Typed_AST_Int>();
-    Size offset = dot.lhs->type.data.tuple.offset_of_type(i->value);
-    
-    auto [status, address] = find_static_address(c, *dot.lhs);
-    switch (status) {
-        case Find_Static_Address_Result::Found:
-            c.emit_opcode(Opcode::Push_Value);
-            c.emit_size(dot.type.size());
-            c.emit_address(address + offset);
-            break;
-        case Find_Static_Address_Result::Found_Global:
-            c.emit_opcode(Opcode::Push_Global_Value);
-            c.emit_size(dot.type.size());
-            c.emit_address(address + offset);
-            break;
-        case Find_Static_Address_Result::Not_Found:
-            bool success = emit_dynamic_address_code(c, *dot.lhs);
-            verify(success, "Cannot access this value.");
-            if (offset == 0) {
-                // do nothing
-            } else if (offset == 1) {
-                c.emit_opcode(Opcode::Lit_1);
-                c.emit_opcode(Opcode::Int_Add);
-            } else {
-                c.emit_opcode(Opcode::Lit_Int);
-                c.emit_value<runtime::Int>(offset);
-                c.emit_opcode(Opcode::Int_Add);
-            }
-            break;
-    }
-    
-    c.stack_top = stack_top + dot.type.size();
 }
 
 static void emit_dynamic_offset_load(
@@ -631,9 +649,6 @@ void Typed_AST_Binary::compile(Compiler &c) {
         case Typed_AST_Kind::And:
         case Typed_AST_Kind::Or:
             compile_logical_operator(c, *this);
-            return;
-        case Typed_AST_Kind::Dot_Tuple:
-            compile_tuple_dot_operator(c, *this);
             return;
         case Typed_AST_Kind::Subscript:
             compile_subscript_operator(c, *this);
@@ -761,6 +776,43 @@ void Typed_AST_Let::compile(Compiler &c) {
     } else {
         c.emit_opcode(Opcode::Clear_Allocate);
         c.emit_size(type.size());
+    }
+    
+    c.stack_top = stack_top + type.size();
+}
+
+void Typed_AST_Dot::compile(Compiler &c) {
+    int stack_top = c.stack_top;
+    
+    switch (kind) {
+        case Typed_AST_Kind::Dot:
+            internal_error("Dot operator not yet implemented.");
+            break;
+        case Typed_AST_Kind::Dot_Tuple: {
+            auto [status, address] = find_static_address(c, *this);
+            switch (status) {
+                case Find_Static_Address_Result::Found:
+                    c.emit_opcode(Opcode::Push_Value);
+                    c.emit_size(type.size());
+                    c.emit_address(address);
+                    break;
+                case Find_Static_Address_Result::Found_Global:
+                    c.emit_opcode(Opcode::Push_Global_Value);
+                    c.emit_size(type.size());
+                    c.emit_address(address);
+                    break;
+                case Find_Static_Address_Result::Not_Found:
+                    bool success = emit_dynamic_address_code(c, *this);
+                    verify(success, "Cannot access this value.");
+                    c.emit_opcode(Opcode::Load);
+                    c.emit_size(type.size());
+                    break;
+            }
+        } break;
+            
+        default:
+            internal_error("Invalid Dot kind: %d.", kind);
+            break;
     }
     
     c.stack_top = stack_top + type.size();

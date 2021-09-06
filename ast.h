@@ -62,6 +62,7 @@ enum class Untyped_AST_Kind {
     If,
     Let,
     Type_Signiture,
+    Generic_Specialization,
 };
 
 struct Typed_AST;
@@ -198,6 +199,16 @@ struct Untyped_AST_Let : public Untyped_AST {
     
     Untyped_AST_Let(String id, bool is_mut, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
     ~Untyped_AST_Let() override;
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Generic_Specialization : public Untyped_AST {
+    String id;
+    std::vector<Ref<Untyped_AST_Type_Signiture>> params;
+    
+    Untyped_AST_Generic_Specialization(String id, std::vector<Ref<Untyped_AST_Type_Signiture>> &&params);
+    ~Untyped_AST_Generic_Specialization() override;
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
