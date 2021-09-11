@@ -58,6 +58,11 @@ enum class Untyped_AST_Kind {
     Comma,
     Tuple,
     
+    // patterns
+    Pattern_Underscore,
+    Pattern_Ident,
+    Pattern_Tuple,
+    
     // unique
     If,
     Let,
@@ -173,6 +178,33 @@ struct Untyped_AST_Array : public Untyped_AST {
     Ref<Untyped_AST> clone() override;
 };
 
+struct Untyped_AST_Pattern : public Untyped_AST {};
+
+struct Untyped_AST_Pattern_Underscore : public Untyped_AST_Pattern {
+    Untyped_AST_Pattern_Underscore();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Pattern_Ident : public Untyped_AST_Pattern {
+    bool is_mut;
+    String id;
+    
+    Untyped_AST_Pattern_Ident(bool is_mut, String id);
+    ~Untyped_AST_Pattern_Ident();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Pattern_Tuple : public Untyped_AST_Pattern {
+    std::vector<Ref<Untyped_AST_Pattern>> sub_patterns;
+    
+    Untyped_AST_Pattern_Tuple();
+    void add(Ref<Untyped_AST_Pattern> sub);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
 struct Untyped_AST_If : public Untyped_AST {
     Ref<Untyped_AST> cond;
     Ref<Untyped_AST> then;
@@ -192,13 +224,14 @@ struct Untyped_AST_Type_Signiture : public Untyped_AST {
 };
 
 struct Untyped_AST_Let : public Untyped_AST {
-    String id;
+//    String id;
+    Ref<Untyped_AST_Pattern> target;
     bool is_mut;
     Ref<Untyped_AST_Type_Signiture> specified_type;
     Ref<Untyped_AST> initializer;
     
-    Untyped_AST_Let(String id, bool is_mut, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
-    ~Untyped_AST_Let() override;
+    Untyped_AST_Let(Ref<Untyped_AST_Pattern> target, bool is_mut, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
+//    ~Untyped_AST_Let() override;
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

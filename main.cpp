@@ -8,11 +8,12 @@
 
 // @TODOS:
 // [x]  Add negation operation.
-// [ ]  Maybe add absolute-value operator (unary +)?
-// [x]  Add array types.
-// [ ]  Add slice types.
-// [x]  Change it so that qualifying a tuple variable as 'mut' makes the fields
-//      of the tuple mutable.
+// [ ]  Add absolute-value operator (unary +)?
+// [x]  Add the concept of patterns
+// [x]  Use patterns in variable declarations.
+// [ ]  Use patterns in for-loop.
+// [x]  Adapt typechecking for let statements to using patterns.
+// [ ]  Rework if statements such that there can be else-if blocks and then-if blocks?
 //
 
 #include <iostream>

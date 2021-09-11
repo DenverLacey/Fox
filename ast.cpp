@@ -156,6 +156,44 @@ Ref<Untyped_AST> Untyped_AST_Array::clone() {
     );
 }
 
+Untyped_AST_Pattern_Underscore::Untyped_AST_Pattern_Underscore() {
+    kind = Untyped_AST_Kind::Pattern_Underscore;
+}
+
+Ref<Untyped_AST> Untyped_AST_Pattern_Underscore::clone() {
+    return Mem.make<Untyped_AST_Pattern_Underscore>();
+}
+
+Untyped_AST_Pattern_Ident::Untyped_AST_Pattern_Ident(bool is_mut, String id) {
+    kind = Untyped_AST_Kind::Pattern_Ident;
+    this->is_mut = is_mut;
+    this->id = id;
+}
+
+Untyped_AST_Pattern_Ident::~Untyped_AST_Pattern_Ident() {
+    id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Pattern_Ident::clone() {
+    return Mem.make<Untyped_AST_Pattern_Ident>(is_mut, id.clone());
+}
+
+Untyped_AST_Pattern_Tuple::Untyped_AST_Pattern_Tuple() {
+    kind = Untyped_AST_Kind::Pattern_Tuple;
+}
+
+Ref<Untyped_AST> Untyped_AST_Pattern_Tuple::clone() {
+    auto copy = Mem.make<Untyped_AST_Pattern_Tuple>();
+    for (auto sub : sub_patterns) {
+        copy->add(sub->clone().cast<Untyped_AST_Pattern>());
+    }
+    return copy;
+}
+
+void Untyped_AST_Pattern_Tuple::add(Ref<Untyped_AST_Pattern> sub) {
+    sub_patterns.push_back(sub);
+}
+
 Untyped_AST_If::Untyped_AST_If(
     Ref<Untyped_AST> cond,
     Ref<Untyped_AST> then,
@@ -175,25 +213,21 @@ Ref<Untyped_AST> Untyped_AST_If::clone() {
 }
 
 Untyped_AST_Let::Untyped_AST_Let(
-    String id,
+    Ref<Untyped_AST_Pattern> target,
     bool is_mut,
     Ref<Untyped_AST_Type_Signiture> specified_type,
     Ref<Untyped_AST> initializer)
 {
     kind = Untyped_AST_Kind::Let;
-    this->id = id;
+    this->target = target;
     this->is_mut = is_mut;
     this->specified_type = specified_type;
     this->initializer = initializer;
 }
 
-Untyped_AST_Let::~Untyped_AST_Let() {
-    id.free();
-}
-
 Ref<Untyped_AST> Untyped_AST_Let::clone() {
     auto sig = specified_type ? specified_type->clone().cast<Untyped_AST_Type_Signiture>() : nullptr;
-    return Mem.make<Untyped_AST_Let>(id.clone(), is_mut, sig, initializer->clone());
+    return Mem.make<Untyped_AST_Let>(target->clone().cast<Untyped_AST_Pattern>(), is_mut, sig, initializer->clone());
 }
 
 Untyped_AST_Generic_Specialization::Untyped_AST_Generic_Specialization(
@@ -245,6 +279,36 @@ static void print_multiary_at_indent(const char *id, const Ref<Untyped_AST_Multi
         const Ref<Untyped_AST> node = b->nodes[i];
         printf("%*s%zu: ", (indent + 1) * INDENT_SIZE, "", i);
         print_at_indent(node, indent + 1);
+    }
+}
+
+static void print_pattern(Ref<Untyped_AST_Pattern> p) {
+    switch (p->kind) {
+        case Untyped_AST_Kind::Pattern_Underscore:
+            printf("_");
+            break;
+        case Untyped_AST_Kind::Pattern_Ident: {
+            auto ip = p.cast<Untyped_AST_Pattern_Ident>();
+            if (ip->is_mut) {
+                printf("mut %.*s", ip->id.size(), ip->id.c_str());
+            } else {
+                printf("%.*s", ip->id.size(), ip->id.c_str());
+            }
+        } break;
+        case Untyped_AST_Kind::Pattern_Tuple: {
+            auto t = p.cast<Untyped_AST_Pattern_Tuple>();
+            printf("(");
+            for (size_t i = 0; i < t->sub_patterns.size(); i++) {
+                auto s = t->sub_patterns[i];
+                print_pattern(s);
+                if (i + 1 < t->sub_patterns.size()) printf(", ");
+            }
+            printf(")");
+        } break;
+            
+        default:
+            assert(false);
+            break;
     }
 }
 
@@ -341,6 +405,13 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Subscript: {
             print_binary_at_indent("[]", node.cast<Untyped_AST_Binary>(), indent);
         } break;
+        case Untyped_AST_Kind::Pattern_Underscore:
+        case Untyped_AST_Kind::Pattern_Ident:
+        case Untyped_AST_Kind::Pattern_Tuple: {
+            auto p = node.cast<Untyped_AST_Pattern>();
+            print_pattern(p);
+            printf("\n");
+        } break;
         case Untyped_AST_Kind::If: {
             Ref<Untyped_AST_If> t = node.cast<Untyped_AST_If>();
             printf("(if)\n");
@@ -361,12 +432,10 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
         case Untyped_AST_Kind::Let: {
             Ref<Untyped_AST_Let> let = node.cast<Untyped_AST_Let>();
-            if (let->is_mut) {
-                printf("(let mut)\n");
-            } else {
-                printf("(let)\n");
-            }
-            printf("%*sid: `%.*s`\n", (indent + 1) * INDENT_SIZE, "", let->id.size(), let->id.c_str());
+            printf("(let)\n");
+            
+            print_sub_at_indent("target", let->target, indent + 1);
+            
             if (let->specified_type) {
                 print_sub_at_indent("type", let->specified_type, indent + 1);
             }

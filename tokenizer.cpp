@@ -515,11 +515,10 @@ static Token punctuation(Tokenizer &t) {
             break;
         case '.':
             if (t.match('.')) {
-                assert(false);
-                if (t.match('=')) {
-                    
+                if (t.match('.')) {
+                    tok.kind = Token_Kind::Triple_Dot;
                 } else {
-                    
+                    tok.kind = Token_Kind::Double_Dot;
                 }
             } else {
                 tok.kind = Token_Kind::Dot;
@@ -561,12 +560,18 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::If;
     } else if (word == "else") {
         tok.kind = Token_Kind::Else;
+    } else if (word == "then") {
+        tok.kind = Token_Kind::Then;
     } else if (word == "while") {
         tok.kind = Token_Kind::While;
+    } else if (word == "for") {
+        tok.kind = Token_Kind::For;
     } else if (word == "and") {
         tok.kind = Token_Kind::And;
     } else if (word == "or") {
         tok.kind = Token_Kind::Or;
+    } else if (word == "in") {
+        tok.kind = Token_Kind::In;
     } else {
         tok.kind = Token_Kind::Ident;
         tok.data.s = word;

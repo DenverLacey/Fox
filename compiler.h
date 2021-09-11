@@ -86,7 +86,7 @@ struct Compiler {
     size_t emit_jump(Opcode jump_code);
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
-    Variable &put_variable(String id, Value_Type type);
+    Variable &put_variable(String id, Value_Type type, Address address);
     std::pair<bool, Variable *> find_variable(String id);
     
     template<typename T>

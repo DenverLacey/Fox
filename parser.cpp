@@ -59,6 +59,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Mut: return Precedence::None;
         case Token_Kind::If: return Precedence::None;
         case Token_Kind::Else: return Precedence::None;
+        case Token_Kind::Then: return Precedence::None;
         case Token_Kind::While: return Precedence::None;
         case Token_Kind::Fn: return Precedence::None;
         case Token_Kind::Struct: return Precedence::None;
@@ -200,6 +201,8 @@ struct Parser {
             s = parse_if_statement();
         } else if (match(Token_Kind::While)) {
             s = parse_while_statement();
+        } else if (match(Token_Kind::For)) {
+            s = parse_for_statement();
         } else if (check(Token_Kind::Left_Curly)) {
             s = parse_block();
         } else {
@@ -210,9 +213,10 @@ struct Parser {
     }
     
     Ref<Untyped_AST_Let> parse_let_statement() {
-        bool is_mut = match(Token_Kind::Mut);
+//        bool is_mut = match(Token_Kind::Mut);
+        auto target = parse_pattern();
     
-        auto id = expect(Token_Kind::Ident, "Expected identifier after '%s'.", is_mut ? "let mut" : "let").data.s.clone();
+//        auto id = expect(Token_Kind::Ident, "Expected identifier after '%s'.", "let").data.s.clone();
         
         Ref<Untyped_AST_Type_Signiture> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
@@ -226,9 +230,49 @@ struct Parser {
         }
         
         verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
+        
+        bool is_mut = target->kind == Untyped_AST_Kind::Pattern_Ident && target.cast<Untyped_AST_Pattern_Ident>()->is_mut;
         verify(initializer || is_mut, "'let' statements without an initializer must be marked 'mut'.");
         
-        return Mem.make<Untyped_AST_Let>(id, is_mut, specified_type, initializer);
+        return Mem.make<Untyped_AST_Let>(target, is_mut, specified_type, initializer);
+    }
+    
+    Ref<Untyped_AST_Pattern> parse_pattern() {
+        Ref<Untyped_AST_Pattern> p = nullptr;
+        auto n = next();
+        
+        switch (n.kind) {
+            case Token_Kind::Underscore: {
+                p = Mem.make<Untyped_AST_Pattern_Underscore>();
+            } break;
+            case Token_Kind::Ident: {
+                auto id = n.data.s.clone();
+                if (match(Token_Kind::Left_Curly)) {
+                    internal_error("Struct Patterns not yet implmented.");
+                } else {
+                    p = Mem.make<Untyped_AST_Pattern_Ident>(false, id);
+                }
+            } break;
+            case Token_Kind::Mut: {
+                auto id = expect(Token_Kind::Ident, "Expected identifier after 'mut' keyword.").data.s.clone();
+                p = Mem.make<Untyped_AST_Pattern_Ident>(true, id);
+            } break;
+            case Token_Kind::Left_Paren: {
+                auto tp = Mem.make<Untyped_AST_Pattern_Tuple>();
+                do {
+                    if (check(Token_Kind::Right_Paren)) break;
+                    tp->add(parse_pattern());
+                } while (match(Token_Kind::Comma) && has_more());
+                expect(Token_Kind::Right_Paren, "Expected ')' to terminate tuple pattern.");
+                p = tp;
+            } break;
+                
+            default:
+                error("Invalid pattern.");
+                break;
+        }
+        
+        return p;
     }
     
     Ref<Value_Type> parse_type_signiture() {
@@ -303,6 +347,11 @@ struct Parser {
         auto cond = parse_expression();
         auto body = parse_block();
         return Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::While, cond, body);
+    }
+    
+    Ref<Untyped_AST_Ternary> parse_for_statement() {
+        assert(false);
+        return nullptr;
     }
     
     Ref<Untyped_AST> parse_expression_or_assignment() {

@@ -42,12 +42,15 @@ enum class Token_Kind {
     Mut,
     If,
     Else,
+    Then,
     While,
+    For,
     Fn,
     Struct,
     Enum,
     And,
     Or,
+    In,
     
     // operators
     Plus,           // +
@@ -71,6 +74,8 @@ enum class Token_Kind {
     Ampersand,      // &
     Ampersand_Mut,  // &mut
     Dot,            // .
+    Double_Dot,     // ..
+    Triple_Dot,     // ...
 };
 
 union Token_Data {

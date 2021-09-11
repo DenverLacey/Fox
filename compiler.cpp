@@ -75,10 +75,9 @@ void Compiler::emit_loop(size_t loop_start) {
     emit_value<size_t>(jump);
 }
 
-Variable &Compiler::put_variable(String id, Value_Type type) {
+Variable &Compiler::put_variable(String id, Value_Type type, Address address) {
     std::string sid(id.c_str(), id.size());
     Compiler_Scope &s = current_scope();
-    Address address = (Address)stack_top;
     Variable v = { type, address };
     s.variables[sid] = v;
     return s.variables[sid];
@@ -765,11 +764,22 @@ void Typed_AST_Type_Signiture::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Type_Signiture::compile() is disallowed.");
 }
 
+void Typed_AST_Processed_Pattern::compile(Compiler &c) {
+    internal_error("Call to Typed_AST_Processed_Pattern::compile() is disallowed.");
+}
+
 void Typed_AST_Let::compile(Compiler &c) {
     int stack_top = c.stack_top;
     
     Value_Type type = specified_type ? *specified_type->value_type : initializer->type;
-    c.put_variable(id, type);
+    
+    int next_variable_address = stack_top;
+    for (auto &b : target->bindings) {
+        if (b.id != "") {
+            c.put_variable(b.id, b.type, next_variable_address);
+        }
+        next_variable_address += b.type.size();
+    }
     
     if (initializer) {
         initializer->compile(c);

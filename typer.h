@@ -61,6 +61,7 @@ enum class Typed_AST_Kind {
     Type_Signiture,
     Dot,
     Dot_Tuple,
+    Processed_Pattern,
 };
 
 struct Compiler;
@@ -175,14 +176,25 @@ struct Typed_AST_Type_Signiture : public Typed_AST {
     void compile(Compiler &c) override;
 };
 
+struct Typed_AST_Processed_Pattern : public Typed_AST {
+    struct Binding {
+        String id;
+        Value_Type type;
+    };
+    std::vector<Binding> bindings;
+    
+    Typed_AST_Processed_Pattern();
+    ~Typed_AST_Processed_Pattern();
+    void add_binding(String id, Value_Type type, bool is_mut);
+    void compile(Compiler &c) override;
+};
+
 struct Typed_AST_Let : public Typed_AST {
-    String id;
-    bool is_mut;
+    Ref<Typed_AST_Processed_Pattern> target;
     Ref<Typed_AST_Type_Signiture> specified_type;
     Ref<Typed_AST> initializer;
     
-    Typed_AST_Let(String id, bool is_mut, Ref<Typed_AST_Type_Signiture> specified_type, Ref<Typed_AST> initializer);
-    ~Typed_AST_Let() override;
+    Typed_AST_Let(Ref<Typed_AST_Processed_Pattern> target, Ref<Typed_AST_Type_Signiture> specified_type, Ref<Typed_AST> initializer);
     void compile(Compiler &c) override;
 };
 

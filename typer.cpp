@@ -119,21 +119,34 @@ Typed_AST_Type_Signiture::Typed_AST_Type_Signiture(Ref<Value_Type> value_type) {
     this->value_type = value_type;
 }
 
-Typed_AST_Let::Typed_AST_Let(
+Typed_AST_Processed_Pattern::Typed_AST_Processed_Pattern() {
+    kind = Typed_AST_Kind::Processed_Pattern;
+}
+
+Typed_AST_Processed_Pattern::~Typed_AST_Processed_Pattern() {
+    for (auto &b : bindings) {
+        b.id.free();
+    }
+}
+
+void Typed_AST_Processed_Pattern::add_binding(
     String id,
-    bool is_mut,
+    Value_Type type,
+    bool is_mut)
+{
+    type.is_mut = is_mut;
+    bindings.push_back({ id, type });
+}
+
+Typed_AST_Let::Typed_AST_Let(
+    Ref<Typed_AST_Processed_Pattern> target,
     Ref<Typed_AST_Type_Signiture> specified_type,
     Ref<Typed_AST> initializer)
 {
     kind = Typed_AST_Kind::Let;
-    this->id = id;
-    this->is_mut = is_mut;
+    this->target = target;
     this->specified_type = specified_type;
     this->initializer = initializer;
-}
-
-Typed_AST_Let::~Typed_AST_Let() {
-    id.free();
 }
 
 Typed_AST_Dot::Typed_AST_Dot(
@@ -337,12 +350,9 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
         } break;
         case Typed_AST_Kind::Let: {
             Ref<Typed_AST_Let> let = node.cast<Typed_AST_Let>();
-            if (let->is_mut) {
-                printf("(let mut)\n");
-            } else {
-                printf("(let)\n");
-            }
-            printf("%*sid: `%.*s`\n", (indent + 1) * INDENT_SIZE, "", let->id.size(), let->id.c_str());
+            printf("(let)\n");
+            
+            print_sub_at_indent("target", let->target, indent + 1);
             if (let->specified_type) {
                 print_sub_at_indent("type", let->specified_type, indent + 1);
             }
@@ -353,6 +363,19 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
         case Typed_AST_Kind::Type_Signiture: {
             Ref<Typed_AST_Type_Signiture> sig = node.cast<Typed_AST_Type_Signiture>();
             printf("%s\n", sig->value_type->debug_str());
+        } break;
+        case Typed_AST_Kind::Processed_Pattern: {
+            auto pp = node.cast<Typed_AST_Processed_Pattern>();
+            printf("(pattern)\n");
+            for (size_t i = 0; i < pp->bindings.size(); i++) {
+                auto &b = pp->bindings[i];
+                printf("%*s%zu: ", (indent + 1) * INDENT_SIZE, "", i);
+                if (b.id == "") {
+                    printf("_ :: %s\n", b.type.debug_str());
+                } else {
+                    printf("%.*s :: %s\n", b.id.size(), b.id.c_str(), b.type.debug_str());
+                }
+            }
         } break;
         case Typed_AST_Kind::Array:
         case Typed_AST_Kind::Slice: {
@@ -409,6 +432,38 @@ struct Typer {
     void put_variable(const std::string &id, Value_Type type, bool is_mut) {
         type.is_mut = is_mut;
         current_scope().variables[id] = type;
+    }
+    
+    void put_pattern(
+        Ref<Untyped_AST_Pattern> pattern,
+        const Value_Type &type,
+        Ref<Typed_AST_Processed_Pattern> out_pp)
+    {
+        switch (pattern->kind) {
+            case Untyped_AST_Kind::Pattern_Underscore:
+                out_pp->add_binding("", type, false);
+                break;
+            case Untyped_AST_Kind::Pattern_Ident: {
+                auto ip = pattern.cast<Untyped_AST_Pattern_Ident>();
+                out_pp->add_binding(ip->id.clone(), type, ip->is_mut);
+                put_variable(ip->id.c_str(), type, ip->is_mut);
+            } break;
+            case Untyped_AST_Kind::Pattern_Tuple: {
+                auto tp = pattern.cast<Untyped_AST_Pattern_Tuple>();
+                verify(type.kind == Value_Type_Kind::Tuple &&
+                       tp->sub_patterns.size() == type.data.tuple.child_types.size(),
+                       "Cannot match tuple pattern with %s.", type.debug_str());
+                for (size_t i = 0; i < tp->sub_patterns.size(); i++) {
+                    auto sub_pattern = tp->sub_patterns[i];
+                    auto sub_type    = type.data.tuple.child_types[i];
+                    put_pattern(sub_pattern, sub_type, out_pp);
+                }
+            } break;
+                
+            default:
+                internal_error("Invalid target kind: %d\n", pattern->kind);
+                break;
+        }
     }
 };
 
@@ -637,6 +692,21 @@ Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Array>(*array_type, to_typed(kind), count, array_type, element_nodes);
 }
 
+Ref<Typed_AST> Untyped_AST_Pattern_Underscore::typecheck(Typer &t) {
+    assert(false);
+    return nullptr;
+}
+
+Ref<Typed_AST> Untyped_AST_Pattern_Ident::typecheck(Typer &t) {
+    assert(false);
+    return nullptr;
+}
+
+Ref<Typed_AST> Untyped_AST_Pattern_Tuple::typecheck(Typer &t) {
+    assert(false);
+    return nullptr;
+}
+
 Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
     auto cond = this->cond->typecheck(t);
     auto then = this->then->typecheck(t);
@@ -667,9 +737,10 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
         ty = *sig->value_type;
     }
 
-    t.put_variable(id.c_str(), ty, is_mut);
+    auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();
+    t.put_pattern(target, ty, processed_target);
     
-    return Mem.make<Typed_AST_Let>(id.clone(), is_mut, sig, init);
+    return Mem.make<Typed_AST_Let>(processed_target, sig, init);
 }
 
 Ref<Typed_AST> Untyped_AST_Generic_Specialization::typecheck(Typer &t) {
