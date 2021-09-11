@@ -214,20 +214,18 @@ Ref<Untyped_AST> Untyped_AST_If::clone() {
 
 Untyped_AST_Let::Untyped_AST_Let(
     Ref<Untyped_AST_Pattern> target,
-    bool is_mut,
     Ref<Untyped_AST_Type_Signiture> specified_type,
     Ref<Untyped_AST> initializer)
 {
     kind = Untyped_AST_Kind::Let;
     this->target = target;
-    this->is_mut = is_mut;
     this->specified_type = specified_type;
     this->initializer = initializer;
 }
 
 Ref<Untyped_AST> Untyped_AST_Let::clone() {
     auto sig = specified_type ? specified_type->clone().cast<Untyped_AST_Type_Signiture>() : nullptr;
-    return Mem.make<Untyped_AST_Let>(target->clone().cast<Untyped_AST_Pattern>(), is_mut, sig, initializer->clone());
+    return Mem.make<Untyped_AST_Let>(target->clone().cast<Untyped_AST_Pattern>(), sig, initializer->clone());
 }
 
 Untyped_AST_Generic_Specialization::Untyped_AST_Generic_Specialization(

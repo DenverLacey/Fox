@@ -224,14 +224,11 @@ struct Untyped_AST_Type_Signiture : public Untyped_AST {
 };
 
 struct Untyped_AST_Let : public Untyped_AST {
-//    String id;
     Ref<Untyped_AST_Pattern> target;
-    bool is_mut;
     Ref<Untyped_AST_Type_Signiture> specified_type;
     Ref<Untyped_AST> initializer;
     
-    Untyped_AST_Let(Ref<Untyped_AST_Pattern> target, bool is_mut, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
-//    ~Untyped_AST_Let() override;
+    Untyped_AST_Let(Ref<Untyped_AST_Pattern> target, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

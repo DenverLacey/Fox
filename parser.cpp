@@ -213,10 +213,7 @@ struct Parser {
     }
     
     Ref<Untyped_AST_Let> parse_let_statement() {
-//        bool is_mut = match(Token_Kind::Mut);
         auto target = parse_pattern();
-    
-//        auto id = expect(Token_Kind::Ident, "Expected identifier after '%s'.", "let").data.s.clone();
         
         Ref<Untyped_AST_Type_Signiture> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
@@ -231,10 +228,15 @@ struct Parser {
         
         verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
         
+        //
+        // @TODO:
+        //      Should check all the way down the pattern to make sure
+        //      that all variables in the pattern are 'mut'
+        //
         bool is_mut = target->kind == Untyped_AST_Kind::Pattern_Ident && target.cast<Untyped_AST_Pattern_Ident>()->is_mut;
         verify(initializer || is_mut, "'let' statements without an initializer must be marked 'mut'.");
         
-        return Mem.make<Untyped_AST_Let>(target, is_mut, specified_type, initializer);
+        return Mem.make<Untyped_AST_Let>(target, specified_type, initializer);
     }
     
     Ref<Untyped_AST_Pattern> parse_pattern() {
@@ -249,6 +251,8 @@ struct Parser {
                 auto id = n.data.s.clone();
                 if (match(Token_Kind::Left_Curly)) {
                     internal_error("Struct Patterns not yet implmented.");
+                } else if (match(Token_Kind::Left_Paren)) {
+                    internal_error("Enum Patterns not yet implemented.");
                 } else {
                     p = Mem.make<Untyped_AST_Pattern_Ident>(false, id);
                 }
