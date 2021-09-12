@@ -7,6 +7,7 @@
 //
 
 #include "ast.h"
+#include "error.h"
 #include "typer.h"
 
 Untyped_AST_Bool::Untyped_AST_Bool(bool value) {
@@ -156,6 +157,34 @@ Ref<Untyped_AST> Untyped_AST_Array::clone() {
     );
 }
 
+bool Untyped_AST_Pattern::are_all_variables_mut() {
+    bool is_mut;
+    switch (kind) {
+        case Untyped_AST_Kind::Pattern_Underscore:
+            is_mut = true;
+            break;
+        case Untyped_AST_Kind::Pattern_Ident: {
+            auto ip = dynamic_cast<Untyped_AST_Pattern_Ident *>(this);
+            internal_verify(ip, "Failed to cast pattern to Pattern_Ident*");
+            is_mut = ip->is_mut;
+        } break;
+        case Untyped_AST_Kind::Pattern_Tuple: {
+            auto tp = dynamic_cast<Untyped_AST_Pattern_Tuple *>(this);
+            internal_verify(tp, "Failed to cast pattern to Pattern_Tuple*");
+            is_mut = true;
+            for (auto sub : tp->sub_patterns) {
+                is_mut = sub->are_all_variables_mut();
+                if (!is_mut) break;
+            }
+        } break;
+            
+        default:
+            internal_error("Invalid pattern kind: %d.", kind);
+            is_mut = false;
+    }
+    return is_mut;
+}
+
 Untyped_AST_Pattern_Underscore::Untyped_AST_Pattern_Underscore() {
     kind = Untyped_AST_Kind::Pattern_Underscore;
 }
@@ -210,6 +239,32 @@ Ref<Untyped_AST> Untyped_AST_If::clone() {
     auto then = this->then->clone();
     auto else_ = this->else_ ? this->else_->clone() : nullptr;
     return Mem.make<Untyped_AST_If>(cond, then, else_);
+}
+
+Untyped_AST_For::Untyped_AST_For(
+    Ref<Untyped_AST_Pattern> target,
+    String counter,
+    Ref<Untyped_AST> iterable,
+    Ref<Untyped_AST_Multiary> body)
+{
+    this->kind = Untyped_AST_Kind::For;
+    this->target = target;
+    this->counter = counter;
+    this->iterable = iterable;
+    this->body = body;
+}
+
+Untyped_AST_For::~Untyped_AST_For() {
+    counter.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_For::clone() {
+    return Mem.make<Untyped_AST_For>(
+        target->clone().cast<Untyped_AST_Pattern>(),
+        counter.clone(),
+        iterable->clone(),
+        body->clone().cast<Untyped_AST_Multiary>()
+    );
 }
 
 Untyped_AST_Let::Untyped_AST_Let(
@@ -305,7 +360,7 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
         } break;
             
         default:
-            assert(false);
+            internal_error("Invalid Kind for Pattern: %d.", p->kind);
             break;
     }
 }
@@ -403,6 +458,12 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Subscript: {
             print_binary_at_indent("[]", node.cast<Untyped_AST_Binary>(), indent);
         } break;
+        case Untyped_AST_Kind::Range: {
+            print_binary_at_indent("..", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
+        case Untyped_AST_Kind::Inclusive_Range: {
+            print_binary_at_indent("...", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
         case Untyped_AST_Kind::Pattern_Tuple: {
@@ -418,6 +479,16 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             if (t->else_) {
                 print_sub_at_indent("else", t->else_, indent + 1);
             }
+        } break;
+        case Untyped_AST_Kind::For: {
+            auto f = node.cast<Untyped_AST_For>();
+            printf("(for)\n");
+            print_sub_at_indent("target", f->target, indent + 1);
+            if (f->counter != "") {
+                printf("%*scounter: %s\n", (indent + 1) * INDENT_SIZE, "", f->counter.c_str());
+            }
+            print_sub_at_indent("iterable", f->iterable, indent + 1);
+            print_sub_at_indent("body", f->body, indent + 1);
         } break;
         case Untyped_AST_Kind::Block: {
             print_multiary_at_indent("block", node.cast<Untyped_AST_Multiary>(), indent);
@@ -459,7 +530,7 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
             
         default:
-            assert(false);
+            internal_error("Invalid Untyped_AST_Kind: %d.", node->kind);
             break;
     }
 }

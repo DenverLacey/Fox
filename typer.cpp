@@ -138,6 +138,24 @@ void Typed_AST_Processed_Pattern::add_binding(
     bindings.push_back({ id, type });
 }
 
+Typed_AST_For::Typed_AST_For(
+    Typed_AST_Kind kind,
+    Ref<Typed_AST_Processed_Pattern> target,
+    String counter,
+    Ref<Typed_AST> iterable,
+    Ref<Typed_AST_Multiary> body)
+{
+    this->kind = kind;
+    this->target = target;
+    this->counter = counter;
+    this->iterable = iterable;
+    this->body = body;
+}
+
+Typed_AST_For::~Typed_AST_For() {
+    counter.free();
+}
+
 Typed_AST_Let::Typed_AST_Let(
     Ref<Typed_AST_Processed_Pattern> target,
     Ref<Typed_AST_Type_Signiture> specified_type,
@@ -192,12 +210,22 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::While:           return Typed_AST_Kind::While;
         case Untyped_AST_Kind::Dot:             return Typed_AST_Kind::Dot;
         case Untyped_AST_Kind::Dot_Tuple:       return Typed_AST_Kind::Dot_Tuple;
+        case Untyped_AST_Kind::Subscript:       return Typed_AST_Kind::Subscript;
         case Untyped_AST_Kind::Block:           return Typed_AST_Kind::Block;
         case Untyped_AST_Kind::Comma:           return Typed_AST_Kind::Comma;
         case Untyped_AST_Kind::Tuple:           return Typed_AST_Kind::Tuple;
         case Untyped_AST_Kind::If:              return Typed_AST_Kind::If;
+        case Untyped_AST_Kind::For:             return Typed_AST_Kind::For;
         case Untyped_AST_Kind::Let:             return Typed_AST_Kind::Let;
         case Untyped_AST_Kind::Type_Signiture:  return Typed_AST_Kind::Type_Signiture;
+            
+        case Untyped_AST_Kind::Pattern_Underscore:
+        case Untyped_AST_Kind::Pattern_Ident:
+        case Untyped_AST_Kind::Pattern_Tuple:
+            return Typed_AST_Kind::Processed_Pattern;
+            
+        case Untyped_AST_Kind::Generic_Specialization:
+            break;
     }
     assert(false);
 }
@@ -330,6 +358,12 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
         case Typed_AST_Kind::Subscript: {
             print_binary_at_indent("[]", node.cast<Typed_AST_Binary>(), indent);
         } break;
+        case Typed_AST_Kind::Range: {
+            print_binary_at_indent("..", node.cast<Typed_AST_Binary>(), indent);
+        } break;
+        case Typed_AST_Kind::Inclusive_Range: {
+            print_binary_at_indent("...", node.cast<Typed_AST_Binary>(), indent);
+        } break;
         case Typed_AST_Kind::If: {
             Ref<Typed_AST_If> t = node.cast<Typed_AST_If>();
             printf("(if)\n");
@@ -338,6 +372,17 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
             if (t->else_) {
                 print_sub_at_indent("else", t->else_, indent + 1);
             }
+        } break;
+        case Typed_AST_Kind::For:
+        case Typed_AST_Kind::For_Range: {
+            auto f = node.cast<Typed_AST_For>();
+            printf("(for)\n");
+            print_sub_at_indent("target", f->target, indent + 1);
+            if (f->counter != "") {
+                printf("%*scounter: %s\n", (indent + 1) * INDENT_SIZE, "", f->counter.c_str());
+            }
+            print_sub_at_indent("iterable", f->iterable, indent + 1);
+            print_sub_at_indent("body", f->body, indent + 1);
         } break;
         case Typed_AST_Kind::Block: {
             print_multiary_at_indent("block", node.cast<Typed_AST_Multiary>(), indent);
@@ -630,6 +675,14 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
                    "([]) requires first operand to be an array or slice but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int, "([]) requires second operand to be (int) but was given (%s).", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Subscript, *lhs->type.child_type(), lhs, rhs);
+        case Untyped_AST_Kind::Range:
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(..) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int, "(..) requires operands to be of type (int) but was given (%s).", lhs->type.debug_str());
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Range, value_types::range_of(false, &lhs->type), lhs, rhs);
+        case Untyped_AST_Kind::Inclusive_Range:
+            verify(lhs->type.eq_ignoring_mutability(rhs->type), "(...) requires both operands to be the same type.");
+            verify(lhs->type.kind == Value_Type_Kind::Int, "(...) requires operands to be of type (int) but was given (%s).", lhs->type.debug_str());
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Inclusive_Range, value_types::range_of(true, &lhs->type), lhs, rhs);
             
         case Untyped_AST_Kind::While:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
@@ -717,6 +770,42 @@ Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Type_Signiture::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Type_Signiture>(value_type);
+}
+
+Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
+    auto iterable = this->iterable->typecheck(t);
+    switch (iterable->type.kind) {
+        case Value_Type_Kind::Array:
+        case Value_Type_Kind::Slice:
+        case Value_Type_Kind::Str:
+        case Value_Type_Kind::Range:
+            break;
+            
+        default:
+            error("Cannot iterate over something of type (%s).", iterable->type.debug_str());
+            break;
+    }
+    
+    Value_Type *target_type = iterable->type.child_type();
+    
+    t.begin_scope();
+    
+    auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();
+    t.put_pattern(target, *target_type, processed_target);
+    
+    auto body = this->body->typecheck(t);
+    
+    t.end_scope();
+    
+    return Mem.make<Typed_AST_For>(
+        target_type->kind == Value_Type_Kind::Range ?
+            Typed_AST_Kind::For_Range :
+            Typed_AST_Kind::For,
+        processed_target,
+        counter.clone(),
+        iterable,
+        body.cast<Typed_AST_Multiary>()
+    );
 }
 
 Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {

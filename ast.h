@@ -50,6 +50,8 @@ enum class Untyped_AST_Kind {
     Dot,
     Dot_Tuple,
     Subscript,
+    Range,
+    Inclusive_Range,
     
     // ternary
     
@@ -65,6 +67,7 @@ enum class Untyped_AST_Kind {
     
     // unique
     If,
+    For,
     Let,
     Type_Signiture,
     Generic_Specialization,
@@ -178,7 +181,9 @@ struct Untyped_AST_Array : public Untyped_AST {
     Ref<Untyped_AST> clone() override;
 };
 
-struct Untyped_AST_Pattern : public Untyped_AST {};
+struct Untyped_AST_Pattern : public Untyped_AST {
+    bool are_all_variables_mut();
+};
 
 struct Untyped_AST_Pattern_Underscore : public Untyped_AST_Pattern {
     Untyped_AST_Pattern_Underscore();
@@ -211,6 +216,18 @@ struct Untyped_AST_If : public Untyped_AST {
     Ref<Untyped_AST> else_;
     
     Untyped_AST_If(Ref<Untyped_AST> cond, Ref<Untyped_AST> then, Ref<Untyped_AST> else_);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_For : public Untyped_AST {
+    Ref<Untyped_AST_Pattern> target;
+    String counter;
+    Ref<Untyped_AST> iterable;
+    Ref<Untyped_AST_Multiary> body;
+    
+    Untyped_AST_For(Ref<Untyped_AST_Pattern> target, String counter, Ref<Untyped_AST> iterable, Ref<Untyped_AST_Multiary> body);
+    ~Untyped_AST_For();
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

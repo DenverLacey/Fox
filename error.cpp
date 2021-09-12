@@ -17,6 +17,7 @@ static void error_impl(const char *err_type, const char *err_msg, va_list args) 
     fprintf(stderr, "\n");
 }
 
+[[noreturn]]
 void error(const char *err, ...) {
     va_list args;
     va_start(args, err);
@@ -24,11 +25,13 @@ void error(const char *err, ...) {
     va_end(args);
 }
 
+[[noreturn]]
 void error(const char *err, va_list args) {
     error_impl("Error: ", err, args);
     exit(EXIT_FAILURE);
 }
 
+[[noreturn]]
 void internal_error(const char *err, ...) {
     va_list args;
     va_start(args, err);
@@ -36,6 +39,7 @@ void internal_error(const char *err, ...) {
     va_end(args);
 }
 
+[[noreturn]]
 void internal_error(const char *err, va_list args) {
     error_impl("Internal Error: ", err, args);
     assert(false);

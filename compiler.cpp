@@ -428,7 +428,6 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
 //        case AST_DEREF_DOT:
 //            assert(false);
             
-            
         default:
             return false;
     }
@@ -766,6 +765,10 @@ void Typed_AST_Type_Signiture::compile(Compiler &c) {
 
 void Typed_AST_Processed_Pattern::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Processed_Pattern::compile() is disallowed.");
+}
+
+void Typed_AST_For::compile(Compiler &c) {
+    internal_error("Compilation of for-loops not yet implemented.");
 }
 
 void Typed_AST_Let::compile(Compiler &c) {

@@ -86,6 +86,9 @@ void Token::print() const {
         case Token_Kind::While:
             printf("While\n");
             break;
+        case Token_Kind::For:
+            printf("For\n");
+            break;
         case Token_Kind::Fn:
             printf("Fn\n");
             break;
@@ -100,6 +103,9 @@ void Token::print() const {
             break;
         case Token_Kind::Or:
             printf("Or\n");
+            break;
+        case Token_Kind::In:
+            printf("In\n");
             break;
         case Token_Kind::Plus:
             printf("Plus\n");
@@ -163,6 +169,12 @@ void Token::print() const {
             break;
         case Token_Kind::Dot:
             printf("Dot\n");
+            break;
+        case Token_Kind::Double_Dot:
+            printf("Double_Dot\n");
+            break;
+        case Token_Kind::Triple_Dot:
+            printf("Triple_Dot\n");
             break;
             
         default:
@@ -295,7 +307,8 @@ static Token number(Tokenizer &t) {
     }
     
     bool is_float = false;
-    if (t.match('.')) {
+    if (t.peek() == '.' && (isdigit(t.peek(1)) || t.peek(1) == '_')) {
+        t.next();
         is_float = true;
         while (isdigit(t.peek()) || t.peek() == '_') {
             if (t.peek() == '_') underscores = true;
@@ -560,8 +573,6 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::If;
     } else if (word == "else") {
         tok.kind = Token_Kind::Else;
-    } else if (word == "then") {
-        tok.kind = Token_Kind::Then;
     } else if (word == "while") {
         tok.kind = Token_Kind::While;
     } else if (word == "for") {

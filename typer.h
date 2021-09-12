@@ -47,6 +47,8 @@ enum class Typed_AST_Kind {
     And,
     Or,
     Subscript,
+    Range,
+    Inclusive_Range,
     
     // ternary
     
@@ -57,6 +59,8 @@ enum class Typed_AST_Kind {
     
     // unique
     If,
+    For,
+    For_Range,
     Let,
     Type_Signiture,
     Dot,
@@ -186,6 +190,17 @@ struct Typed_AST_Processed_Pattern : public Typed_AST {
     Typed_AST_Processed_Pattern();
     ~Typed_AST_Processed_Pattern();
     void add_binding(String id, Value_Type type, bool is_mut);
+    void compile(Compiler &c) override;
+};
+
+struct Typed_AST_For : public Typed_AST {
+    Ref<Typed_AST_Processed_Pattern> target;
+    String counter;
+    Ref<Typed_AST> iterable;
+    Ref<Typed_AST_Multiary> body;
+    
+    Typed_AST_For(Typed_AST_Kind kind, Ref<Typed_AST_Processed_Pattern> target, String counter, Ref<Typed_AST> iterable, Ref<Typed_AST_Multiary> body);
+    ~Typed_AST_For();
     void compile(Compiler &c) override;
 };
 

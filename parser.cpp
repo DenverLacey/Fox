@@ -13,6 +13,7 @@ enum class Precedence {
     None,
     Assignment, // =
     Comma,      // ,
+    Range,      // .. ...
     Or,         // or
     And,        // and
     BitOr,      // |
@@ -59,13 +60,15 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Mut: return Precedence::None;
         case Token_Kind::If: return Precedence::None;
         case Token_Kind::Else: return Precedence::None;
-        case Token_Kind::Then: return Precedence::None;
         case Token_Kind::While: return Precedence::None;
+        case Token_Kind::For: return Precedence::None;
+        case Token_Kind::In: return Precedence::None;
         case Token_Kind::Fn: return Precedence::None;
         case Token_Kind::Struct: return Precedence::None;
         case Token_Kind::Enum: return Precedence::None;
         case Token_Kind::And: return Precedence::And;
         case Token_Kind::Or: return Precedence::Or;
+        case Token_Kind::Underscore: return Precedence::None;
             
         // operators
         case Token_Kind::Plus: return Precedence::Term;
@@ -83,6 +86,8 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Ampersand: return Precedence::BitAnd;
         case Token_Kind::Ampersand_Mut: return Precedence::Unary;
         case Token_Kind::Dot: return Precedence::Call;
+        case Token_Kind::Double_Dot: return Precedence::Range;
+        case Token_Kind::Triple_Dot: return Precedence::Range;
             
         // assignment operator
         case Token_Kind::Eq: return Precedence::Assignment;
@@ -147,7 +152,6 @@ struct Parser {
             case Token_Kind::Right_Bracket:
                 return true;
         }
-        
         return false;
     }
     
@@ -227,14 +231,7 @@ struct Parser {
         }
         
         verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
-        
-        //
-        // @TODO:
-        //      Should check all the way down the pattern to make sure
-        //      that all variables in the pattern are 'mut'
-        //
-        bool is_mut = target->kind == Untyped_AST_Kind::Pattern_Ident && target.cast<Untyped_AST_Pattern_Ident>()->is_mut;
-        verify(initializer || is_mut, "'let' statements without an initializer must be marked 'mut'.");
+        verify(initializer || target->are_all_variables_mut(), "'let' statements without an initializer must be marked 'mut'.");
         
         return Mem.make<Untyped_AST_Let>(target, specified_type, initializer);
     }
@@ -325,7 +322,7 @@ struct Parser {
                 *type = value_types::tup_from(subtypes.size(), flatten(subtypes));
             } break;
             default:
-                assert(false);
+                error("Invalid type signiture.");
                 break;
         }
         return type;
@@ -353,9 +350,21 @@ struct Parser {
         return Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::While, cond, body);
     }
     
-    Ref<Untyped_AST_Ternary> parse_for_statement() {
-        assert(false);
-        return nullptr;
+    Ref<Untyped_AST_For> parse_for_statement() {
+        auto target = parse_pattern();
+        
+        String counter = "";
+        if (match(Token_Kind::Comma)) {
+            auto counter_tok = expect(Token_Kind::Ident, "Expected identifier of counter variable of for-loop.");
+            counter = counter_tok.data.s.clone();
+        }
+        
+        expect(Token_Kind::In, "Expected 'in' keyword in for-loop.");
+        
+        auto iterable = parse_expression();
+        auto body = parse_block();
+        
+        return Mem.make<Untyped_AST_For>(target, counter, iterable, body);
     }
     
     Ref<Untyped_AST> parse_expression_or_assignment() {
@@ -380,6 +389,7 @@ struct Parser {
             prev = parse_infix(token, prev);
             verify(prev, "Unexpected token in middle of expression.");
         }
+        
         return prev;
     }
     
@@ -531,6 +541,12 @@ struct Parser {
                 break;
             case Token_Kind::Dot:
                 a = parse_dot_operator(prev);
+                break;
+            case Token_Kind::Double_Dot:
+                a = parse_binary(Untyped_AST_Kind::Range, prec, prev);
+                break;
+            case Token_Kind::Triple_Dot:
+                a = parse_binary(Untyped_AST_Kind::Inclusive_Range, prec, prev);
                 break;
                 
             default:

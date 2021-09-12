@@ -16,9 +16,9 @@
 
 Size Value_Type::size() const {
     switch (kind) {
-        case Value_Type_Kind::Unresolved_Type:
-            return 0;
         case Value_Type_Kind::None:
+            return 0;
+        case Value_Type_Kind::Unresolved_Type:
             return 0;
         case Value_Type_Kind::Void:
             return 0;
@@ -45,6 +45,9 @@ Size Value_Type::size() const {
             }
             return size;
         }
+        case Value_Type_Kind::Range: {
+            return 2 * data.range.child_type->size();
+        } break;
             
         case Value_Type_Kind::Struct:
         case Value_Type_Kind::Enum:
@@ -65,11 +68,11 @@ char *Value_Type::debug_str() const {
     }
     
     switch (kind) {
-        case Value_Type_Kind::Unresolved_Type:
-            s << "<?>";
-            break;
         case Value_Type_Kind::None:
             s << "<NONE>";
+            break;
+        case Value_Type_Kind::Unresolved_Type:
+            s << "<?>";
             break;
         case Value_Type_Kind::Void:
             s << "void";
@@ -109,6 +112,14 @@ char *Value_Type::debug_str() const {
             }
             s << ")";
             break;
+        case Value_Type_Kind::Range:
+            if (data.range.inclusive) {
+                s << "IRange<";
+            } else {
+                s << "Range<";
+            }
+            s << data.range.child_type->debug_str() << ">";
+            break;
         case Value_Type_Kind::Struct:
             assert(false);
             break;
@@ -131,6 +142,8 @@ Value_Type *Value_Type::child_type() {
             return data.slice.element_type;
         case Value_Type_Kind::Tuple:
             return data.tuple.child_types.data();
+        case Value_Type_Kind::Range:
+            return data.range.child_type;
     }
     
     return nullptr;
@@ -161,6 +174,12 @@ Value_Type Value_Type::clone() const {
         case Value_Type_Kind::Tuple:
             ty.data.tuple.child_types = data.tuple.child_types.clone();
             break;
+        case Value_Type_Kind::Range: {
+            ty.data.range.inclusive = data.range.inclusive;
+            Value_Type *child = Mem.make<Value_Type>().as_ptr();
+            *child = data.range.child_type->clone();
+            ty.data.range.child_type = child;
+        } break;
             
         case Value_Type_Kind::None:  break;
         case Value_Type_Kind::Void:  break;
@@ -220,6 +239,13 @@ bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
                 }
             }
             break;
+        case Value_Type_Kind::Range:
+            if (data.range.inclusive != other.data.range.inclusive) {
+                match = false;
+            } else {
+                match = data.range.child_type->eq_ignoring_mutability(*other.data.range.child_type);
+            }
+            break;
         case Value_Type_Kind::Struct:
             assert(false);
         case Value_Type_Kind::Enum:
@@ -274,6 +300,13 @@ bool Value_Type::assignable_from(const Value_Type &other) {
                 }
             }
             break;
+        case Value_Type_Kind::Range:
+            if (data.range.inclusive != other.data.range.inclusive) {
+                match = false;
+            } else {
+                match = data.range.child_type->eq_ignoring_mutability(*other.data.range.child_type);
+            }
+            break;
         case Value_Type_Kind::Struct:
             assert(false);
         case Value_Type_Kind::Enum:
@@ -309,6 +342,13 @@ Value_Type slice_of(Value_Type *element_type) {
     Value_Type ty;
     ty.kind = Value_Type_Kind::Slice;
     ty.data.slice = { element_type };
+    return ty;
+}
+
+Value_Type range_of(bool inclusive, Value_Type *child_type) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Range;
+    ty.data.range = { inclusive, child_type };
     return ty;
 }
     

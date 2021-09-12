@@ -9,11 +9,7 @@
 // @TODOS:
 // [x]  Add negation operation.
 // [ ]  Add absolute-value operator (unary +)?
-// [x]  Add the concept of patterns
-// [x]  Use patterns in variable declarations.
-// [ ]  Use patterns in for-loop.
-// [x]  Adapt typechecking for let statements to using patterns.
-// [ ]  Rework if statements such that there can be else-if blocks and then-if blocks?
+// [ ]  Implement Typed_AST_For::compile().
 //
 
 #include <iostream>

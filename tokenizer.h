@@ -42,7 +42,6 @@ enum class Token_Kind {
     Mut,
     If,
     Else,
-    Then,
     While,
     For,
     Fn,

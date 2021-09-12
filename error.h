@@ -10,14 +10,14 @@
 
 #include <stdarg.h>
 
-void error(const char *err, ...);
-void error(const char *err, va_list args);
+[[noreturn]] void error(const char *err, ...);
+[[noreturn]] void error(const char *err, va_list args);
 
 #define verify(cond, ...) \
     if (!(cond)) error(__VA_ARGS__)
 
-void internal_error(const char *err, ...);
-void internal_error(const char *err, va_list args);
+[[noreturn]] void internal_error(const char *err, ...);
+[[noreturn]] void internal_error(const char *err, va_list args);
 
 #define internal_verify(cond, ...) \
     if (!(cond)) internal_error(__VA_ARGS__)

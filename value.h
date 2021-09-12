@@ -14,8 +14,8 @@
 #include "mem.h"
 
 enum class Value_Type_Kind : uint8_t {
-    Unresolved_Type,
     None,
+    Unresolved_Type,
     Void,
     Bool,
     Char,
@@ -26,6 +26,7 @@ enum class Value_Type_Kind : uint8_t {
     Array,
     Slice,
     Tuple,
+    Range,
     Struct,
     Enum,
 };
@@ -47,15 +48,6 @@ struct Slice {
     Int count;
 };
 }  // namesapce runtime
-
-union Value {
-    runtime::Bool b;
-    runtime::Char c;
-    runtime::Int i;
-    runtime::Float f;
-    runtime::String s;
-    runtime::Pointer p;
-};
 
 struct Value_Type;
 
@@ -82,6 +74,11 @@ struct Tuple_Type_Data {
     Size offset_of_type(size_t idx);
 };
 
+struct Range_Type_Data {
+    bool inclusive;
+    Value_Type *child_type;
+};
+
 struct Struct_Type_Data {
     
 };
@@ -96,6 +93,7 @@ union Value_Type_Data {
     Array_Type_Data array;
     Slice_Type_Data slice;
     Tuple_Type_Data tuple;
+    Range_Type_Data range;
     Struct_Type_Data struct_;
     Enum_Type_Data enum_;
 };
@@ -127,10 +125,12 @@ inline const Value_Type Ptr = { Value_Type_Kind::Ptr };
 inline const Value_Type Array = { Value_Type_Kind::Array };
 inline const Value_Type Slice = { Value_Type_Kind::Slice };
 inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
+inline const Value_Type Range = { Value_Type_Kind::Range };
 
 Value_Type ptr_to(Value_Type *child_type);
 Value_Type array_of(size_t count, Value_Type *element_type);
 Value_Type slice_of(Value_Type *element_type);
+Value_Type range_of(bool inclusive, Value_Type *child_type);
 Value_Type tup_from(size_t count, Value_Type *child_types);
 
 template<typename ...Ts>
@@ -148,9 +148,6 @@ Value_Type tup_of(Ts ...child_types) {
         }
     }
     
-    Value_Type ty;
-    ty.kind = Value_Type_Kind::Tuple;
-    ty.data.tuple.child_types = ::Array { num_types, buffer };
-    return ty;
+    return tup_from(num_types, buffer);
 }
 } // namespace value_types
