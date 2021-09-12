@@ -9,7 +9,9 @@
 // @TODOS:
 // [x]  Add negation operation.
 // [ ]  Add absolute-value operator (unary +)?
-// [ ]  Implement Typed_AST_For::compile().
+// [x]  Implement Typed_AST_For::compile().
+// [ ]  Add increment and decrement opcode in vm as an optimisation?
+// [ ]  Use increment opcode in for-range loop.
 //
 
 #include <iostream>

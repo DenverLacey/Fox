@@ -83,7 +83,7 @@ struct Compiler {
     void emit_opcode(Opcode op);
     void emit_size(Size size);
     void emit_address(Address address);
-    size_t emit_jump(Opcode jump_code);
+    size_t emit_jump(Opcode jump_code, bool update_stack_top = true);
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
     Variable &put_variable(String id, Value_Type type, Address address);

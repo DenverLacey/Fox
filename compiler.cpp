@@ -53,12 +53,14 @@ void Compiler::emit_address(Address address) {
     emit_value<Address>(address);
 }
 
-size_t Compiler::emit_jump(Opcode jump_code) {
+size_t Compiler::emit_jump(Opcode jump_code, bool update_stack_top) {
     emit_opcode(jump_code);
     size_t jump = function->bytecode.size();
     emit_value<size_t>(-1);
-    if (jump_code == Opcode::Jump_True ||
-          jump_code == Opcode::Jump_False) {
+    if (update_stack_top &&
+        (jump_code == Opcode::Jump_True ||
+         jump_code == Opcode::Jump_False))
+    {
         stack_top -= value_types::Bool.size();
     }
     return jump;
@@ -180,6 +182,7 @@ void Compiler::end_scope() {
     emit_opcode(Opcode::Flush);
     emit_address(flush_point);
     scopes.pop_front();
+    stack_top = flush_point;
 }
 
 void Typed_AST_Bool::compile(Compiler &c) {
@@ -767,8 +770,103 @@ void Typed_AST_Processed_Pattern::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Processed_Pattern::compile() is disallowed.");
 }
 
+static void compile_for_range_loop(Typed_AST_For *f, Compiler &c) {
+    auto range = f->iterable.cast<Typed_AST_Binary>();
+    internal_verify(range, "Failed to cast iterable in compile_for_range_loop().");
+    internal_verify(range->kind == Typed_AST_Kind::Range ||
+                    range->kind == Typed_AST_Kind::Inclusive_Range, "Invalid kind for range variable in compile_for_range_loop(): %d.", range->kind);
+    
+    // ranges are simple so it should just be an identifier
+    verify(f->target->bindings.size() == 1, "Incorrect pattern in for-loop.");
+    
+    // initialize target_v
+    Variable &target_v = c.put_variable(f->target->bindings[0].id.c_str(), f->target->bindings[0].type, c.stack_top);
+    range->lhs->compile(c);
+    
+    // initialize counter_v if f->counter != ""
+    Variable *counter_v = nullptr;
+    if (f->counter != "") {
+        counter_v = &c.put_variable(f->counter.c_str(), value_types::Int, c.stack_top);
+        c.emit_opcode(Opcode::Lit_0);
+        c.stack_top += value_types::Int.size();
+    }
+    
+    Variable end_v = { range->rhs->type, (Address)c.stack_top };
+    range->rhs->compile(c);
+
+    size_t loop_start = c.function->bytecode.size();
+
+    // test condition
+    c.emit_opcode(Opcode::Push_Value);
+    c.emit_size(target_v.type.size());
+    c.emit_address(target_v.address);
+    
+    c.emit_opcode(Opcode::Push_Value);
+    c.emit_size(end_v.type.size());
+    c.emit_address(end_v.address);
+    
+    c.emit_opcode(f->iterable->type.data.range.inclusive ? Opcode::Int_Less_Equal : Opcode::Int_Less_Than);
+    size_t exit_jump = c.emit_jump(Opcode::Jump_False, false);
+    
+    //    new_loop(c, loop_start, for_->label);
+    f->body->compile(c);
+    //    patch_loop_controls(c, c->continues);
+    
+    if (counter_v) {
+        // increment counter
+        c.emit_opcode(Opcode::Lit_1);
+        
+        c.emit_opcode(Opcode::Push_Value);
+        c.emit_size(counter_v->type.size());
+        c.emit_address(counter_v->address);
+        
+        c.emit_opcode(Opcode::Int_Add);
+        
+        c.emit_opcode(Opcode::Push_Pointer);
+        c.emit_address(counter_v->address);
+        
+        c.emit_opcode(Opcode::Move);
+        c.emit_size(counter_v->type.size());
+    }
+    
+    // increment target_v
+    c.emit_opcode(Opcode::Lit_1);
+    
+    c.emit_opcode(Opcode::Push_Value);
+    c.emit_size(target_v.type.size());
+    c.emit_address(target_v.address);
+    
+    c.emit_opcode(Opcode::Int_Add);
+    
+    c.emit_opcode(Opcode::Push_Pointer);
+    c.emit_address(target_v.address);
+    
+    c.emit_opcode(Opcode::Move);
+    c.emit_size(target_v.type.size());
+    
+    c.emit_loop(loop_start);
+    
+    c.patch_jump(exit_jump);
+//    patch_loop_controls(c, c->breaks);
+}
+
 void Typed_AST_For::compile(Compiler &c) {
-    internal_error("Compilation of for-loops not yet implemented.");
+    c.begin_scope();
+    
+    switch (kind) {
+        case Typed_AST_Kind::For:
+            internal_error("For loops over something other than a range not yet implemented.");
+            break;
+        case Typed_AST_Kind::For_Range:
+            compile_for_range_loop(this, c);
+            break;
+            
+        default:
+            internal_error("Invalid Typed_AST_Kind in For::compile(): %d.", kind);
+            break;
+    }
+    
+    c.end_scope();
 }
 
 void Typed_AST_Let::compile(Compiler &c) {

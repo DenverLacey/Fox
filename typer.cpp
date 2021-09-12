@@ -798,7 +798,7 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
     t.end_scope();
     
     return Mem.make<Typed_AST_For>(
-        target_type->kind == Value_Type_Kind::Range ?
+        iterable->type.kind == Value_Type_Kind::Range ?
             Typed_AST_Kind::For_Range :
             Typed_AST_Kind::For,
         processed_target,
