@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "String.h"
+#include "mem.h"
+#include "typer.h"
 
 enum class Opcode : uint8_t {
     None = 0,
@@ -83,7 +85,7 @@ enum class Opcode : uint8_t {
 //    BYTE_WB_WRITE,
 //    BYTE_WB_WRITE_FROM_POINTER,
 //    BYTE_WB_READ,
-//    BYTE_COPY,
+    Copy,   // BYTE_COPY,
 //    BYTE_DUPLICATE,
 //    BYTE_SHIFT,
     Load,   // BYTE_LOAD,
@@ -218,3 +220,9 @@ struct VM {
 };
 
 void interpret(const char *filepath);
+void *evaluate(Ref<Typed_AST> expression);
+
+template<typename T>
+T evaluate(Ref<Typed_AST> expression) {
+    return *(T *)evaluate(expression);
+}

@@ -678,7 +678,7 @@ struct Parser {
 };
 
 Ref<Untyped_AST_Multiary> parse(const std::vector<Token> &tokens) {
-    Parser p{tokens};
+    auto p = Parser { tokens };
     auto nodes = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Block);
     
     while (p.has_more()) {

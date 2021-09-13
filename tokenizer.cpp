@@ -609,7 +609,7 @@ static Token next_token(Tokenizer &t) {
 }
 
 std::vector<Token> tokenize(String source) {
-    Tokenizer t = { source.begin(), source.end() };
+    auto t = Tokenizer { source.begin(), source.end() };
     
     while (true) {
         t.skip_whitespace();

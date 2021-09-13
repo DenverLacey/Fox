@@ -85,6 +85,16 @@ Variable &Compiler::put_variable(String id, Value_Type type, Address address) {
     return s.variables[sid];
 }
 
+void Compiler::put_pattern(Typed_AST_Processed_Pattern &pp, Address address) {
+    Address next_variable_address = address;
+    for (auto &b : pp.bindings) {
+        if (b.id != "") {
+            put_variable(b.id, b.type, next_variable_address);
+        }
+        next_variable_address += b.type.size();
+    }
+}
+
 std::pair<bool, Variable *> Compiler::find_variable(String id) {
     std::string sid(id.c_str(), id.size());
     for (Compiler_Scope *s = &current_scope(); s != nullptr; s = s->parent) {
@@ -770,23 +780,137 @@ void Typed_AST_Processed_Pattern::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Processed_Pattern::compile() is disallowed.");
 }
 
-static void compile_for_range_loop(Typed_AST_For *f, Compiler &c) {
-    auto range = f->iterable.cast<Typed_AST_Binary>();
+static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
+    // initialize counter variable
+    Variable counter_v = { value_types::Int, (Address)c.stack_top };
+    c.emit_opcode(Opcode::Lit_0);
+    c.stack_top += counter_v.type.size();
+    
+    if (f.counter != "") {
+        c.put_variable(f.counter.c_str(), counter_v.type, counter_v.address);
+    }
+    
+    // retrieve reference to or initialize iterable variable
+    Variable iterable_v;
+    if (f.iterable->kind == Typed_AST_Kind::Ident) {
+        auto set_id = f.iterable.cast<Typed_AST_Ident>();
+        internal_verify(set_id, "Failed to cast f.iterable to Ident* in compile_for_loop().");
+        auto [_, v] = c.find_variable(set_id->id);
+        verify(v, "Unresolved identifier '%.*s'.", set_id->id.size(), set_id->id.c_str());
+        iterable_v = *v;
+    } else {
+        iterable_v = { f.iterable->type, (Address)c.stack_top };
+        f.iterable->compile(c);
+    }
+    
+    // initialize target variable
+    Variable target_v = { *iterable_v.type.child_type(), (Address)c.stack_top };
+    c.put_pattern(*f.target, target_v.address);
+    c.emit_opcode(Opcode::Allocate);
+    c.emit_size(target_v.type.size());
+    c.stack_top += target_v.type.size();
+    
+    size_t loop_start = c.function->bytecode.size();
+    
+    // test condition
+    c.emit_opcode(Opcode::Push_Value);
+    c.emit_size(counter_v.type.size());
+    c.emit_address(counter_v.address);
+    
+    if (iterable_v.type.kind == Value_Type_Kind::Array) {
+        if (iterable_v.type.data.array.count == 1) {
+            c.emit_opcode(Opcode::Lit_1);
+        } else {
+            c.emit_opcode(Opcode::Lit_Int);
+            c.emit_value<runtime::Int>(iterable_v.type.data.array.count);
+        }
+    } else {
+        c.emit_opcode(Opcode::Push_Value);
+        c.emit_size(value_types::Int.size());
+        c.emit_address(iterable_v.address + value_types::Ptr.size());
+    }
+    
+    c.emit_opcode(Opcode::Int_Less_Than);
+    size_t exit_jump = c.emit_jump(Opcode::Jump_False, false);
+    
+    // target_v = iterable[counter]
+    c.emit_opcode(Opcode::Push_Value);
+    c.emit_size(counter_v.type.size());
+    c.emit_address(counter_v.address);
+    
+    if (iterable_v.type.kind == Value_Type_Kind::Array) {
+        c.emit_opcode(Opcode::Lit_Int);
+        c.emit_value<runtime::Int>(target_v.type.size());
+        
+        c.emit_opcode(Opcode::Int_Mul);
+        
+        c.emit_opcode(Opcode::Push_Pointer);
+        c.emit_address(iterable_v.address);
+        
+        c.emit_opcode(Opcode::Int_Add);
+    } else {
+        c.emit_opcode(Opcode::Lit_Int);
+        c.emit_value<runtime::Int>(iterable_v.type.child_type()->size());
+        
+        c.emit_opcode(Opcode::Int_Mul);
+        
+        c.emit_opcode(Opcode::Push_Value);
+//        c.emit_size(sizeof(size_t));
+        c.emit_size(value_types::Ptr.size());
+        c.emit_address(iterable_v.address);
+        
+        c.emit_opcode(Opcode::Int_Add);
+    }
+    
+    c.emit_opcode(Opcode::Push_Pointer);
+    c.emit_address(target_v.address);
+    
+    c.emit_opcode(Opcode::Copy);
+    c.emit_size(target_v.type.size());
+    
+//    new_loop(c, loop_start, for_->label);
+    f.body->compile(c);
+//    patch_loop_controls(c, c->continues);
+    
+    // increment counter
+    c.emit_opcode(Opcode::Lit_1);
+    
+    c.emit_opcode(Opcode::Push_Value);
+    c.emit_size(counter_v.type.size());
+    c.emit_address(counter_v.address);
+    
+    c.emit_opcode(Opcode::Int_Add);
+    
+    c.emit_opcode(Opcode::Push_Pointer);
+    c.emit_address(counter_v.address);
+    
+    c.emit_opcode(Opcode::Move);
+    c.emit_size(counter_v.type.size());
+
+    c.emit_loop(loop_start);
+
+    c.patch_jump(exit_jump);
+//    patch_loop_controls(c, c->breaks);
+//    end_loop(c);
+}
+
+static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
+    auto range = f.iterable.cast<Typed_AST_Binary>();
     internal_verify(range, "Failed to cast iterable in compile_for_range_loop().");
     internal_verify(range->kind == Typed_AST_Kind::Range ||
                     range->kind == Typed_AST_Kind::Inclusive_Range, "Invalid kind for range variable in compile_for_range_loop(): %d.", range->kind);
     
     // ranges are simple so it should just be an identifier
-    verify(f->target->bindings.size() == 1, "Incorrect pattern in for-loop.");
+    verify(f.target->bindings.size() == 1, "Incorrect pattern in for-loop.");
     
     // initialize target_v
-    Variable &target_v = c.put_variable(f->target->bindings[0].id.c_str(), f->target->bindings[0].type, c.stack_top);
+    Variable &target_v = c.put_variable(f.target->bindings[0].id.c_str(), f.target->bindings[0].type, c.stack_top);
     range->lhs->compile(c);
     
-    // initialize counter_v if f->counter != ""
+    // initialize counter_v if f.counter != ""
     Variable *counter_v = nullptr;
-    if (f->counter != "") {
-        counter_v = &c.put_variable(f->counter.c_str(), value_types::Int, c.stack_top);
+    if (f.counter != "") {
+        counter_v = &c.put_variable(f.counter.c_str(), value_types::Int, c.stack_top);
         c.emit_opcode(Opcode::Lit_0);
         c.stack_top += value_types::Int.size();
     }
@@ -805,11 +929,11 @@ static void compile_for_range_loop(Typed_AST_For *f, Compiler &c) {
     c.emit_size(end_v.type.size());
     c.emit_address(end_v.address);
     
-    c.emit_opcode(f->iterable->type.data.range.inclusive ? Opcode::Int_Less_Equal : Opcode::Int_Less_Than);
+    c.emit_opcode(f.iterable->type.data.range.inclusive ? Opcode::Int_Less_Equal : Opcode::Int_Less_Than);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False, false);
     
     //    new_loop(c, loop_start, for_->label);
-    f->body->compile(c);
+    f.body->compile(c);
     //    patch_loop_controls(c, c->continues);
     
     if (counter_v) {
@@ -855,10 +979,10 @@ void Typed_AST_For::compile(Compiler &c) {
     
     switch (kind) {
         case Typed_AST_Kind::For:
-            internal_error("For loops over something other than a range not yet implemented.");
+            compile_for_loop(*this, c);
             break;
         case Typed_AST_Kind::For_Range:
-            compile_for_range_loop(this, c);
+            compile_for_range_loop(*this, c);
             break;
             
         default:
@@ -874,13 +998,7 @@ void Typed_AST_Let::compile(Compiler &c) {
     
     Value_Type type = specified_type ? *specified_type->value_type : initializer->type;
     
-    int next_variable_address = stack_top;
-    for (auto &b : target->bindings) {
-        if (b.id != "") {
-            c.put_variable(b.id, b.type, next_variable_address);
-        }
-        next_variable_address += b.type.size();
-    }
+    c.put_pattern(*target, stack_top);
     
     if (initializer) {
         initializer->compile(c);

@@ -12,6 +12,7 @@
 // [x]  Implement Typed_AST_For::compile().
 // [ ]  Add increment and decrement opcode in vm as an optimisation?
 // [ ]  Use increment opcode in for-range loop.
+// [ ]  Implement compile-time code execution.
 //
 
 #include <iostream>

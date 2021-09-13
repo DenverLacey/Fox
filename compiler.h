@@ -21,7 +21,6 @@
 struct Variable {
     Value_Type type;
     Address address;
-//    String id;
 };
 
 struct Compiler_Scope {
@@ -87,6 +86,7 @@ struct Compiler {
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
     Variable &put_variable(String id, Value_Type type, Address address);
+    void put_pattern(Typed_AST_Processed_Pattern &pp, Address address);
     std::pair<bool, Variable *> find_variable(String id);
     
     template<typename T>

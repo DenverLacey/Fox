@@ -205,6 +205,14 @@ void VM::run() {
             case Opcode::Indirect_Move:
                 assert(false);
                 break;
+            case Opcode::Copy: {
+                Size size = READ(Size, frame);
+                runtime::Pointer dest = stack.pop<runtime::Pointer>();
+                runtime::Pointer src = stack.pop<runtime::Pointer>();
+                if (dest != src) {
+                    memcpy(dest, src, size);
+                }
+            } break;
             case Opcode::Load: {
                 Size size = READ(Size, frame);
                 runtime::Pointer data = stack.pop<runtime::Pointer>();
@@ -535,6 +543,11 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
             case Opcode::Indirect_Move:
                 assert(false);
                 break;
+            case Opcode::Copy: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf(IDX "Copy %ub\n", mark, size * 8);
+            } break;
             case Opcode::Load: {
                 MARK(i);
                 Size size = READ(Size, i);
@@ -593,37 +606,37 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 MARK(i);
                 size_t jump = READ(size_t, i);
                 size_t dest = mark + jump + 9; // add 9 for bytecode
-                printf(IDX "Jump => %zX\n", i, dest);
+                printf(IDX "Jump => %zX\n", mark, dest);
             } break;
             case Opcode::Loop: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
                 size_t dest = mark - jump + 9; // add 9 for bytecode
-                printf(IDX "Loop => %zX\n", i, dest);
+                printf(IDX "Loop => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_True: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
                 size_t dest = mark + jump + 9; // add 9 for bytecode
-                printf(IDX "Jump_True => %zX\n", i, dest);
+                printf(IDX "Jump_True => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_False: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
                 size_t dest = mark + jump + 9; // add 9 for bytecode
-                printf(IDX "Jump_False => %zX\n", i, dest);
+                printf(IDX "Jump_False => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_True_No_Pop: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
                 size_t dest = mark + jump + 9; // add 9 for bytecode
-                printf(IDX "Jump_True_No_Pop => %zX\n", i, dest);
+                printf(IDX "Jump_True_No_Pop => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_False_No_Pop: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
                 size_t dest = mark + jump + 9; // add 9 for bytecode
-                printf(IDX "Jump_False_No_Pop => %zX\n", i, dest);
+                printf(IDX "Jump_False_No_Pop => %zX\n", mark, dest);
             } break;
                 
             default:
@@ -688,7 +701,7 @@ void interpret(const char *path) {
     
 #if COMPILE_AST
     Function_Definition program;
-    Compiler global(&program);
+    auto global = Compiler { &program };
     global.compile(typed_ast);
     
 #if PRINT_DEBUG_DIAGNOSTICS
@@ -700,7 +713,7 @@ void interpret(const char *path) {
     SMem.clear();
     
 #if RUN_VIRTUAL_MACHINE
-    VM vm(std::move(global.constants), std::move(global.str_constants));
+    auto  vm = VM { std::move(global.constants), std::move(global.str_constants) };
     vm.call(&program, 0);
     vm.run();
     
@@ -712,4 +725,19 @@ void interpret(const char *path) {
 #endif // RUN_VIRTUAL_MACHINE
 #endif // COMPILE_AST
 #endif // TYPECHECK
+}
+
+void *evaluate(Ref<Typed_AST> expression) {
+    auto block = Typed_AST_Multiary { Typed_AST_Kind::Block };
+    block.add(expression);
+    
+    Function_Definition program;
+    auto compiler = Compiler { &program };
+    compiler.compile(&block);
+    
+    auto vm = VM { std::move(compiler.constants), std::move(compiler.str_constants) };
+    vm.call(&program, 0);
+    vm.run();
+    
+    return vm.stack.get(0);
 }

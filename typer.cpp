@@ -777,7 +777,7 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
     switch (iterable->type.kind) {
         case Value_Type_Kind::Array:
         case Value_Type_Kind::Slice:
-        case Value_Type_Kind::Str:
+//        case Value_Type_Kind::Str:
         case Value_Type_Kind::Range:
             break;
             
@@ -792,6 +792,10 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
     
     auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();
     t.put_pattern(target, *target_type, processed_target);
+    
+    if (counter != "") {
+        t.put_variable(counter.c_str(), value_types::Int, false);
+    }
     
     auto body = this->body->typecheck(t);
     
