@@ -57,8 +57,9 @@ void *Stack::get(VM *vm, Address address) {
     return get(vm->frames.top().stack_bottom + address);
 }
 
-VM::VM(Data_Section &&constants, Data_Section &&str_constants)
-    : constants(constants), str_constants(str_constants)
+VM::VM(Data_Section &constants, Data_Section &str_constants)
+  : constants(constants),
+    str_constants(str_constants)
 {
 }
 
@@ -202,9 +203,16 @@ void VM::run() {
                     stack.pop(size);
                 }
             } break;
-            case Opcode::Indirect_Move:
-                assert(false);
-                break;
+            case Opcode::Move_Push_Pointer: {
+                Size size = READ(Size, frame);
+                runtime::Pointer dest = stack.pop<runtime::Pointer>();
+                void *src = stack.top(size);
+                if (dest != src) {
+                    memcpy(dest, src, size);
+                    stack.pop(size);
+                }
+                stack.push<runtime::Pointer>(dest);
+            } break;
             case Opcode::Copy: {
                 Size size = READ(Size, frame);
                 runtime::Pointer dest = stack.pop<runtime::Pointer>();
@@ -251,6 +259,11 @@ void VM::run() {
             case Opcode::Clear_Allocate: {
                 Size size = READ(Size, frame);
                 stack.calloc(size);
+            } break;
+            case Opcode::Heap_Allocate: {
+                Size size = READ(Size, frame);
+                runtime::Pointer p = malloc(size);
+                stack.push<runtime::Pointer>(p);
             } break;
             case Opcode::Flush: {
                 Address flush_point = READ(Address, frame);
@@ -540,9 +553,11 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 Size size = READ(Size, i);
                 printf(IDX "Move %ub\n", mark, size * 8);
             } break;
-            case Opcode::Indirect_Move:
-                assert(false);
-                break;
+            case Opcode::Move_Push_Pointer: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf(IDX "Move_Push_Pointer %ub\n", mark, size * 8);
+            } break;
             case Opcode::Copy: {
                 MARK(i);
                 Size size = READ(Size, i);
@@ -589,6 +604,11 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 MARK(i);
                 Size size = READ(Size, i);
                 printf(IDX "Clear_Allocate %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Heap_Allocate: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf(IDX "Heap_Allocate %ub\n", mark, size * 8);
             } break;
             case Opcode::Flush: {
                 MARK(i);
@@ -700,8 +720,11 @@ void interpret(const char *path) {
 #endif
     
 #if COMPILE_AST
+    Data_Section constants;
+    Data_Section str_constants;
+    
     Function_Definition program;
-    auto global = Compiler { &program };
+    auto global = Compiler { constants, str_constants, &program };
     global.compile(typed_ast);
     
 #if PRINT_DEBUG_DIAGNOSTICS
@@ -713,7 +736,7 @@ void interpret(const char *path) {
     SMem.clear();
     
 #if RUN_VIRTUAL_MACHINE
-    auto  vm = VM { std::move(global.constants), std::move(global.str_constants) };
+    auto  vm = VM { constants, str_constants };
     vm.call(&program, 0);
     vm.run();
     
@@ -731,11 +754,13 @@ void *evaluate(Ref<Typed_AST> expression) {
     auto block = Typed_AST_Multiary { Typed_AST_Kind::Block };
     block.add(expression);
     
+    Data_Section constants;
+    Data_Section str_constants;
     Function_Definition program;
-    auto compiler = Compiler { &program };
+    auto compiler = Compiler { constants, str_constants, &program };
     compiler.compile(&block);
     
-    auto vm = VM { std::move(compiler.constants), std::move(compiler.str_constants) };
+    auto vm = VM { constants, str_constants };
     vm.call(&program, 0);
     vm.run();
     

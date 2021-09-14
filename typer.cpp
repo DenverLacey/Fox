@@ -355,7 +355,8 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
         case Typed_AST_Kind::Dot_Tuple: {
             print_binary_at_indent(".", node.cast<Typed_AST_Binary>(), indent);
         } break;
-        case Typed_AST_Kind::Subscript: {
+        case Typed_AST_Kind::Subscript:
+        case Typed_AST_Kind::Negative_Subscript: {
             print_binary_at_indent("[]", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Range: {
@@ -669,12 +670,27 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             child_ty.is_mut = ty.is_mut;
             return Mem.make<Typed_AST_Dot>(Typed_AST_Kind::Dot_Tuple, child_ty, needs_deref, lhs, i);
         } break;
-        case Untyped_AST_Kind::Subscript:
+        case Untyped_AST_Kind::Subscript: {
             verify(lhs->type.kind == Value_Type_Kind::Array ||
                    lhs->type.kind == Value_Type_Kind::Slice,
                    "([]) requires first operand to be an array or slice but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int, "([]) requires second operand to be (int) but was given (%s).", rhs->type.debug_str());
-            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Subscript, *lhs->type.child_type(), lhs, rhs);
+            
+            Typed_AST_Kind kind = Typed_AST_Kind::Subscript;
+            
+            if (rhs->kind == Typed_AST_Kind::Int) {
+                auto i = rhs.cast<Typed_AST_Int>();
+                if (i->value < 0) {
+                    if (lhs->type.kind == Value_Type_Kind::Array) {
+                        i->value += lhs->type.data.array.count;
+                    } else {
+                        kind = Typed_AST_Kind::Negative_Subscript;
+                    }
+                }
+            }
+            
+            return Mem.make<Typed_AST_Binary>(kind, *lhs->type.child_type(), lhs, rhs);
+        }
         case Untyped_AST_Kind::Range:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(..) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int, "(..) requires operands to be of type (int) but was given (%s).", lhs->type.debug_str());

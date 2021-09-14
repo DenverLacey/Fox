@@ -81,7 +81,7 @@ enum class Opcode : uint8_t {
     
     // STACK
     Move,   // BYTE_MOVE,
-    Indirect_Move,  // BYTE_RMOVE,
+    Move_Push_Pointer,
 //    BYTE_WB_WRITE,
 //    BYTE_WB_WRITE_FROM_POINTER,
 //    BYTE_WB_READ,
@@ -96,7 +96,7 @@ enum class Opcode : uint8_t {
     Pop,    // BYTE_POP,
     Allocate, //    BYTE_ALLOCATE,
     Clear_Allocate, //    BYTE_ZERO,
-//    BYTE_HEAP_ALLOCATE,
+    Heap_Allocate,  //    BYTE_HEAP_ALLOCATE,
     Flush,  // BYTE_FLUSH,
     Return, // BYTE_RETURN,
     
@@ -206,13 +206,13 @@ struct Stack {
 
 struct Compiler;
 struct VM {
-    Data_Section constants;
-    Data_Section str_constants;
+    Data_Section &constants;
+    Data_Section &str_constants;
     Call_Stack frames;
     Stack stack;
 //    Workbench workbench;
     
-    VM(Data_Section &&constants, Data_Section &&str_constants);
+    VM(Data_Section &constants, Data_Section &str_constants);
     
     void run();
     void call(Function_Definition* fn, int arg_size);

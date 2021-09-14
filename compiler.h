@@ -45,7 +45,7 @@ struct Compiler_Scope {
 
 struct Function_Definition;
 struct Compiler {
-    int stack_top;
+    Address stack_top;
     
     Compiler *parent = nullptr;
     Compiler *global;
@@ -55,8 +55,8 @@ struct Compiler {
     std::forward_list<Compiler_Scope> scopes;
     
     static constexpr size_t Constants_Allignment = 8;
-    Data_Section constants;
-    Data_Section str_constants;
+    Data_Section &constants;
+    Data_Section &str_constants;
 //    int wb_top;
 //    Compiler *child  = nullptr;
 //    bool has_return;
@@ -73,7 +73,7 @@ struct Compiler {
 //    std::vector<PolyTable> poly_params;
 //    std::list<FunctionDefinition> *fn_buffer; // see above
     
-    Compiler(Function_Definition *function);
+    Compiler(Data_Section &constants, Data_Section &str_constants, Function_Definition *function);
     Compiler(Compiler *parent, Function_Definition *function);
     
     Function_Definition *compile(Ref<Typed_AST_Multiary> node);
@@ -86,7 +86,7 @@ struct Compiler {
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
     Variable &put_variable(String id, Value_Type type, Address address);
-    void put_pattern(Typed_AST_Processed_Pattern &pp, Address address);
+    void put_variables_from_pattern(Typed_AST_Processed_Pattern &pp, Address address);
     std::pair<bool, Variable *> find_variable(String id);
     
     template<typename T>

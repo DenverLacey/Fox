@@ -10,7 +10,13 @@
 
 #include "error.h"
 
-Compiler::Compiler(Function_Definition *function) {
+Compiler::Compiler(
+    Data_Section &constants,
+    Data_Section &str_constants,
+    Function_Definition *function)
+  : constants(constants),
+    str_constants(str_constants)
+{
     stack_top = 0;
     parent = nullptr;
     global = this;
@@ -18,7 +24,10 @@ Compiler::Compiler(Function_Definition *function) {
     this->function = function;
 }
 
-Compiler::Compiler(Compiler *parent, Function_Definition *function) {
+Compiler::Compiler(Compiler *parent, Function_Definition *function)
+  : constants(parent->constants),
+    str_constants(parent->str_constants)
+{
     stack_top = parent->stack_top;
     this->parent = parent;
     global = parent->global;
@@ -85,7 +94,7 @@ Variable &Compiler::put_variable(String id, Value_Type type, Address address) {
     return s.variables[sid];
 }
 
-void Compiler::put_pattern(Typed_AST_Processed_Pattern &pp, Address address) {
+void Compiler::put_variables_from_pattern(Typed_AST_Processed_Pattern &pp, Address address) {
     Address next_variable_address = address;
     for (auto &b : pp.bindings) {
         if (b.id != "") {
@@ -449,7 +458,7 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
 }
 
 static bool emit_address_code(Compiler &c, Typed_AST &node) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     bool success = true;
     
     auto [status, address] = find_static_address(c, node);
@@ -476,7 +485,7 @@ static bool emit_address_code(Compiler &c, Typed_AST &node) {
 }
 
 void Typed_AST_Unary::compile(Compiler &c) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     switch (kind) {
         case Typed_AST_Kind::Negation:
             sub->compile(c);
@@ -508,7 +517,7 @@ void Typed_AST_Unary::compile(Compiler &c) {
 }
 
 static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     
     b.rhs->compile(c);
     bool success = emit_address_code(c, *b.lhs);
@@ -523,7 +532,7 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
 
 static void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     size_t loop_start = c.function->bytecode.size();
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     
     b.lhs->compile(c);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False);
@@ -536,7 +545,7 @@ static void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
 }
 
 static void compile_logical_operator(Compiler &c, Typed_AST_Binary &b) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     Size size_of_bool = value_types::Bool.size();
     
     b.lhs->compile(c);
@@ -586,7 +595,7 @@ static void emit_dynamic_offset_load(
 }
 
 static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     
     if (sub.lhs->type.kind == Value_Type_Kind::Array) {
         Size element_size = sub.lhs->type.child_type()->size();
@@ -625,8 +634,47 @@ static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
     c.stack_top = stack_top + sub.type.size();
 }
 
+static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
+    Address stack_top = c.stack_top;
+    
+    internal_verify(sub.lhs->type.kind == Value_Type_Kind::Slice, "In compile_negative_subscript_operator(), sub.lhs is not a slice.");
+    
+    auto rhs = sub.rhs.cast<Typed_AST_Int>();
+    internal_verify(rhs, "Failed to cast sub.rhs to an Int* in compile_negative_subscript_operator().");
+    
+    runtime::Int index = -rhs->value;
+    
+    // slice = result of compiling sub.lhs
+    sub.lhs->compile(c);
+    
+    // real_index = slice.count - index
+    if (index == 1) {
+        c.emit_opcode(Opcode::Lit_1);
+    } else {
+        c.emit_opcode(Opcode::Lit_Int);
+        c.emit_value<runtime::Int>(index);
+    }
+    
+    c.emit_opcode(Opcode::Int_Sub);
+    
+    // offset = real_index * sizeof(Element)
+    c.emit_opcode(Opcode::Lit_Int);
+    c.emit_value<runtime::Int>(sub.type.size());
+    
+    c.emit_opcode(Opcode::Int_Mul);
+    
+    // element_ptr = slice.data + offset
+    c.emit_opcode(Opcode::Int_Add);
+    
+    // element = Load(element_ptr, sizeof(Element))
+    c.emit_opcode(Opcode::Load);
+    c.emit_size(sub.type.size());
+    
+    c.stack_top = stack_top + sub.type.size();
+}
+
 void Typed_AST_Binary::compile(Compiler &c) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     
     switch (kind) {
         case Typed_AST_Kind::Assignment:
@@ -663,6 +711,9 @@ void Typed_AST_Binary::compile(Compiler &c) {
             return;
         case Typed_AST_Kind::Subscript:
             compile_subscript_operator(c, *this);
+            return;
+        case Typed_AST_Kind::Negative_Subscript:
+            compile_negative_subscript_operator(c, *this);
             return;
     }
     
@@ -737,7 +788,7 @@ void Typed_AST_Binary::compile(Compiler &c) {
 
 void Typed_AST_Ternary::compile(Compiler &c) {
     assert(false);
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     c.stack_top = stack_top + type.size();
 }
 
@@ -753,7 +804,32 @@ void Typed_AST_Array::compile(Compiler &c) {
     if (kind == Typed_AST_Kind::Array) {
         element_nodes->compile(c);
     } else {
-        internal_error("Slices not yet compilable.");
+        Size count = (Size)element_nodes->nodes.size();
+        Address stack_top = c.stack_top;
+        
+        if (count == 0) {
+            c.emit_opcode(Opcode::Clear_Allocate);
+            c.emit_size(value_types::Slice.size());
+        } else {
+            Size alloc_size = count * type.child_type()->size();
+            
+            // slice data = result of element_nodes
+            element_nodes->compile(c);
+            
+            // data ptr = result of heap allocate
+            c.emit_opcode(Opcode::Heap_Allocate);
+            c.emit_size(alloc_size);
+            
+            // slice.data = move slice data to data ptr
+            c.emit_opcode(Opcode::Move_Push_Pointer);
+            c.emit_size(alloc_size);
+            
+            // slice.count = count
+            c.emit_opcode(Opcode::Lit_Int);
+            c.emit_value<runtime::Int>(count);
+        }
+        
+        c.stack_top = stack_top + value_types::Slice.size();
     }
 }
 
@@ -805,7 +881,7 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     
     // initialize target variable
     Variable target_v = { *iterable_v.type.child_type(), (Address)c.stack_top };
-    c.put_pattern(*f.target, target_v.address);
+    c.put_variables_from_pattern(*f.target, target_v.address);
     c.emit_opcode(Opcode::Allocate);
     c.emit_size(target_v.type.size());
     c.stack_top += target_v.type.size();
@@ -994,11 +1070,11 @@ void Typed_AST_For::compile(Compiler &c) {
 }
 
 void Typed_AST_Let::compile(Compiler &c) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     
     Value_Type type = specified_type ? *specified_type->value_type : initializer->type;
     
-    c.put_pattern(*target, stack_top);
+    c.put_variables_from_pattern(*target, stack_top);
     
     if (initializer) {
         initializer->compile(c);
@@ -1011,7 +1087,7 @@ void Typed_AST_Let::compile(Compiler &c) {
 }
 
 void Typed_AST_Dot::compile(Compiler &c) {
-    int stack_top = c.stack_top;
+    Address stack_top = c.stack_top;
     
     switch (kind) {
         case Typed_AST_Kind::Dot:

@@ -47,6 +47,7 @@ enum class Typed_AST_Kind {
     And,
     Or,
     Subscript,
+    Negative_Subscript,
     Range,
     Inclusive_Range,
     
