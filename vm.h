@@ -24,13 +24,14 @@ enum class Opcode : uint8_t {
     Lit_0,
     Lit_1,
     Lit_Char,
-    
-    // CONSTANTS
     Lit_Int,
     Lit_Float,
-    Load_Const_String,
+    Lit_Pointer,
     
+    // CONSTANTS
     Load_Const,
+    Load_Const_String,
+    Load_Const_Array,
     
     // ARITHMETIC
     Int_Add,

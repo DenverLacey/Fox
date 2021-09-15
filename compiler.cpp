@@ -86,15 +86,23 @@ void Compiler::emit_loop(size_t loop_start) {
     emit_value<size_t>(jump);
 }
 
-Variable &Compiler::put_variable(String id, Value_Type type, Address address) {
+Variable &Compiler::put_variable(
+    String id,
+    Value_Type type,
+    Address address,
+    bool is_const)
+{
     std::string sid(id.c_str(), id.size());
     Compiler_Scope &s = current_scope();
-    Variable v = { type, address };
+    Variable v = { is_const, type, address };
     s.variables[sid] = v;
     return s.variables[sid];
 }
 
-void Compiler::put_variables_from_pattern(Typed_AST_Processed_Pattern &pp, Address address) {
+void Compiler::put_variables_from_pattern(
+    Typed_AST_Processed_Pattern &pp,
+    Address address)
+{
     Address next_variable_address = address;
     for (auto &b : pp.bindings) {
         if (b.id != "") {
@@ -104,23 +112,98 @@ void Compiler::put_variables_from_pattern(Typed_AST_Processed_Pattern &pp, Addre
     }
 }
 
-std::pair<bool, Variable *> Compiler::find_variable(String id) {
+Find_Variable_Result Compiler::find_variable(String id) {
     std::string sid(id.c_str(), id.size());
     for (Compiler_Scope *s = &current_scope(); s != nullptr; s = s->parent) {
         auto it = s->variables.find(sid);
         if (it != s->variables.end()) {
-            return { false, &s->variables[sid] };
+            return {
+                it->second.is_const ?
+                    Find_Variable_Result::Found_Constant :
+                    Find_Variable_Result::Found,
+                &s->variables[sid]
+            };
         }
     }
     
     // check global scope
     auto it = global_scope->variables.find(sid);
     if (it != global_scope->variables.end()) {
-        return { true, &global_scope->variables[sid] };
+        return {
+            it->second.is_const ?
+                Find_Variable_Result::Found_Constant :
+                Find_Variable_Result::Found_Global,
+            &global_scope->variables[sid]
+        };
     }
     
     // nothing was found
-    return { false, nullptr };
+    return { Find_Variable_Result::Not_Found, nullptr };
+}
+
+void Compiler::compile_constant(Variable constant) {
+    Address old_top = stack_top;
+    
+    switch (constant.type.kind) {
+        case Value_Type_Kind::Bool: {
+            runtime::Bool value = get_constant<runtime::Bool>(constant.address);
+            emit_opcode(value ? Opcode::Lit_True : Opcode::Lit_False);
+        } break;
+        case Value_Type_Kind::Char: {
+            runtime::Char value = get_constant<runtime::Char>(constant.address);
+            emit_opcode(Opcode::Lit_Char);
+            emit_value<runtime::Char>(value);
+        } break;
+        case Value_Type_Kind::Int: {
+            runtime::Int value = get_constant<runtime::Int>(constant.address);
+            if (value == 0) {
+                emit_opcode(Opcode::Lit_0);
+            } else if (value == 1) {
+                emit_opcode(Opcode::Lit_1);
+            } else {
+                emit_opcode(Opcode::Lit_Int);
+                emit_value<runtime::Int>(value);
+            }
+        } break;
+        case Value_Type_Kind::Float: {
+            runtime::Float value = get_constant<runtime::Float>(constant.address);
+            emit_opcode(Opcode::Lit_Float);
+            emit_value<runtime::Float>(value);
+        } break;
+        case Value_Type_Kind::Str: {
+            emit_opcode(Opcode::Load_Const_String);
+            emit_value<size_t>(constant.address);
+        } break;
+        case Value_Type_Kind::Ptr: {
+            runtime::Pointer value = get_constant<runtime::Pointer>(constant.address);
+            emit_opcode(Opcode::Lit_Pointer);
+            emit_value<runtime::Pointer>(value);
+        } break;
+        case Value_Type_Kind::Array: {
+            emit_opcode(Opcode::Load_Const_Array);
+            emit_size(constant.type.size());
+            emit_value<size_t>(constant.address);
+        } break;
+        case Value_Type_Kind::Slice:
+            internal_error("Constant Slices not yet compilable.");
+            break;
+            
+        case Value_Type_Kind::Tuple:
+        case Value_Type_Kind::Range:
+            emit_opcode(Opcode::Load_Const);
+            emit_size(constant.type.size());
+            emit_value<size_t>(constant.address);
+            break;
+            
+        case Value_Type_Kind::Struct:
+        case Value_Type_Kind::Enum:
+            internal_error("Constant struct and enum values not compilable yet.");
+            
+        default:
+            internal_error("Invalid Value_Type_kind in Compiler::compile_constant(): %d", constant.type.kind);
+    }
+    
+    stack_top = old_top + constant.type.size();
 }
 
 size_t Compiler::add_constant(void *data, size_t size) {
@@ -184,6 +267,10 @@ size_t Compiler::add_str_constant(String source) {
     return index;
 }
 
+void *Compiler::get_constant(size_t constant) {
+    return &constants[constant];
+}
+
 Compiler_Scope &Compiler::current_scope() {
     return scopes.front();
 }
@@ -222,13 +309,27 @@ void Typed_AST_Float::compile(Compiler &c) {
 }
 
 void Typed_AST_Ident::compile(Compiler &c) {
-    auto [is_global, v] = c.find_variable(id);
-    verify(v, "Unresolved identifier '%s'.", id.c_str());
-    internal_verify(v->type.eq(type), "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
-    c.emit_opcode(is_global ? Opcode::Push_Global_Value : Opcode::Push_Value);
-    c.emit_size(v->type.size());
-    c.emit_address(v->address);
-    c.stack_top += v->type.size();
+    Address stack_top = c.stack_top;
+    
+    auto [status, v] = c.find_variable(id);
+    switch (status) {
+        case Find_Variable_Result::Not_Found:
+            error("Unresolved identifier '%s'.", id.c_str());
+            break;
+        case Find_Variable_Result::Found:
+        case Find_Variable_Result::Found_Global:
+            internal_verify(v->type.eq(type), "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
+            c.emit_opcode(status == Find_Variable_Result::Found_Global ? Opcode::Push_Global_Value : Opcode::Push_Value);
+            c.emit_size(v->type.size());
+            c.emit_address(v->address);
+            break;
+        case Find_Variable_Result::Found_Constant:
+            internal_verify(v->type.eq(type), "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
+            c.compile_constant(*v);
+            break;
+    }
+    
+    c.stack_top = stack_top = v->type.size();
 }
 
 void Typed_AST_Int::compile(Compiler &c) {
@@ -759,6 +860,11 @@ void Typed_AST_Binary::compile(Compiler &c) {
         case Typed_AST_Kind::Negative_Subscript:
             compile_negative_subscript_operator(c, *this);
             return;
+        case Typed_AST_Kind::Range:
+        case Typed_AST_Kind::Inclusive_Range:
+            lhs->compile(c);
+            rhs->compile(c);
+            return;
     }
     
     Opcode op;
@@ -902,7 +1008,7 @@ void Typed_AST_Processed_Pattern::compile(Compiler &c) {
 
 static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     // initialize counter variable
-    Variable counter_v = { value_types::Int, (Address)c.stack_top };
+    Variable counter_v = { false, value_types::Int, (Address)c.stack_top };
     c.emit_opcode(Opcode::Lit_0);
     c.stack_top += counter_v.type.size();
     
@@ -919,12 +1025,12 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
         verify(v, "Unresolved identifier '%.*s'.", set_id->id.size(), set_id->id.c_str());
         iterable_v = *v;
     } else {
-        iterable_v = { f.iterable->type, (Address)c.stack_top };
+        iterable_v = { false, f.iterable->type, (Address)c.stack_top };
         f.iterable->compile(c);
     }
     
     // initialize target variable
-    Variable target_v = { *iterable_v.type.child_type(), (Address)c.stack_top };
+    Variable target_v = { false, *iterable_v.type.child_type(), (Address)c.stack_top };
     c.put_variables_from_pattern(*f.target, target_v.address);
     c.emit_opcode(Opcode::Allocate);
     c.emit_size(target_v.type.size());
@@ -1035,7 +1141,7 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
         c.stack_top += value_types::Int.size();
     }
     
-    Variable end_v = { range->rhs->type, (Address)c.stack_top };
+    Variable end_v = { false, range->rhs->type, (Address)c.stack_top };
     range->rhs->compile(c);
 
     size_t loop_start = c.function->bytecode.size();

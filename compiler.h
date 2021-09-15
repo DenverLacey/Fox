@@ -19,6 +19,7 @@
 #include "vm.h"
 
 struct Variable {
+    bool is_const;
     Value_Type type;
     Address address;
 };
@@ -27,6 +28,16 @@ struct Compiler_Scope {
     int stack_bottom;
     Compiler_Scope *parent;
     std::unordered_map<std::string, Variable> variables;
+};
+
+struct Find_Variable_Result {
+    enum {
+        Not_Found,
+        Found,
+        Found_Global,
+        Found_Constant,
+    } status;
+    Variable *variable;
 };
 
 //struct Loop {
@@ -85,9 +96,9 @@ struct Compiler {
     size_t emit_jump(Opcode jump_code, bool update_stack_top = true);
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
-    Variable &put_variable(String id, Value_Type type, Address address);
+    Variable &put_variable(String id, Value_Type type, Address address, bool is_const = false);
     void put_variables_from_pattern(Typed_AST_Processed_Pattern &pp, Address address);
-    std::pair<bool, Variable *> find_variable(String id);
+    Find_Variable_Result find_variable(String id);
     
     template<typename T>
     void emit_value(T value) {
@@ -96,12 +107,20 @@ struct Compiler {
         }
     }
     
+    void compile_constant(Variable constant);
+    
     size_t add_constant(void *data, size_t size);
     size_t add_str_constant(String source);
+    void *get_constant(size_t constant);
     
     template<typename T>
     size_t add_constant(T constant) {
         return add_constant(&constant, sizeof(T));
+    }
+    
+    template<typename T>
+    T get_constant(size_t constant) {
+        return *(T *)get_constant(constant);
     }
     
     Compiler_Scope &current_scope();

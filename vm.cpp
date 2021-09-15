@@ -110,19 +110,31 @@ void VM::run() {
                 runtime::Float value = READ(runtime::Float, frame);
                 stack.push<runtime::Float>(value);
             } break;
+            case Opcode::Lit_Pointer: {
+                runtime::Pointer value = READ(runtime::Pointer, frame);
+                stack.push<runtime::Pointer>(value);
+            } break;
                 
             // Constants
+            case Opcode::Load_Const: {
+                Size size = READ(Size, frame);
+//                void *constant = &(*frame->bytecode)[frame->pc];
+//                frame->pc += size;
+                size_t constant_index = READ(size_t, frame);
+                void *constant = &constants[constant_index];
+                stack.push(constant, size);
+            } break;
             case Opcode::Load_Const_String: {
                 size_t constant = READ(size_t, frame);
                 size_t len = *(size_t *)&str_constants[constant];
                 char *s    = (char *)&str_constants[constant + sizeof(size_t)];
                 stack.push<runtime::String>({ s, (runtime::Int)len });
             } break;
-            case Opcode::Load_Const: {
+            case Opcode::Load_Const_Array: {
                 Size size = READ(Size, frame);
-                void *constant = &(*frame->bytecode)[frame->pc];
-                frame->pc += size;
-                stack.push(constant, size);
+                size_t constant = READ(size_t, frame);
+                void *data = &constants[constant];
+                stack.push(data, size);
             } break;
                 
             // Arithmetic Operations
@@ -382,8 +394,19 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 runtime::Float constant = READ(runtime::Float, i);
                 printf(IDX "Lit_Float (%f)\n", mark, constant);
             } break;
+            case Opcode::Lit_Pointer: {
+                MARK(i);
+                runtime::Pointer constant = READ(runtime::Pointer, i);
+                printf(IDX "Lit_Pointer (%p)\n", mark, constant);
+            } break;
                 
             // Constants
+            case Opcode::Load_Const: {
+                MARK(i);
+                Size size = READ(Size, i);
+                size_t constant = READ(size_t, i);
+                printf(IDX "Load_Const %ub [%zu]", mark, size * 8, constant);
+            } break;
             case Opcode::Load_Const_String: {
                 MARK(i);
                 size_t constant = READ(size_t, i);
@@ -391,16 +414,12 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 char *s    = (char *)&str_constants[constant + sizeof(size_t)];
                 printf(IDX "Load_Const_String [%zu] \"%.*s\"\n", mark, constant, len, s);
             } break;
-            case Opcode::Load_Const: {
+            case Opcode::Load_Const_Array: {
                 MARK(i);
-                size_t size = READ(size_t, i);
-                uint8_t *constant = (uint8_t *)&code[i];
-                i += size;
-                printf(IDX "Load_Const %zub (", mark, size * 8);
-                for (size_t it = 0; it < size; it++, constant++) {
-                    printf("%X", *constant);
-                }
-                printf(")\n");
+                Size size = READ(Size, i);
+                size_t constant = READ(size_t, i);
+                void *data = &constants[constant];
+                printf(IDX "Load_Const_Array %ub %p", mark, size * 8, data);
             } break;
                 
             // Arithmetic
