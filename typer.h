@@ -78,6 +78,7 @@ struct Typed_AST {
     virtual ~Typed_AST() = default;
     void print() const;
     virtual void compile(Compiler &c) = 0;
+    virtual bool is_constant(Compiler &c) = 0;
 };
 
 struct Typed_AST_Bool : public Typed_AST {
@@ -85,6 +86,7 @@ struct Typed_AST_Bool : public Typed_AST {
     
     Typed_AST_Bool(bool value);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Char : public Typed_AST {
@@ -92,6 +94,7 @@ struct Typed_AST_Char : public Typed_AST {
     
     Typed_AST_Char(char32_t value);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Float : public Typed_AST {
@@ -99,6 +102,7 @@ struct Typed_AST_Float : public Typed_AST {
     
     Typed_AST_Float(double value);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Ident : public Typed_AST {
@@ -107,6 +111,7 @@ struct Typed_AST_Ident : public Typed_AST {
     Typed_AST_Ident(String id, Value_Type type);
     ~Typed_AST_Ident() override;
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Int : public Typed_AST {
@@ -114,6 +119,7 @@ struct Typed_AST_Int : public Typed_AST {
     
     Typed_AST_Int(int64_t value);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Str : public Typed_AST {
@@ -122,6 +128,7 @@ struct Typed_AST_Str : public Typed_AST {
     Typed_AST_Str(String value);
     ~Typed_AST_Str() override;
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Unary : public Typed_AST {
@@ -129,6 +136,7 @@ struct Typed_AST_Unary : public Typed_AST {
     
     Typed_AST_Unary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> sub);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Binary : public Typed_AST {
@@ -137,6 +145,7 @@ struct Typed_AST_Binary : public Typed_AST {
     
     Typed_AST_Binary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Ternary : public Typed_AST {
@@ -146,6 +155,7 @@ struct Typed_AST_Ternary : public Typed_AST {
     
     Typed_AST_Ternary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> mid, Ref<Typed_AST> rhs);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Multiary : public Typed_AST {
@@ -154,6 +164,7 @@ struct Typed_AST_Multiary : public Typed_AST {
     Typed_AST_Multiary(Typed_AST_Kind kind);
     void add(Ref<Typed_AST> node);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Array : public Typed_AST {
@@ -163,6 +174,7 @@ struct Typed_AST_Array : public Typed_AST {
     
     Typed_AST_Array(Value_Type type, Typed_AST_Kind kind, size_t count, Ref<Value_Type> array_type, Ref<Typed_AST_Multiary> element_nodes);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_If : public Typed_AST {
@@ -172,6 +184,7 @@ struct Typed_AST_If : public Typed_AST {
     
     Typed_AST_If(Value_Type type, Ref<Typed_AST> cond, Ref<Typed_AST> then, Ref<Typed_AST> else_);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Type_Signiture : public Typed_AST {
@@ -179,6 +192,7 @@ struct Typed_AST_Type_Signiture : public Typed_AST {
     
     Typed_AST_Type_Signiture(Ref<Value_Type> value_type);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Processed_Pattern : public Typed_AST {
@@ -192,6 +206,7 @@ struct Typed_AST_Processed_Pattern : public Typed_AST {
     ~Typed_AST_Processed_Pattern();
     void add_binding(String id, Value_Type type, bool is_mut);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_For : public Typed_AST {
@@ -203,15 +218,18 @@ struct Typed_AST_For : public Typed_AST {
     Typed_AST_For(Typed_AST_Kind kind, Ref<Typed_AST_Processed_Pattern> target, String counter, Ref<Typed_AST> iterable, Ref<Typed_AST_Multiary> body);
     ~Typed_AST_For();
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Let : public Typed_AST {
+    bool is_const;
     Ref<Typed_AST_Processed_Pattern> target;
     Ref<Typed_AST_Type_Signiture> specified_type;
     Ref<Typed_AST> initializer;
     
-    Typed_AST_Let(Ref<Typed_AST_Processed_Pattern> target, Ref<Typed_AST_Type_Signiture> specified_type, Ref<Typed_AST> initializer);
+    Typed_AST_Let(bool is_const, Ref<Typed_AST_Processed_Pattern> target, Ref<Typed_AST_Type_Signiture> specified_type, Ref<Typed_AST> initializer);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Dot : public Typed_AST_Binary {
@@ -219,6 +237,7 @@ struct Typed_AST_Dot : public Typed_AST_Binary {
     
     Typed_AST_Dot(Typed_AST_Kind kind, Value_Type type, bool deref, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
     void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
 };
 
 struct Untyped_AST_Multiary;

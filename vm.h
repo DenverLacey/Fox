@@ -221,9 +221,3 @@ struct VM {
 };
 
 void interpret(const char *filepath);
-void *evaluate(Ref<Typed_AST> expression);
-
-template<typename T>
-T evaluate(Ref<Typed_AST> expression) {
-    return *(T *)evaluate(expression);
-}

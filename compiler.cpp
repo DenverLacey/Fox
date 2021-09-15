@@ -141,6 +141,84 @@ Find_Variable_Result Compiler::find_variable(String id) {
     return { Find_Variable_Result::Not_Found, nullptr };
 }
 
+void Compiler::declare_constant(Typed_AST_Let &let) {
+    internal_verify(let.target->bindings.size() == 1, "'const' only works with single identifiers, for now.");
+    auto id = let.target->bindings[0].id;
+    
+    verify(let.initializer->is_constant(*this), "Cannot initialize constant with non-constant expression.");
+    
+    Variable constant = { true, let.initializer->type };
+    
+    switch (let.initializer->type.kind) {
+        case Value_Type_Kind::Bool: {
+            runtime::Bool value;
+            evaluate(*this, let.initializer, value);
+            constant.address = add_constant<runtime::Bool>(value);
+        } break;
+        case Value_Type_Kind::Char: {
+            runtime::Char value;
+            evaluate(*this, let.initializer, value);
+            constant.address = add_constant<runtime::Char>(value);
+        } break;
+        case Value_Type_Kind::Int: {
+            runtime::Int value;
+            evaluate(*this, let.initializer, value);
+            constant.address = add_constant<runtime::Int>(value);
+        } break;
+        case Value_Type_Kind::Float: {
+            runtime::Float value;
+            evaluate(*this, let.initializer, value);
+            constant.address = add_constant<runtime::Float>(value);
+        } break;
+        case Value_Type_Kind::Str: {
+            runtime::String value;
+            evaluate(*this, let.initializer, value);
+            constant.address = add_str_constant({ value.s, (size_t)value.len });
+        } break;
+        case Value_Type_Kind::Ptr:
+            internal_error("declaring constants of pointer types not yet implemented.");
+            break;
+        case Value_Type_Kind::Array: {
+            size_t size = let.initializer->type.size();
+            void *data = alloca(size);
+            evaluate(*this, let.initializer, data);
+            constant.address = add_constant(data, size);
+        } break;
+        case Value_Type_Kind::Slice:
+            internal_error("declaring constants of slice types not yet implemented.");
+            break;
+        case Value_Type_Kind::Tuple: {
+            size_t size = let.initializer->type.size();
+            void *data = alloca(size);
+            evaluate(*this, let.initializer, data);
+            constant.address = add_constant(data, size);
+        } break;
+        case Value_Type_Kind::Range: {
+            size_t size = let.initializer->type.size();
+            void *data = alloca(size);
+            evaluate(*this, let.initializer, data);
+            constant.address = add_constant(data, size);
+        } break;
+            
+        case Value_Type_Kind::Struct:
+            internal_error("declaring constants of a struct type not yet implemented.");
+            break;
+        case Value_Type_Kind::Enum:
+            internal_error("declaring constats of an enum type not yet implemented.");
+            break;
+            
+        case Value_Type_Kind::Void:
+            error("Cannot declare a constant of type (void).");
+            break;
+            
+        default:
+            internal_error("Unexpected Value_Type_Kind in Compiler::declare_variable(): %d.", let.initializer->type.kind);
+    }
+    
+    std::string sid { id.c_str(), id.size() };
+    current_scope().variables[sid] = constant;
+}
+
 void Compiler::compile_constant(Variable constant) {
     Address old_top = stack_top;
     
@@ -388,7 +466,7 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             
             if (array_status == Find_Static_Address_Result::Not_Found ||
                 sub->lhs->type.kind != Value_Type_Kind::Array ||
-                sub->rhs->kind != Typed_AST_Kind::Int)
+                !sub->rhs->is_constant(c))
             {
                 status = Find_Static_Address_Result::Not_Found;
                 break;
@@ -398,7 +476,12 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
                 status = Find_Static_Address_Result::Found_Global;
             }
             
-            runtime::Int index = sub->rhs.cast<Typed_AST_Int>()->value;
+            runtime::Int index;
+            if (!evaluate(c, sub->rhs, index)) {
+                status = Find_Static_Address_Result::Not_Found;
+                break;
+            }
+            
             address = array_address + index * sub->type.size();
         } break;
         case Typed_AST_Kind::Dot: {
@@ -738,8 +821,10 @@ static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
     if (sub.lhs->type.kind == Value_Type_Kind::Array) {
         Size element_size = sub.lhs->type.child_type()->size();
         
-        if (sub.rhs->kind == Typed_AST_Kind::Int) {
-            runtime::Int index = sub.rhs.cast<Typed_AST_Int>()->value;
+        if (sub.rhs->type.kind == Value_Type_Kind::Int && sub.rhs->is_constant(c)) {
+            runtime::Int index;
+            evaluate(c, sub.rhs, index);
+            
             runtime::Int offset = index * element_size;
             
             auto [status, address] = find_static_address(c, *sub.lhs);
@@ -1220,6 +1305,11 @@ void Typed_AST_For::compile(Compiler &c) {
 }
 
 void Typed_AST_Let::compile(Compiler &c) {
+    if (is_const) {
+        c.declare_constant(*this);
+        return;
+    }
+    
     Address stack_top = c.stack_top;
     
     Value_Type type = specified_type ? *specified_type->value_type : initializer->type;

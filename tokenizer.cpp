@@ -77,6 +77,9 @@ void Token::print() const {
         case Token_Kind::Mut:
             printf("Mut\n");
             break;
+        case Token_Kind::Const:
+            printf("Const\n");
+            break;
         case Token_Kind::If:
             printf("If\n");
             break;
@@ -567,6 +570,8 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::False;
     } else if (word == "let") {
         tok.kind = Token_Kind::Let;
+    } else if (word == "const") {
+        tok.kind = Token_Kind::Const;
     } else if (word == "mut") {
         tok.kind = Token_Kind::Mut;
     } else if (word == "if") {

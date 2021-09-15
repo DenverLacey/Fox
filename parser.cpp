@@ -58,6 +58,7 @@ Precedence token_precedence(Token token) {
         // keywords
         case Token_Kind::Let: return Precedence::None;
         case Token_Kind::Mut: return Precedence::None;
+        case Token_Kind::Const: return Precedence::None;
         case Token_Kind::If: return Precedence::None;
         case Token_Kind::Else: return Precedence::None;
         case Token_Kind::While: return Precedence::None;
@@ -201,6 +202,9 @@ struct Parser {
         if (match(Token_Kind::Let)) {
             s = parse_let_statement();
             expect(Token_Kind::Semi, "Expected ';' after statement.");
+        } else if (match(Token_Kind::Const)) {
+            s = parse_const_statement();
+            expect(Token_Kind::Semi, "Expected ';' after statement.");
         } else if (match(Token_Kind::If)) {
             s = parse_if_statement();
         } else if (match(Token_Kind::While)) {
@@ -233,7 +237,29 @@ struct Parser {
         verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
         verify(initializer || target->are_all_variables_mut(), "'let' statements without an initializer must be marked 'mut'.");
         
-        return Mem.make<Untyped_AST_Let>(target, specified_type, initializer);
+        return Mem.make<Untyped_AST_Let>(false, target, specified_type, initializer);
+    }
+    
+    //
+    // @NOTE:
+    //      Might be better to incorporate this into parse_let_statement()
+    //      since they share lots of code.
+    //
+    Ref<Untyped_AST_Let> parse_const_statement() {
+        // @TODO: check that nothings marked 'mut'
+        auto target = parse_pattern();
+        
+        Ref<Untyped_AST_Type_Signiture> specified_type = nullptr;
+        if (match(Token_Kind::Colon)) {
+            auto type = parse_type_signiture();
+            specified_type = Mem.make<Untyped_AST_Type_Signiture>(type);
+        }
+        
+        expect(Token_Kind::Eq, "Expected '=' in 'const' statement because it requires an initializer expression.");
+        
+        auto initilizer = parse_expression();
+
+        return Mem.make<Untyped_AST_Let>(true, target, specified_type, initilizer);
     }
     
     Ref<Untyped_AST_Pattern> parse_pattern() {

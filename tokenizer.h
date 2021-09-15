@@ -38,6 +38,7 @@ enum class Token_Kind {
     
     // keyword
     Underscore,
+    Const,
     Let,
     Mut,
     If,

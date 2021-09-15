@@ -241,11 +241,12 @@ struct Untyped_AST_Type_Signiture : public Untyped_AST {
 };
 
 struct Untyped_AST_Let : public Untyped_AST {
+    bool is_const;
     Ref<Untyped_AST_Pattern> target;
     Ref<Untyped_AST_Type_Signiture> specified_type;
     Ref<Untyped_AST> initializer;
     
-    Untyped_AST_Let(Ref<Untyped_AST_Pattern> target, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
+    Untyped_AST_Let(bool is_const, Ref<Untyped_AST_Pattern> target, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

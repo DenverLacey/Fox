@@ -8,6 +8,7 @@
 
 #include "typer.h"
 #include "ast.h"
+#include "compiler.h"
 #include "error.h"
 #include <list>
 #include <unordered_map>
@@ -19,16 +20,28 @@ Typed_AST_Bool::Typed_AST_Bool(bool value) {
     this->value = value;
 }
 
+bool Typed_AST_Bool::is_constant(Compiler &c) {
+    return true;
+}
+
 Typed_AST_Char::Typed_AST_Char(char32_t value) {
     kind = Typed_AST_Kind::Char;
     type.kind = Value_Type_Kind::Char;
     this->value = value;
 }
 
+bool Typed_AST_Char::is_constant(Compiler &c) {
+    return true;
+}
+
 Typed_AST_Float::Typed_AST_Float(double value) {
     kind = Typed_AST_Kind::Float;
     type.kind = Value_Type_Kind::Float;
     this->value = value;
+}
+
+bool Typed_AST_Float::is_constant(Compiler &c) {
+    return true;
 }
 
 Typed_AST_Ident::Typed_AST_Ident(String id, Value_Type type) {
@@ -41,10 +54,19 @@ Typed_AST_Ident::~Typed_AST_Ident() {
     id.free();
 }
 
+bool Typed_AST_Ident::is_constant(Compiler &c) {
+    auto [status, _] = c.find_variable(id);
+    return status == Find_Variable_Result::Found_Constant;
+}
+
 Typed_AST_Int::Typed_AST_Int(int64_t value) {
     kind = Typed_AST_Kind::Int;
     type.kind = Value_Type_Kind::Int;
     this->value = value;
+}
+
+bool Typed_AST_Int::is_constant(Compiler &c) {
+    return true;
 }
 
 Typed_AST_Str::Typed_AST_Str(String value) {
@@ -57,10 +79,18 @@ Typed_AST_Str::~Typed_AST_Str() {
     value.free();
 }
 
+bool Typed_AST_Str::is_constant(Compiler &c) {
+    return true;
+}
+
 Typed_AST_Unary::Typed_AST_Unary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> sub) {
     this->kind = kind;
     this->type = type;
     this->sub = sub;
+}
+
+bool Typed_AST_Unary::is_constant(Compiler &c) {
+    return sub->is_constant(c);
 }
 
 Typed_AST_Binary::Typed_AST_Binary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs) {
@@ -68,6 +98,10 @@ Typed_AST_Binary::Typed_AST_Binary(Typed_AST_Kind kind, Value_Type type, Ref<Typ
     this->type = type;
     this->lhs = lhs;
     this->rhs = rhs;
+}
+
+bool Typed_AST_Binary::is_constant(Compiler &c) {
+    return lhs->is_constant(c) && rhs->is_constant(c);
 }
 
 Typed_AST_Ternary::Typed_AST_Ternary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> mid, Ref<Typed_AST> rhs) {
@@ -78,6 +112,10 @@ Typed_AST_Ternary::Typed_AST_Ternary(Typed_AST_Kind kind, Value_Type type, Ref<T
     this->rhs = rhs;
 }
 
+bool Typed_AST_Ternary::is_constant(Compiler &c) {
+    return lhs->is_constant(c) && mid->is_constant(c) && rhs->is_constant(c);
+}
+
 Typed_AST_Multiary::Typed_AST_Multiary(Typed_AST_Kind kind) {
     this->kind = kind;
     this->type.kind = Value_Type_Kind::None;
@@ -85,6 +123,15 @@ Typed_AST_Multiary::Typed_AST_Multiary(Typed_AST_Kind kind) {
 
 void Typed_AST_Multiary::add(Ref<Typed_AST> node) {
     nodes.push_back(node);
+}
+
+bool Typed_AST_Multiary::is_constant(Compiler &c) {
+    for (auto n : nodes) {
+        if (!n->is_constant(c)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 Typed_AST_Array::Typed_AST_Array(
@@ -101,6 +148,10 @@ Typed_AST_Array::Typed_AST_Array(
     this->element_nodes = element_nodes;
 }
 
+bool Typed_AST_Array::is_constant(Compiler &c) {
+    return element_nodes->is_constant(c);
+}
+
 Typed_AST_If::Typed_AST_If(
     Value_Type type,
     Ref<Typed_AST> cond,
@@ -114,9 +165,17 @@ Typed_AST_If::Typed_AST_If(
     this->else_ = else_;
 }
 
+bool Typed_AST_If::is_constant(Compiler &c) {
+    return cond->is_constant(c) && then->is_constant(c) && else_->is_constant(c);
+}
+
 Typed_AST_Type_Signiture::Typed_AST_Type_Signiture(Ref<Value_Type> value_type) {
     this->kind = Typed_AST_Kind::Type_Signiture;
     this->value_type = value_type;
+}
+
+bool Typed_AST_Type_Signiture::is_constant(Compiler &c) {
+    return true;
 }
 
 Typed_AST_Processed_Pattern::Typed_AST_Processed_Pattern() {
@@ -138,6 +197,10 @@ void Typed_AST_Processed_Pattern::add_binding(
     bindings.push_back({ id, type });
 }
 
+bool Typed_AST_Processed_Pattern::is_constant(Compiler &c) {
+    return true;
+}
+
 Typed_AST_For::Typed_AST_For(
     Typed_AST_Kind kind,
     Ref<Typed_AST_Processed_Pattern> target,
@@ -156,15 +219,25 @@ Typed_AST_For::~Typed_AST_For() {
     counter.free();
 }
 
+bool Typed_AST_For::is_constant(Compiler &c) {
+    return iterable->is_constant(c) && body->is_constant(c);
+}
+
 Typed_AST_Let::Typed_AST_Let(
+    bool is_const,
     Ref<Typed_AST_Processed_Pattern> target,
     Ref<Typed_AST_Type_Signiture> specified_type,
     Ref<Typed_AST> initializer)
 {
     kind = Typed_AST_Kind::Let;
+    this->is_const = is_const;
     this->target = target;
     this->specified_type = specified_type;
     this->initializer = initializer;
+}
+
+bool Typed_AST_Let::is_constant(Compiler &c) {
+    return initializer->is_constant(c);
 }
 
 Typed_AST_Dot::Typed_AST_Dot(
@@ -176,6 +249,10 @@ Typed_AST_Dot::Typed_AST_Dot(
         : Typed_AST_Binary(kind, type, lhs, rhs)
 {
     this->deref = deref;
+}
+
+bool Typed_AST_Dot::is_constant(Compiler &c) {
+    return lhs->is_constant(c);
 }
 
 static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
@@ -396,7 +473,7 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
         } break;
         case Typed_AST_Kind::Let: {
             Ref<Typed_AST_Let> let = node.cast<Typed_AST_Let>();
-            printf("(let)\n");
+            printf("(%s)\n", let->is_const ? "const" : "let");
             
             print_sub_at_indent("target", let->target, indent + 1);
             if (let->specified_type) {
@@ -849,7 +926,7 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
     auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();
     t.put_pattern(target, ty, processed_target);
     
-    return Mem.make<Typed_AST_Let>(processed_target, sig, init);
+    return Mem.make<Typed_AST_Let>(is_const, processed_target, sig, init);
 }
 
 Ref<Typed_AST> Untyped_AST_Generic_Specialization::typecheck(Typer &t) {

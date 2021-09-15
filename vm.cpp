@@ -768,20 +768,3 @@ void interpret(const char *path) {
 #endif // COMPILE_AST
 #endif // TYPECHECK
 }
-
-void *evaluate(Ref<Typed_AST> expression) {
-    auto block = Typed_AST_Multiary { Typed_AST_Kind::Block };
-    block.add(expression);
-    
-    Data_Section constants;
-    Data_Section str_constants;
-    Function_Definition program;
-    auto compiler = Compiler { constants, str_constants, &program };
-    compiler.compile(&block);
-    
-    auto vm = VM { constants, str_constants };
-    vm.call(&program, 0);
-    vm.run();
-    
-    return vm.stack.get(0);
-}
