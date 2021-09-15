@@ -396,6 +396,31 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
             // address = &lhs + offset
             c.emit_opcode(Opcode::Int_Add);
         } break;
+        case Typed_AST_Kind::Negative_Subscript: {
+            auto sub = dynamic_cast<Typed_AST_Binary *>(&node);
+            internal_verify(sub, "Failed to cast node to Binary* in emit_dynamic_address_code().");
+            internal_verify(sub->lhs->type.kind == Value_Type_Kind::Slice, "sub->lhs is not a slice in Negative_Subscript part of emit_dynamic_address_code().");
+            
+            Size element_size = sub->type.size();
+            runtime::Int index = -sub->rhs.cast<Typed_AST_Int>()->value;
+            
+            // (data, count) = result of compiling lhs
+            sub->lhs->compile(c);
+            
+            // offset = (count - index) * element_size
+            c.emit_opcode(Opcode::Lit_Int);
+            c.emit_value<runtime::Int>(index);
+            
+            c.emit_opcode(Opcode::Int_Sub);
+            
+            c.emit_opcode(Opcode::Lit_Int);
+            c.emit_value<runtime::Int>(element_size);
+            
+            c.emit_opcode(Opcode::Int_Mul);
+            
+            // element_ptr = data + offset
+            c.emit_opcode(Opcode::Int_Add);
+        } break;
         case Typed_AST_Kind::Dot: {
             internal_error("emit_dynamic_address_code() of Dot not yet implemented.");
         } break;
@@ -594,7 +619,19 @@ static void emit_dynamic_offset_load(
     c.emit_size(element_size);
 }
 
+static void compile_range_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
+    internal_error("Subscript with range not yet implemented.");
+    
+    Address stack_top = c.stack_top;
+    c.stack_top = stack_top + sub.type.size();
+}
+
 static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
+    if (sub.rhs->type.kind == Value_Type_Kind::Range) {
+        compile_range_subscript_operator(c, sub);
+        return;
+    }
+    
     Address stack_top = c.stack_top;
     
     if (sub.lhs->type.kind == Value_Type_Kind::Array) {
@@ -628,7 +665,37 @@ static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
             emit_dynamic_offset_load(c, *sub.rhs, element_size);
         }
     } else {
-        internal_verify(sub.lhs->type.kind != Value_Type_Kind::Slice, "Can't subscript slices yet.");
+        bool success = emit_address_code(c, *sub.lhs);
+//            if (!success) {
+//                emit_bytecode(c, binary->lhs);
+//                emit_byte(c, BYTE_PUSH_POINTER);
+//                emit_address(c, stack_top);
+//            }
+        verify(success, "Can't subscript this expression.");
+        
+        // data = Load(&slice, sizeof(Pointer))
+        c.emit_opcode(Opcode::Load);
+        c.emit_size(value_types::Ptr.size());
+        
+        // element_ptr = data + index * sizeof(Element)
+        sub.rhs->compile(c);
+        
+        c.emit_opcode(Opcode::Lit_Int);
+        c.emit_value<runtime::Int>(sub.type.size());
+        
+        c.emit_opcode(Opcode::Int_Mul);
+        
+        c.emit_opcode(Opcode::Int_Add);
+        
+        // element = Load(element_ptr, sizeof(Element))
+        c.emit_opcode(Opcode::Load);
+        c.emit_size(sub.type.size());
+            
+//            if (!success) {
+//                emit_byte(c, BYTE_SHIFT);
+//                emit_size(c, size);
+//                emit_size(c, size_of_type(c, binary->lhs->inferred_type));
+//            }
     }
     
     c.stack_top = stack_top + sub.type.size();
@@ -639,32 +706,9 @@ static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &s
     
     internal_verify(sub.lhs->type.kind == Value_Type_Kind::Slice, "In compile_negative_subscript_operator(), sub.lhs is not a slice.");
     
-    auto rhs = sub.rhs.cast<Typed_AST_Int>();
-    internal_verify(rhs, "Failed to cast sub.rhs to an Int* in compile_negative_subscript_operator().");
-    
-    runtime::Int index = -rhs->value;
-    
-    // slice = result of compiling sub.lhs
-    sub.lhs->compile(c);
-    
-    // real_index = slice.count - index
-    if (index == 1) {
-        c.emit_opcode(Opcode::Lit_1);
-    } else {
-        c.emit_opcode(Opcode::Lit_Int);
-        c.emit_value<runtime::Int>(index);
-    }
-    
-    c.emit_opcode(Opcode::Int_Sub);
-    
-    // offset = real_index * sizeof(Element)
-    c.emit_opcode(Opcode::Lit_Int);
-    c.emit_value<runtime::Int>(sub.type.size());
-    
-    c.emit_opcode(Opcode::Int_Mul);
-    
-    // element_ptr = slice.data + offset
-    c.emit_opcode(Opcode::Int_Add);
+    // element_ptr = result of ...
+    bool success = emit_address_code(c, sub);
+    verify(success, "Cannot subscript this expression.");
     
     // element = Load(element_ptr, sizeof(Element))
     c.emit_opcode(Opcode::Load);

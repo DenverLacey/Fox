@@ -14,7 +14,7 @@
 // [ ]  Use increment opcode in for-range loop.
 // [ ]  Implement compile-time code execution.
 // [x]  Support negative indexing subscript (only with literals).
-// [ ]  Refactor compile_negative_subscript_operator to work with the dynamic code
+// [x]  Refactor compile_negative_subscript_operator to work with the dynamic code
 //      stuff cause then we can assign to an expression like that too.
 //
 
