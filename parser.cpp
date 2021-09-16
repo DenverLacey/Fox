@@ -190,7 +190,24 @@ struct Parser {
     }
     
     Ref<Untyped_AST> parse_struct_declaration() {
-        return nullptr;
+        String id = expect(Token_Kind::Ident, "Expected identifier after 'struct' keyword.").data.s.clone();
+        auto decl = Mem.make<Untyped_AST_Struct_Declaration>(id);
+        
+        expect(Token_Kind::Left_Curly, "Expected '{' in struct declaration.");
+        
+        do {
+            if (check_terminating_delimeter()) break;
+            // @TODO: Check for 'mut'
+            String mem_id = expect(Token_Kind::Ident, "Expected identifier of field in struct declaration.").data.s.clone();
+            expect(Token_Kind::Colon, "Expected ':' after field identifier.");
+            auto type = parse_type_signiture();
+            auto sig = Mem.make<Untyped_AST_Type_Signiture>(type);
+            decl->add_field(mem_id, sig);
+        } while (match(Token_Kind::Comma) && has_more());
+        
+        expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct declaration.");
+        
+        return decl;
     }
     
     Ref<Untyped_AST> parse_enum_declaration() {

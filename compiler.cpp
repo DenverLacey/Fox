@@ -148,31 +148,32 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
     verify(let.initializer->is_constant(*this), "Cannot initialize constant with non-constant expression.");
     
     Variable constant = { true, let.initializer->type };
+    constant.type.is_mut = false; // incase initializer->type.is_mut
     
     switch (let.initializer->type.kind) {
         case Value_Type_Kind::Bool: {
             runtime::Bool value;
-            evaluate(*this, let.initializer, value);
+            evaluate_unchecked(let.initializer, value);
             constant.address = add_constant<runtime::Bool>(value);
         } break;
         case Value_Type_Kind::Char: {
             runtime::Char value;
-            evaluate(*this, let.initializer, value);
+            evaluate_unchecked(let.initializer, value);
             constant.address = add_constant<runtime::Char>(value);
         } break;
         case Value_Type_Kind::Int: {
             runtime::Int value;
-            evaluate(*this, let.initializer, value);
+            evaluate_unchecked(let.initializer, value);
             constant.address = add_constant<runtime::Int>(value);
         } break;
         case Value_Type_Kind::Float: {
             runtime::Float value;
-            evaluate(*this, let.initializer, value);
+            evaluate_unchecked(let.initializer, value);
             constant.address = add_constant<runtime::Float>(value);
         } break;
         case Value_Type_Kind::Str: {
             runtime::String value;
-            evaluate(*this, let.initializer, value);
+            evaluate_unchecked(let.initializer, value);
             constant.address = add_str_constant({ value.s, (size_t)value.len });
         } break;
         case Value_Type_Kind::Ptr:
@@ -181,7 +182,7 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
         case Value_Type_Kind::Array: {
             size_t size = let.initializer->type.size();
             void *data = alloca(size);
-            evaluate(*this, let.initializer, data);
+            evaluate_unchecked(let.initializer, data);
             constant.address = add_constant(data, size);
         } break;
         case Value_Type_Kind::Slice:
@@ -190,13 +191,13 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
         case Value_Type_Kind::Tuple: {
             size_t size = let.initializer->type.size();
             void *data = alloca(size);
-            evaluate(*this, let.initializer, data);
+            evaluate_unchecked(let.initializer, data);
             constant.address = add_constant(data, size);
         } break;
         case Value_Type_Kind::Range: {
             size_t size = let.initializer->type.size();
             void *data = alloca(size);
-            evaluate(*this, let.initializer, data);
+            evaluate_unchecked(let.initializer, data);
             constant.address = add_constant(data, size);
         } break;
             
@@ -477,10 +478,7 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             }
             
             runtime::Int index;
-            if (!evaluate(c, sub->rhs, index)) {
-                status = Find_Static_Address_Result::Not_Found;
-                break;
-            }
+            c.evaluate_unchecked(sub->rhs, index);
             
             address = array_address + index * sub->type.size();
         } break;
@@ -823,7 +821,7 @@ static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
         
         if (sub.rhs->type.kind == Value_Type_Kind::Int && sub.rhs->is_constant(c)) {
             runtime::Int index;
-            evaluate(c, sub.rhs, index);
+            c.evaluate_unchecked(sub.rhs, index);
             
             runtime::Int offset = index * element_size;
             

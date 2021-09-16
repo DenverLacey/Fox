@@ -582,6 +582,12 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::While;
     } else if (word == "for") {
         tok.kind = Token_Kind::For;
+    } else if (word == "fn") {
+        tok.kind = Token_Kind::Fn;
+    } else if (word == "struct") {
+        tok.kind = Token_Kind::Struct;
+    } else if (word == "enum") {
+        tok.kind = Token_Kind::Enum;
     } else if (word == "and") {
         tok.kind = Token_Kind::And;
     } else if (word == "or") {

@@ -302,6 +302,30 @@ Ref<Untyped_AST> Untyped_AST_Generic_Specialization::clone() {
     return Mem.make<Untyped_AST_Generic_Specialization>(id.clone(), std::move(copy));
 }
 
+Untyped_AST_Struct_Declaration::Untyped_AST_Struct_Declaration(String id) {
+    kind = Untyped_AST_Kind::Struct;
+    this->id = id;
+}
+
+Untyped_AST_Struct_Declaration::~Untyped_AST_Struct_Declaration() {
+    id.free();
+}
+
+void Untyped_AST_Struct_Declaration::add_field(
+    String id,
+    Ref<Untyped_AST_Type_Signiture> type)
+{
+    fields.push_back({ id, type });
+}
+
+Ref<Untyped_AST> Untyped_AST_Struct_Declaration::clone() {
+    auto copy = Mem.make<Untyped_AST_Struct_Declaration>(id.clone());
+    for (auto &f : fields) {
+        copy->add_field(f.id.clone(), f.type->clone().cast<Untyped_AST_Type_Signiture>());
+    }
+    return copy;
+}
+
 constexpr size_t INDENT_SIZE = 2;
 static void print_at_indent(const Ref<Untyped_AST> node, size_t indent);
 
@@ -529,6 +553,15 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             printf("%*scount: %zu\n", (indent + 1) * INDENT_SIZE, "", array->count);
             printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
             print_sub_at_indent("elems", array->element_nodes, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Struct: {
+            auto decl = node.cast<Untyped_AST_Struct_Declaration>();
+            printf("(struct)\n");
+            printf("%*sid: %.*s\n", (indent + 1) * INDENT_SIZE, "", decl->id.size(), decl->id.c_str());
+            printf("%*sfields:\n", (indent + 1) * INDENT_SIZE, "");
+            for (auto &f : decl->fields) {
+                printf("%*s%s: %s\n", (indent + 2) * INDENT_SIZE, "", f.id.c_str(), f.type->value_type->debug_str());
+            }
         } break;
             
         default:

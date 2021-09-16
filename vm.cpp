@@ -18,7 +18,7 @@
 #include <fstream>
 
 #define PRINT_DEBUG_DIAGNOSTICS 1
-#define TYPECHECK 1
+#define TYPECHECK 0
 #define COMPILE_AST 1
 #define RUN_VIRTUAL_MACHINE 1
 
@@ -419,7 +419,7 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 Size size = READ(Size, i);
                 size_t constant = READ(size_t, i);
                 void *data = &constants[constant];
-                printf(IDX "Load_Const_Array %ub %p", mark, size * 8, data);
+                printf(IDX "Load_Const_Array %ub %p\n", mark, size * 8, data);
             } break;
                 
             // Arithmetic

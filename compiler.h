@@ -25,7 +25,7 @@ struct Variable {
 };
 
 struct Compiler_Scope {
-    int stack_bottom;
+    Address stack_bottom;
     Compiler_Scope *parent;
     std::unordered_map<std::string, Variable> variables;
 };
@@ -127,33 +127,33 @@ struct Compiler {
     Compiler_Scope &current_scope();
     void begin_scope();
     void end_scope();
+    
+    template<typename T>
+    bool evaluate(Ref<Typed_AST> expression, T &out_result) {
+        if (!expression->is_constant(*this)) {
+            return false;
+        }
+        evaluate_unchecked(expression, out_result);
+        return true;
+    }
+    
+    template<typename T>
+    void evaluate_unchecked(Ref<Typed_AST> expression, T &out_result) {
+        Function_Definition code;
+        Function_Definition *old_func = function;
+        function = &code;
+        expression->compile(*this);
+        function = old_func;
+        
+        auto vm = VM { constants, str_constants };
+        vm.call(&code, 0);
+        vm.run();
+        
+        if constexpr (std::is_pointer_v<T>) {
+            void *result = vm.stack.get(0);
+            memcpy(out_result, result, expression->type.size());
+        } else {
+            out_result = *(T *)vm.stack.get(0);
+        }
+    }
 };
-
-template<typename T>
-bool evaluate(Compiler &c, Ref<Typed_AST> expression, T &out_result) {
-    if (!expression->is_constant(c)) {
-        return false;
-    }
-    
-    auto block = Typed_AST_Multiary { Typed_AST_Kind::Block };
-    block.add(expression);
-    
-    Function_Definition code;
-    Function_Definition *function = c.function;
-    c.function = &code;
-    c.compile(&block);
-    c.function = function;
-    
-    auto vm = VM { c.constants, c.str_constants };
-    vm.call(&code, 0);
-    vm.run();
-    
-    if constexpr (std::is_pointer_v<T>) {
-        void *result = vm.stack.get(0);
-        memcpy(out_result, result, expression->type.size());
-    } else {
-        out_result = *(T *)vm.stack.get(0);
-    }
-    
-    return true;
-}

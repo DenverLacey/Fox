@@ -65,10 +65,13 @@ enum class Untyped_AST_Kind {
     Pattern_Ident,
     Pattern_Tuple,
     
+    // declarations
+    Let,
+    Struct,
+    
     // unique
     If,
     For,
-    Let,
     Type_Signiture,
     Generic_Specialization,
 };
@@ -257,6 +260,22 @@ struct Untyped_AST_Generic_Specialization : public Untyped_AST {
     
     Untyped_AST_Generic_Specialization(String id, std::vector<Ref<Untyped_AST_Type_Signiture>> &&params);
     ~Untyped_AST_Generic_Specialization() override;
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Struct_Declaration : public Untyped_AST {
+    struct Field {
+        String id;
+        Ref<Untyped_AST_Type_Signiture> type;
+    };
+    
+    String id;
+    std::vector<Field> fields;
+    
+    Untyped_AST_Struct_Declaration(String id);
+    ~Untyped_AST_Struct_Declaration() override;
+    void add_field(String id, Ref<Untyped_AST_Type_Signiture> type);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

@@ -11,7 +11,9 @@
 // [ ]  Add absolute-value operator (unary +)?
 // [ ]  Add increment and decrement opcode in vm as an optimisation?
 // [ ]  Use increment opcode in for-range loop.
-// [ ]  Implement compile-time code execution.
+// [x]  Implement compile-time code execution.
+// [ ]  Maybe get rid of AST_Type_Signiture cause it might be pointless and easier
+//      just to use Ref<Value_Type>.
 //
 
 #include <iostream>

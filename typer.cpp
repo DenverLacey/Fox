@@ -931,5 +931,8 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Generic_Specialization::typecheck(Typer &t) {
     internal_error("Generic_Specialization::typecheck() not yet implemented.");
-    return nullptr;
+}
+
+Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
+    internal_error("Untyped_AST_Struct_Declaration::typecheck() not yet implemented.");
 }
