@@ -18,11 +18,12 @@
 
 #include <iostream>
 
-#include "vm.h"
+#include "interpreter.h"
 
 int main(int argc, const char * argv[]) {
     if (argc > 1) {
-        interpret(argv[1]);
+        Interpreter interp;
+        interp.interpret(argv[1]);
     } else {
         printf("Error: No path given. Fox needs to know what to compile to run.\n");
     }

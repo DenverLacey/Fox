@@ -9,9 +9,11 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 using Size = unsigned int;
 using Address = size_t;
+using UUID = uint64_t;
 
 struct utf8char_t {
     char buf[5]; // 5 for null-terminator

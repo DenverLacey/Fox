@@ -13,6 +13,8 @@
 #include <assert.h>
 
 #include "error.h"
+#include "interpreter.h"
+#include "vm.h"
 
 Size Value_Type::size() const {
     switch (kind) {
@@ -45,13 +47,17 @@ Size Value_Type::size() const {
             }
             return size;
         }
-        case Value_Type_Kind::Range: {
+        case Value_Type_Kind::Range:
             return 2 * data.range.child_type->size();
-        } break;
-            
         case Value_Type_Kind::Struct:
+            return data.struct_.defn->size;
+            
         case Value_Type_Kind::Enum:
-            internal_error("Struct and Enums not yet implemented.");
+            internal_error("Enums not yet implemented.");
+            return 0;
+            
+        case Value_Type_Kind::Type:
+            internal_error("Type.size() not yet implemented.");
             return 0;
             
         default:
@@ -120,11 +126,15 @@ char *Value_Type::debug_str() const {
             }
             s << data.range.child_type->debug_str() << ">";
             break;
-        case Value_Type_Kind::Struct:
-            assert(false);
-            break;
+        case Value_Type_Kind::Struct: {
+            auto defn = data.struct_.defn;
+            s << defn->name.c_str() << "#" << defn->id;
+        } break;
         case Value_Type_Kind::Enum:
             assert(false);
+            break;
+        case Value_Type_Kind::Type:
+            s << "typeof(" << data.type.type->debug_str() << ")";
             break;
     }
     
@@ -190,6 +200,15 @@ Value_Type Value_Type::clone() const {
         case Value_Type_Kind::Str:   break;
             
         case Value_Type_Kind::Struct:
+            ty.data.struct_.defn = data.struct_.defn;
+            break;
+            
+        case Value_Type_Kind::Type: {
+            Value_Type *type = Mem.make<Value_Type>().as_ptr();
+            *type = *data.type.type;
+            ty.data.type.type = type;
+        } break;
+            
         case Value_Type_Kind::Enum:
             internal_error("Struct and Enum can't be cloned yet.");
             break;
@@ -247,7 +266,8 @@ bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
             }
             break;
         case Value_Type_Kind::Struct:
-            assert(false);
+            match = data.struct_.defn->id == other.data.struct_.defn->id;
+            break;
         case Value_Type_Kind::Enum:
             assert(false);
     }
@@ -314,6 +334,39 @@ bool Value_Type::assignable_from(const Value_Type &other) {
     }
     
     return match;
+}
+
+bool Value_Type::is_resolved() const {
+    switch (kind) {
+        case Value_Type_Kind::None: return false;
+        case Value_Type_Kind::Unresolved_Type: return false;
+        
+        case Value_Type_Kind::Ptr:   return data.ptr.child_type->is_resolved();
+        case Value_Type_Kind::Array: return data.array.element_type->is_resolved();
+        case Value_Type_Kind::Slice: return data.slice.element_type->is_resolved();
+        case Value_Type_Kind::Range: return data.range.child_type->is_resolved();
+        case Value_Type_Kind::Tuple:
+            for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
+                if (!data.tuple.child_types[i].is_resolved()) return false;
+            }
+            return true;
+            
+        case Value_Type_Kind::Struct:
+            for (auto &f : data.struct_.defn->fields) {
+                if (!f.type.is_resolved()) {
+                    return false;
+                }
+            }
+            break;
+        case Value_Type_Kind::Enum:
+            internal_error("Cannot check if an enum type is resolved yet.");
+            break;
+            
+        default:
+            break;
+    }
+    
+    return true;
 }
 
 Size Tuple_Type_Data::offset_of_type(size_t idx) {

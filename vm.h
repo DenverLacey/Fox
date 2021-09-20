@@ -116,44 +116,6 @@ enum class Opcode : uint8_t {
 
 using Chunk = std::vector<Opcode>;
 
-//struct StructMember {
-//    TypeSize offset;
-//    int len;
-//    const char *ident;
-//    ValueType inferred_type;
-//};
-
-//struct StructDefinition {
-//    bool has_initialiser;
-//    int depth;
-//    int len_ident;
-//    const char *ident;
-//    TypeSize size;
-//    StructDefinition *super;
-//    std::vector<StructMember> members;
-//    std::vector<AST *> initialiser;
-//};
-
-//struct EnumPayloadMember {
-//    TypeSize offset;
-//    ValueType type;
-//};
-
-//struct EnumMember {
-//    int len;
-//    const char *ident;
-//    Integer tag;
-//    std::vector<EnumPayloadMember> payload;
-//};
-
-//struct EnumDefinition {
-//    bool is_sumtype;
-//    int len_ident;
-//    const char *ident;
-//    TypeSize size;
-//    std::vector<EnumMember> members;
-//};
-
 struct Function_Definition {
     String ident;
 //    FunctionType type;
@@ -220,4 +182,50 @@ struct VM {
     void print_stack();
 };
 
-void interpret(const char *filepath);
+void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constants);
+
+struct Struct_Field {
+    Size offset;
+    String id;
+    Value_Type type;
+};
+
+struct Module;
+
+struct Struct_Definition {
+    Size size;
+    // Struct_Definition *super;
+    UUID id;
+    Module *module;
+    String name;
+    std::vector<Struct_Field> fields;
+    // std::vector<Ref<Typed_AST>> initializer;
+    
+    bool has_field(String id);
+    Struct_Field *find_field(String id);
+};
+
+struct Enum_Definition {
+    UUID id;
+    Module *module;
+};
+
+//struct EnumPayloadMember {
+//    TypeSize offset;
+//    ValueType type;
+//};
+
+//struct EnumMember {
+//    int len;
+//    const char *ident;
+//    Integer tag;
+//    std::vector<EnumPayloadMember> payload;
+//};
+
+//struct EnumDefinition {
+//    bool is_sumtype;
+//    int len_ident;
+//    const char *ident;
+//    TypeSize size;
+//    std::vector<EnumMember> members;
+//};

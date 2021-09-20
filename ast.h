@@ -23,6 +23,7 @@ enum class Untyped_AST_Kind {
     Str,
     Array,
     Slice,
+    Struct,
     
     // unary
     Negation,
@@ -47,11 +48,12 @@ enum class Untyped_AST_Kind {
     And,
     Or,
     While,
-    Dot,
-    Dot_Tuple,
+    Field_Access,
+    Field_Access_Tuple,
     Subscript,
     Range,
     Inclusive_Range,
+    Binding,
     
     // ternary
     
@@ -67,7 +69,7 @@ enum class Untyped_AST_Kind {
     
     // declarations
     Let,
-    Struct,
+    Struct_Decl,
     
     // unique
     If,
@@ -180,6 +182,25 @@ struct Untyped_AST_Array : public Untyped_AST {
     Ref<Untyped_AST_Multiary> element_nodes;
     
     Untyped_AST_Array(Untyped_AST_Kind kind, size_t count, Ref<Value_Type> array_type, Ref<Untyped_AST_Multiary> element_nodes);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Struct_Literal : public Untyped_AST {
+    Ref<Untyped_AST_Ident> struct_id;
+    Ref<Untyped_AST_Multiary> bindings;
+    
+    Untyped_AST_Struct_Literal(Ref<Untyped_AST_Ident> struct_id, Ref<Untyped_AST_Multiary> bindings);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Field_Access : public Untyped_AST {
+    Ref<Untyped_AST> instance;
+    String field_id;
+    
+    Untyped_AST_Field_Access(Ref<Untyped_AST> instance, String field_id);
+    ~Untyped_AST_Field_Access() override;
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

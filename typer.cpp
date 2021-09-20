@@ -7,9 +7,12 @@
 //
 
 #include "typer.h"
+
 #include "ast.h"
 #include "compiler.h"
 #include "error.h"
+#include "interpreter.h"
+
 #include <list>
 #include <unordered_map>
 #include <string>
@@ -57,6 +60,16 @@ Typed_AST_Ident::~Typed_AST_Ident() {
 bool Typed_AST_Ident::is_constant(Compiler &c) {
     auto [status, _] = c.find_variable(id);
     return status == Find_Variable_Result::Found_Constant;
+}
+
+Typed_AST_UUID::Typed_AST_UUID(Typed_AST_Kind kind, UUID id, Value_Type type) {
+    this->kind = kind;
+    this->id = id;
+    this->type = type;
+}
+
+bool Typed_AST_UUID::is_constant(Compiler &c) {
+    return true;
 }
 
 Typed_AST_Int::Typed_AST_Int(int64_t value) {
@@ -240,7 +253,24 @@ bool Typed_AST_Let::is_constant(Compiler &c) {
     return initializer->is_constant(c);
 }
 
-Typed_AST_Dot::Typed_AST_Dot(
+Typed_AST_Field_Access::Typed_AST_Field_Access(
+    Value_Type type,
+    bool deref,
+    Ref<Typed_AST> instance,
+    Size field_offset)
+{
+    this->kind = Typed_AST_Kind::Field_Access;
+    this->type = type;
+    this->deref = deref;
+    this->instance = instance;
+    this->field_offset = field_offset;
+}
+
+bool Typed_AST_Field_Access::is_constant(Compiler &c) {
+    return instance->is_constant(c);
+}
+
+Typed_AST_Field_Access_Tuple::Typed_AST_Field_Access_Tuple(
     Typed_AST_Kind kind,
     Value_Type type,
     bool deref,
@@ -251,9 +281,22 @@ Typed_AST_Dot::Typed_AST_Dot(
     this->deref = deref;
 }
 
-bool Typed_AST_Dot::is_constant(Compiler &c) {
+bool Typed_AST_Field_Access_Tuple::is_constant(Compiler &c) {
     return lhs->is_constant(c);
 }
+
+//Typed_AST_Struct_Declaration::Typed_AST_Struct_Declaration(
+//    String id,
+//    Ref<Struct_Definition> defn)
+//{
+//    this->kind = Typed_AST_Kind::Struct;
+//    this->id = id;
+//    this->defn = defn;
+//}
+//
+//bool Typed_AST_Struct_Declaration::is_constant(Compiler &c) {
+//    return true;
+//}
 
 static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
     switch (kind) {
@@ -265,6 +308,9 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Str:             return Typed_AST_Kind::Str;
         case Untyped_AST_Kind::Array:           return Typed_AST_Kind::Array;
         case Untyped_AST_Kind::Slice:           return Typed_AST_Kind::Slice;
+        case Untyped_AST_Kind::Range:           return Typed_AST_Kind::Range;
+        case Untyped_AST_Kind::Inclusive_Range:
+            return Typed_AST_Kind::Inclusive_Range;
         case Untyped_AST_Kind::Negation:        return Typed_AST_Kind::Negation;
         case Untyped_AST_Kind::Not:             return Typed_AST_Kind::Not;
         case Untyped_AST_Kind::Address_Of:      return Typed_AST_Kind::Address_Of;
@@ -285,8 +331,8 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::And:             return Typed_AST_Kind::And;
         case Untyped_AST_Kind::Or:              return Typed_AST_Kind::Or;
         case Untyped_AST_Kind::While:           return Typed_AST_Kind::While;
-        case Untyped_AST_Kind::Dot:             return Typed_AST_Kind::Dot;
-        case Untyped_AST_Kind::Dot_Tuple:       return Typed_AST_Kind::Dot_Tuple;
+        case Untyped_AST_Kind::Field_Access:             return Typed_AST_Kind::Field_Access;
+        case Untyped_AST_Kind::Field_Access_Tuple:       return Typed_AST_Kind::Field_Access_Tuple;
         case Untyped_AST_Kind::Subscript:       return Typed_AST_Kind::Subscript;
         case Untyped_AST_Kind::Block:           return Typed_AST_Kind::Block;
         case Untyped_AST_Kind::Comma:           return Typed_AST_Kind::Comma;
@@ -295,6 +341,7 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::For:             return Typed_AST_Kind::For;
         case Untyped_AST_Kind::Let:             return Typed_AST_Kind::Let;
         case Untyped_AST_Kind::Type_Signiture:  return Typed_AST_Kind::Type_Signiture;
+//        case Untyped_AST_Kind::Struct:          return Typed_AST_Kind::Struct;
             
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
@@ -428,8 +475,13 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
         case Typed_AST_Kind::Or: {
             print_binary_at_indent("or", node.cast<Typed_AST_Binary>(), indent);
         } break;
-        case Typed_AST_Kind::Dot:
-        case Typed_AST_Kind::Dot_Tuple: {
+        case Typed_AST_Kind::Field_Access: {
+            auto dot = node.cast<Typed_AST_Field_Access>();
+            printf("(.) %s\n", dot->type.debug_str());
+            print_sub_at_indent("instance", dot->instance, indent + 1);
+            printf("%*soffset: %d\n", (indent + 1) * INDENT_SIZE, "", dot->field_offset);
+        } break;
+        case Typed_AST_Kind::Field_Access_Tuple: {
             print_binary_at_indent(".", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Subscript:
@@ -528,6 +580,8 @@ struct Typer_Scope {
 };
 
 struct Typer {
+    Interpreter *interp;
+    Module *module;
     std::list<Typer_Scope> scopes;
     
     Typer_Scope &current_scope() {
@@ -588,10 +642,73 @@ struct Typer {
                 break;
         }
     }
+    
+    Value_Type resolve_value_type(Value_Type type) {
+        if (type.is_resolved()) {
+            return type;
+        }
+        
+        Value_Type resolved;
+        
+        switch (type.kind) {
+            case Value_Type_Kind::None:
+                internal_error("Attempted to resolve a None Value_Type.");
+                break;
+            case Value_Type_Kind::Unresolved_Type:
+                internal_error("Resolving an Unresolved type not yet implemented.");
+                break;
+                
+            case Value_Type_Kind::Ptr: {
+                auto child_type = Mem.make<Value_Type>();
+                *child_type = resolve_value_type(*type.data.ptr.child_type);
+                resolved.kind = Value_Type_Kind::Ptr;
+                resolved.data.ptr.child_type = child_type.as_ptr();
+            } break;
+            case Value_Type_Kind::Array: {
+                auto element_type = Mem.make<Value_Type>();
+                *element_type = resolve_value_type(*type.data.array.element_type);
+                resolved.kind = Value_Type_Kind::Array;
+                resolved.data.array.count = type.data.array.count;
+                resolved.data.array.element_type = element_type.as_ptr();
+            } break;
+            case Value_Type_Kind::Slice: {
+                auto element_type = Mem.make<Value_Type>();
+                *element_type = resolve_value_type(*type.data.slice.element_type);
+                resolved.kind = Value_Type_Kind::Slice;
+                resolved.data.slice.element_type = element_type.as_ptr();
+            } break;
+            case Value_Type_Kind::Tuple: {
+                auto child_types = Array<Value_Type>::with_size(type.data.tuple.child_types.size());
+                for (size_t i = 0; i < child_types.size(); i++) {
+                    child_types[i] = resolve_value_type(type.child_type()[i]);
+                }
+                resolved.kind = Value_Type_Kind::Tuple;
+                resolved.data.tuple.child_types = child_types;
+            } break;
+
+            case Value_Type_Kind::Struct:
+                internal_error("Canont resolve struct types yet.");
+                break;
+            case Value_Type_Kind::Enum:
+                internal_error("Cannot resolve enum types yet.");
+                break;
+                
+            default:
+                break;
+        }
+        
+        return resolved;
+    }
 };
 
-Ref<Typed_AST_Multiary> typecheck(Ref<Untyped_AST_Multiary> node) {
+Ref<Typed_AST_Multiary> typecheck(
+    Interpreter &interp,
+    Ref<Untyped_AST_Multiary> node)
+{
     Typer t;
+    t.interp = &interp;
+    t.module = interp.create_module("<@TODO MODULE PATH>");
+    
     return node->typecheck(t).cast<Typed_AST_Multiary>();
 }
 
@@ -610,7 +727,26 @@ Ref<Typed_AST> Untyped_AST_Float::typecheck(Typer &t) {
 Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     Value_Type ty;
     verify(t.type_of_variable(id.c_str(), ty), "Unresolved identifier '%s'.", id.c_str());
-    return Mem.make<Typed_AST_Ident>(id.clone(), ty);
+    
+    Ref<Typed_AST> ident;
+    if (ty.kind == Value_Type_Kind::Type) {
+        switch (ty.data.type.type->kind) {
+            case Value_Type_Kind::Struct:
+                ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, ty.data.type.type->data.struct_.defn->id, ty);
+                break;
+            case Value_Type_Kind::Enum:
+                internal_error("Enum idents not yet implemented.");
+                break;
+                
+            default:
+                internal_error("Invalid Value_Type_Kind for Type type.");
+                break;
+        }
+    } else {
+        ident = Mem.make<Typed_AST_Ident>(id.clone(), ty);
+    }
+    
+    return ident;
 }
 
 Ref<Typed_AST> Untyped_AST_Int::typecheck(Typer &t) {
@@ -733,10 +869,16 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(or) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Or, value_types::Bool, lhs, rhs);
-        case Untyped_AST_Kind::Dot:
-            assert(false);
-            break;
-        case Untyped_AST_Kind::Dot_Tuple: {
+//        case Untyped_AST_Kind::Field_Access: {
+//            bool needs_deref = lhs->type.kind == Value_Type_Kind::Ptr;
+//            Value_Type &ty = needs_deref ? *lhs->type.child_type() : lhs->type;
+//            verify(ty.kind == Value_Type_Kind::Struct, "(.) requires first operand to be a struct type but was given (%s).", lhs->type.debug_str());
+//            String mem_id = rhs.cast<Untyped_AST_Ident>()->id;
+//            Value_Type *mem_ty = ty.data.struct_.defn->type_of_field(mem_id);
+//            verify(mem_ty, "'%.*s' is not a field of '%.*s'.", mem_id.size(), mem_id.c_str(), ty.data.struct_.defn->name.size(), ty.data.struct_.defn->name.c_str());
+//            return Mem.make<Typed_AST_Field_Access>(*mem_ty, needs_deref, lhs)
+//        } break;
+        case Untyped_AST_Kind::Field_Access_Tuple: {
             bool needs_deref = lhs->type.kind == Value_Type_Kind::Ptr;
             Value_Type &ty = needs_deref ? *lhs->type.child_type() : lhs->type;
             verify(ty.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given (%s).", lhs->type.debug_str());
@@ -745,7 +887,13 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(i->value < ty.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
             Value_Type child_ty = ty.data.tuple.child_types[i->value];
             child_ty.is_mut = ty.is_mut;
-            return Mem.make<Typed_AST_Dot>(Typed_AST_Kind::Dot_Tuple, child_ty, needs_deref, lhs, i);
+            return Mem.make<Typed_AST_Field_Access_Tuple>(
+                Typed_AST_Kind::Field_Access_Tuple,
+                child_ty,
+                needs_deref,
+                lhs,
+                i
+            );
         } break;
         case Untyped_AST_Kind::Subscript: {
             verify(lhs->type.kind == Value_Type_Kind::Array ||
@@ -803,7 +951,8 @@ Ref<Typed_AST> Untyped_AST_Multiary::typecheck(Typer &t) {
     if (kind == Untyped_AST_Kind::Block) t.begin_scope();
     auto multi = Mem.make<Typed_AST_Multiary>(to_typed(kind));
     for (auto &node : nodes) {
-        multi->add(node->typecheck(t));
+        if (auto typechecked = node->typecheck(t))
+            multi->add(typechecked);
     }
     if (kind == Untyped_AST_Kind::Block) t.end_scope();
     
@@ -838,6 +987,67 @@ Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Array>(*array_type, to_typed(kind), count, array_type, element_nodes);
 }
 
+Ref<Typed_AST> Untyped_AST_Struct_Literal::typecheck(Typer &t) {
+    auto struct_id = this->struct_id->typecheck(t).cast<Typed_AST_UUID>();
+    internal_verify(struct_id, "Failed to cast struct_id to UUID* in Struct_Literal::typecheck().");
+    
+    auto defn = &t.interp->typebook.structs[t.module->structs[struct_id->id]];
+    auto bindings = this->bindings;
+    
+    verify(defn->fields.size() == bindings->nodes.size(), "Incorrect number of arguments in struct literal. Expected %zu but was given %zu.", defn->fields.size(), bindings->nodes.size());
+    
+    auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    args->type = *struct_id->type.data.type.type;
+    
+    for (size_t i = 0; i < defn->fields.size(); i++) {
+        auto &field = defn->fields[i];
+        auto binding = bindings->nodes[i];
+        
+        Ref<Typed_AST> arg = nullptr;
+        switch (binding->kind) {
+            case Untyped_AST_Kind::Ident: {
+                auto bid = binding.cast<Untyped_AST_Ident>();
+                verify(field.id == bid->id, "Given identifier doesn't match name of field. Expected '%.*s' but was given '%.*s'. Please specify field.", field.id.size(), field.id.c_str(), bid->id.size(), bid->id.c_str());
+                arg = bid->typecheck(t);
+                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. (%s) vs. (%s).", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
+            } break;
+            case Untyped_AST_Kind::Binding: {
+                auto b = binding.cast<Untyped_AST_Binary>();
+                auto bid = b->lhs.cast<Untyped_AST_Ident>();
+                verify(field.id == bid->id, "Given identifier doesn't match name of field. Expected '%.*s' but was given '%.*s'.", field.id.size(), field.id.c_str(), bid->id.size(), bid->id.c_str());
+                arg = b->rhs->typecheck(t);
+                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. (%s) vs (%s).", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
+            } break;
+                
+            default:
+                error("Expected either an identifier expression or binding in struct literal.");
+                break;
+        }
+        
+        args->add(arg);
+    }
+    
+    return args;
+}
+
+Ref<Typed_AST> Untyped_AST_Field_Access::typecheck(Typer &t) {
+    auto instance = this->instance->typecheck(t);
+    
+    bool needs_deref = instance->type.kind == Value_Type_Kind::Ptr;
+    Value_Type &ty = needs_deref ? *instance->type.child_type() : instance->type;
+    verify(ty.kind == Value_Type_Kind::Struct, "(.) requires first operand to be a struct type but was given (%s).", instance->type.debug_str());
+    
+    Struct_Field *field = ty.data.struct_.defn->find_field(field_id);
+    verify(field, "'%.*s' is not a field of '%.*s'.", field_id.size(), field_id.c_str(), ty.data.struct_.defn->name.size(), ty.data.struct_.defn->name.c_str());
+    
+    Value_Type field_ty = field->type;
+    field_ty.is_mut |= ty.is_mut; // |= because fields can be 'forced mut'
+    
+    Size field_offset = field->offset;
+    
+    return Mem.make<Typed_AST_Field_Access>(field_ty, needs_deref, instance, field_offset);
+}
+
 Ref<Typed_AST> Untyped_AST_Pattern_Underscore::typecheck(Typer &t) {
     assert(false);
     return nullptr;
@@ -862,7 +1072,8 @@ Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Type_Signiture::typecheck(Typer &t) {
-    return Mem.make<Typed_AST_Type_Signiture>(value_type);
+    auto resolved_type = Mem.make<Value_Type>(t.resolve_value_type(*value_type));
+    return Mem.make<Typed_AST_Type_Signiture>(resolved_type);
 }
 
 Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
@@ -934,5 +1145,36 @@ Ref<Typed_AST> Untyped_AST_Generic_Specialization::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
-    internal_error("Untyped_AST_Struct_Declaration::typecheck() not yet implemented.");
+    Struct_Definition defn;
+    defn.module = t.module;
+    defn.id = t.interp->next_uuid();
+    defn.name = this->id.clone();
+    
+    Size current_offset = 0;
+    for (auto &f : fields) {
+        Struct_Field field;
+        field.id = f.id.clone();
+        verify(!defn.has_field(field.id), "Redefinition of field '%.*s'.", field.id.size(), field.id.c_str());
+        field.offset = current_offset;
+        field.type = t.resolve_value_type(*f.type->value_type);
+        defn.fields.push_back(field);
+        current_offset += field.type.size();
+    }
+    
+    defn.size = current_offset;
+    size_t type_id = t.interp->typebook.add_struct(defn);
+    t.module->structs[defn.id] = type_id;
+    
+    String id = this->id.clone();
+    Value_Type *struct_type = Mem.make<Value_Type>().as_ptr();
+    struct_type->kind = Value_Type_Kind::Struct;
+    struct_type->data.struct_.defn = &t.interp->typebook.structs[type_id];
+    
+    Value_Type type;
+    type.kind = Value_Type_Kind::Type;
+    type.data.type.type = struct_type;
+    
+    t.put_variable(id.c_str(), type, false);
+    
+    return nullptr;
 }

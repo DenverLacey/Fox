@@ -45,6 +45,8 @@ public:
 public:
     inline T *begin() { return _data; }
     inline T *end() { return _data + _size; }
+    inline const T *begin() const { return _data; }
+    inline const T *end() const { return _data + _size; }
     inline T *data() { return _data; }
     inline size_t size() const { return _size; }
     

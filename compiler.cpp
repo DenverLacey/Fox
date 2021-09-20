@@ -450,10 +450,10 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             auto id = dynamic_cast<Typed_AST_Ident *>(&node);
             internal_verify(id, "Failed to cast node to an Ident* in find_static_address.");
             
-            auto [is_global, v] = c.find_variable(id->id);
+            auto [v_status, v] = c.find_variable(id->id);
             verify(v, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
             
-            if (is_global) {
+            if (v_status == Find_Variable_Result::Found_Global) {
                 status = Find_Static_Address_Result::Found_Global;
             }
             
@@ -482,11 +482,30 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             
             address = array_address + index * sub->type.size();
         } break;
-        case Typed_AST_Kind::Dot: {
-            internal_error("find_static_address() of Dot not yet implemented.");
+        case Typed_AST_Kind::Field_Access: {
+            auto dot = dynamic_cast<Typed_AST_Field_Access *>(&node);
+            internal_verify(dot, "Failed to cast node to Field_Access* in find_static_address().");
+            
+            if (dot->deref) {
+                status = Find_Static_Address_Result::Not_Found;
+                break;
+            }
+            
+            auto [inst_status, inst_address] = find_static_address(c, *dot->instance);
+            
+            if (inst_status == Find_Static_Address_Result::Not_Found) {
+                status = Find_Static_Address_Result::Not_Found;
+                break;
+            }
+            
+            if (inst_status == Find_Static_Address_Result::Found_Global) {
+                status = Find_Static_Address_Result::Found_Global;
+            }
+            
+            address = inst_address + dot->field_offset;
         } break;
-        case Typed_AST_Kind::Dot_Tuple: {
-            auto dot = dynamic_cast<Typed_AST_Dot *>(&node);
+        case Typed_AST_Kind::Field_Access_Tuple: {
+            auto dot = dynamic_cast<Typed_AST_Field_Access_Tuple *>(&node);
             internal_verify(dot, "Failed to cast node to Dot* in find_static_address().");
             
             if (dot->deref) {
@@ -507,27 +526,6 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             
             address = lhs_address + offset;
         } break;
-//        case AST_DOT: {
-//            Binary *dot = (Binary *)ast;
-//            AST *lhs = dot->lhs;
-//            auto lhs_result = find_static_address(c, lhs);
-//
-//            if (lhs_result.type == FSAR_NOT_FOUND)
-//                { type = FSAR_NOT_FOUND; break; }
-//
-//            if (lhs_result.type == FSAR_FOUND_GLOBAL) type = FSAR_FOUND_GLOBAL;
-//
-//            StructDefinition *defn = lhs->inferred_type.data.struct_defn;
-//            Identifier *mem_id = (Identifier *)dot->rhs;
-//
-//            auto member = std::find_if(defn->members.begin(), defn->members.end(),
-//            [mem_id] (const StructMember &m) {
-//                return mem_id->len == m.len && memcmp(mem_id->s, m.ident, m.len) == 0;
-//            });
-//            verify(member != defn->members.end(), mem_id->location, "'%.*s' is not a member of '%.*s'.", mem_id->len, mem_id->s, defn->len_ident, defn->ident);
-//
-//            addr = lhs_result.address + member->offset;
-//        } break;
             
         default:
             status = Find_Static_Address_Result::Not_Found;
@@ -543,10 +541,10 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
             auto id = dynamic_cast<Typed_AST_Ident *>(&node);
             internal_verify(id, "Failed to cast node to Ident* in emit_dynamic_address_code().");
             
-            auto [is_global, v] = c.find_variable(id->id);
+            auto [v_status, v] = c.find_variable(id->id);
             verify(v, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
             
-            c.emit_opcode(is_global ? Opcode::Push_Global_Pointer : Opcode::Push_Pointer);
+            c.emit_opcode(v_status == Find_Variable_Result::Found_Global ? Opcode::Push_Global_Pointer : Opcode::Push_Pointer);
             c.emit_address(v->address);
         } break;
         case Typed_AST_Kind::Deref: {
@@ -603,12 +601,31 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
             // element_ptr = data + offset
             c.emit_opcode(Opcode::Int_Add);
         } break;
-        case Typed_AST_Kind::Dot: {
-            internal_error("emit_dynamic_address_code() of Dot not yet implemented.");
+        case Typed_AST_Kind::Field_Access: {
+            auto dot = dynamic_cast<Typed_AST_Field_Access *>(&node);
+            internal_verify(dot, "Failed to cast node to Field_Access* in emit_dynamic_address_code().");
+            
+            if (dot->deref) {
+                dot->instance->compile(c);
+            } else {
+                emit_address_code(c, *dot->instance);
+            }
+            
+            Size offset = dot->field_offset;
+            if (offset == 0) {
+                // do nothing
+            } else if (offset == 1) {
+                c.emit_opcode(Opcode::Lit_1);
+                c.emit_opcode(Opcode::Int_Add);
+            } else {
+                c.emit_opcode(Opcode::Lit_Int);
+                c.emit_value<runtime::Int>(offset);
+                c.emit_opcode(Opcode::Int_Add);
+            }
         } break;
-        case Typed_AST_Kind::Dot_Tuple: {
-            auto dot = dynamic_cast<Typed_AST_Dot *>(&node);
-            internal_verify(dot, "Failed to cast node to Dot* in emit_dynamic_address_code().");
+        case Typed_AST_Kind::Field_Access_Tuple: {
+            auto dot = dynamic_cast<Typed_AST_Field_Access_Tuple *>(&node);
+            internal_verify(dot, "Failed to cast node to Field_Access_Tuple* in emit_dynamic_address_code().");
             
             Value_Type *tuple_type;
             if (dot->deref) {
@@ -1324,39 +1341,62 @@ void Typed_AST_Let::compile(Compiler &c) {
     c.stack_top = stack_top + type.size();
 }
 
-void Typed_AST_Dot::compile(Compiler &c) {
+void Typed_AST_Field_Access::compile(Compiler &c) {
     Address stack_top = c.stack_top;
     
-    switch (kind) {
-        case Typed_AST_Kind::Dot:
-            internal_error("Dot operator not yet implemented.");
+    auto [status, address] = find_static_address(c, *instance);
+    switch (status) {
+        case Find_Static_Address_Result::Found:
+            c.emit_opcode(Opcode::Push_Value);
+            c.emit_size(type.size());
+            c.emit_address(address + field_offset);
             break;
-        case Typed_AST_Kind::Dot_Tuple: {
-            auto [status, address] = find_static_address(c, *this);
-            switch (status) {
-                case Find_Static_Address_Result::Found:
-                    c.emit_opcode(Opcode::Push_Value);
-                    c.emit_size(type.size());
-                    c.emit_address(address);
-                    break;
-                case Find_Static_Address_Result::Found_Global:
-                    c.emit_opcode(Opcode::Push_Global_Value);
-                    c.emit_size(type.size());
-                    c.emit_address(address);
-                    break;
-                case Find_Static_Address_Result::Not_Found:
-                    bool success = emit_dynamic_address_code(c, *this);
-                    verify(success, "Cannot access this value.");
-                    c.emit_opcode(Opcode::Load);
-                    c.emit_size(type.size());
-                    break;
-            }
-        } break;
-            
-        default:
-            internal_error("Invalid Dot kind: %d.", kind);
+        case Find_Static_Address_Result::Found_Global:
+            c.emit_opcode(Opcode::Push_Global_Value);
+            c.emit_size(type.size());
+            c.emit_address(address + field_offset);
+            break;
+        case Find_Static_Address_Result::Not_Found:
+            bool success = emit_dynamic_address_code(c, *this);
+            verify(success, "Cannot access field of this expression.");
+            c.emit_opcode(Opcode::Load);
+            c.emit_size(type.size());
             break;
     }
     
     c.stack_top = stack_top + type.size();
+}
+
+void Typed_AST_Field_Access_Tuple::compile(Compiler &c) {
+    Address stack_top = c.stack_top;
+    
+    auto [status, address] = find_static_address(c, *this);
+    switch (status) {
+        case Find_Static_Address_Result::Found:
+            c.emit_opcode(Opcode::Push_Value);
+            c.emit_size(type.size());
+            c.emit_address(address);
+            break;
+        case Find_Static_Address_Result::Found_Global:
+            c.emit_opcode(Opcode::Push_Global_Value);
+            c.emit_size(type.size());
+            c.emit_address(address);
+            break;
+        case Find_Static_Address_Result::Not_Found:
+            bool success = emit_dynamic_address_code(c, *this);
+            verify(success, "Cannot access this value.");
+            c.emit_opcode(Opcode::Load);
+            c.emit_size(type.size());
+            break;
+    }
+    
+    c.stack_top = stack_top + type.size();
+}
+
+void Typed_AST_UUID::compile(Compiler &c) {
+    if (type.kind == Value_Type_Kind::Type) {
+        internal_error("Cannot compile a UUID of a type.");
+    } else {
+        internal_error("Typed_AST_UUID::compile() not yet implemented.");
+    }
 }

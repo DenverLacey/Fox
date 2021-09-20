@@ -29,6 +29,7 @@ enum class Value_Type_Kind : uint8_t {
     Range,
     Struct,
     Enum,
+    Type,
 };
 
 namespace runtime {
@@ -80,11 +81,15 @@ struct Range_Type_Data {
 };
 
 struct Struct_Type_Data {
-    
+    struct Struct_Definition *defn;
 };
 
 struct Enum_Type_Data {
-    
+    struct Enum_Definition *defn;
+};
+
+struct Type_Type_Data {
+    Value_Type *type;
 };
 
 union Value_Type_Data {
@@ -96,6 +101,7 @@ union Value_Type_Data {
     Range_Type_Data range;
     Struct_Type_Data struct_;
     Enum_Type_Data enum_;
+    Type_Type_Data type;
 };
 
 struct Value_Type {
@@ -111,6 +117,7 @@ struct Value_Type {
     bool eq(const Value_Type &other);
     bool eq_ignoring_mutability(const Value_Type &other);
     bool assignable_from(const Value_Type &other);
+    bool is_resolved() const;
 };
 
 namespace value_types {

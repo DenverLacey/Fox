@@ -13,6 +13,7 @@ enum class Precedence {
     None,
     Assignment, // =
     Comma,      // ,
+    Colon,      // :
     Range,      // .. ...
     Or,         // or
     And,        // and
@@ -46,11 +47,11 @@ Precedence token_precedence(Token token) {
             
         // delimeters
         case Token_Kind::Semi: return Precedence::None;
-        case Token_Kind::Colon: return Precedence::None;
+        case Token_Kind::Colon: return Precedence::Colon;
         case Token_Kind::Comma: return Precedence::Comma;
         case Token_Kind::Left_Paren: return Precedence::Call;
         case Token_Kind::Right_Paren: return Precedence::None;
-        case Token_Kind::Left_Curly: return Precedence::None;
+        case Token_Kind::Left_Curly: return Precedence::Call;
         case Token_Kind::Right_Curly: return Precedence::None;
         case Token_Kind::Left_Bracket: return Precedence::Call;
         case Token_Kind::Right_Bracket: return Precedence::None;
@@ -519,6 +520,12 @@ struct Parser {
             case Token_Kind::Comma:
                 a = parse_comma_separated_expressions(prev);
                 break;
+            case Token_Kind::Colon:
+                a = parse_binary(Untyped_AST_Kind::Binding, prec, prev);
+                break;
+            case Token_Kind::Left_Curly:
+                a = parse_struct_literal(prev);
+                break;
             case Token_Kind::Left_Bracket:
                 a = parse_binary(Untyped_AST_Kind::Subscript, Precedence::Comma + 1, prev);
                 expect(Token_Kind::Right_Bracket, "Expected ']' in subscript expression.");
@@ -637,26 +644,24 @@ struct Parser {
         return comma;
     }
     
-    Ref<Untyped_AST_Binary> parse_dot_operator(Ref<Untyped_AST> lhs) {
-        Ref<Untyped_AST> rhs;
-        Untyped_AST_Kind kind;
+    Ref<Untyped_AST> parse_dot_operator(Ref<Untyped_AST> lhs) {
+        Ref<Untyped_AST> dot;
         if (check(Token_Kind::Int)) {
             auto i = next().data.i;
-            rhs = Mem.make<Untyped_AST_Int>(i);
-            kind = Untyped_AST_Kind::Dot_Tuple;
+            auto rhs = Mem.make<Untyped_AST_Int>(i);
+            Untyped_AST_Kind kind = Untyped_AST_Kind::Field_Access_Tuple;
+            dot = Mem.make<Untyped_AST_Binary>(kind, lhs, rhs);
         } else {
             verify(check(Token_Kind::Ident), "Expected an identifier after '.'.");
             auto id_str = next().data.s.clone();
-            auto id = Mem.make<Untyped_AST_Ident>(id_str);
             if (match(Token_Kind::Left_Paren)) {
                 // dot call
                 assert(false);
             } else {
-                rhs = id;
-                kind = Untyped_AST_Kind::Dot;
+                dot = Mem.make<Untyped_AST_Field_Access>(lhs, id_str);
             }
         }
-        return Mem.make<Untyped_AST_Binary>(kind, lhs, rhs);
+        return dot;
     }
     
     Ref<Untyped_AST_Array> parse_array_literal() {
@@ -716,6 +721,15 @@ struct Parser {
             count,
             array_type,
             element_nodes
+        );
+    }
+    
+    Ref<Untyped_AST_Struct_Literal> parse_struct_literal(Ref<Untyped_AST> id) {
+        auto bindings = parse_comma_separated_expressions();
+        expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct literal.");
+        return Mem.make<Untyped_AST_Struct_Literal>(
+            id.cast<Untyped_AST_Ident>(),
+            bindings.cast<Untyped_AST_Multiary>()
         );
     }
 };

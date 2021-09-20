@@ -157,6 +157,39 @@ Ref<Untyped_AST> Untyped_AST_Array::clone() {
     );
 }
 
+Untyped_AST_Struct_Literal::Untyped_AST_Struct_Literal(
+    Ref<Untyped_AST_Ident> struct_id,
+    Ref<Untyped_AST_Multiary> bindings)
+{
+    this->kind = Untyped_AST_Kind::Struct;
+    this->struct_id = struct_id;
+    this->bindings = bindings;
+}
+
+Ref<Untyped_AST> Untyped_AST_Struct_Literal::clone() {
+    return Mem.make<Untyped_AST_Struct_Literal>(
+        struct_id->clone().cast<Untyped_AST_Ident>(),
+        bindings->clone().cast<Untyped_AST_Multiary>()
+    );
+}
+
+Untyped_AST_Field_Access::Untyped_AST_Field_Access(
+    Ref<Untyped_AST> instance,
+    String field_id)
+{
+    this->kind = Untyped_AST_Kind::Field_Access;
+    this->instance = instance;
+    this->field_id = field_id;
+}
+
+Untyped_AST_Field_Access::~Untyped_AST_Field_Access() {
+    field_id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Field_Access::clone() {
+    return Mem.make<Untyped_AST_Field_Access>(instance->clone(), field_id.clone());
+}
+
 bool Untyped_AST_Pattern::are_all_variables_mut() {
     bool is_mut;
     switch (kind) {
@@ -303,7 +336,7 @@ Ref<Untyped_AST> Untyped_AST_Generic_Specialization::clone() {
 }
 
 Untyped_AST_Struct_Declaration::Untyped_AST_Struct_Declaration(String id) {
-    kind = Untyped_AST_Kind::Struct;
+    kind = Untyped_AST_Kind::Struct_Decl;
     this->id = id;
 }
 
@@ -417,6 +450,12 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             Ref<Untyped_AST_Str> lit = node.cast<Untyped_AST_Str>();
             printf("\"%.*s\"\n", lit->value.size(), lit->value.c_str());
         } break;
+        case Untyped_AST_Kind::Struct: {
+            auto lit = node.cast<Untyped_AST_Struct_Literal>();
+            printf("(struct)\n");
+            print_sub_at_indent("struct_id", lit->struct_id, indent + 1);
+            print_sub_at_indent("bindings", lit->bindings, indent + 1);
+        } break;
         case Untyped_AST_Kind::Negation: {
             print_unary_at_indent("-", node.cast<Untyped_AST_Unary>(), indent);
         } break;
@@ -477,8 +516,13 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Or: {
             print_binary_at_indent("or", node.cast<Untyped_AST_Binary>(), indent);
         } break;
-        case Untyped_AST_Kind::Dot:
-        case Untyped_AST_Kind::Dot_Tuple: {
+        case Untyped_AST_Kind::Field_Access: {
+            auto dot = node.cast<Untyped_AST_Field_Access>();
+            printf("(.)\n");
+            print_sub_at_indent("instance", dot->instance, indent + 1);
+            printf("%*sfield: %.*s\n", (indent + 1) * INDENT_SIZE, "", dot->field_id.size(), dot->field_id.c_str());
+        } break;
+        case Untyped_AST_Kind::Field_Access_Tuple: {
             print_binary_at_indent(".", node.cast<Untyped_AST_Binary>(), indent);
         } break;
         case Untyped_AST_Kind::Subscript: {
@@ -489,6 +533,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
         case Untyped_AST_Kind::Inclusive_Range: {
             print_binary_at_indent("...", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
+        case Untyped_AST_Kind::Binding: {
+            print_binary_at_indent(":", node.cast<Untyped_AST_Binary>(), indent);
         } break;
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
@@ -554,9 +601,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
             print_sub_at_indent("elems", array->element_nodes, indent + 1);
         } break;
-        case Untyped_AST_Kind::Struct: {
+        case Untyped_AST_Kind::Struct_Decl: {
             auto decl = node.cast<Untyped_AST_Struct_Declaration>();
-            printf("(struct)\n");
+            printf("(struct-decl)\n");
             printf("%*sid: %.*s\n", (indent + 1) * INDENT_SIZE, "", decl->id.size(), decl->id.c_str());
             printf("%*sfields:\n", (indent + 1) * INDENT_SIZE, "");
             for (auto &f : decl->fields) {

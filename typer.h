@@ -18,6 +18,7 @@ enum class Typed_AST_Kind {
     Char,
     Float,
     Ident,
+    Ident_Struct,
     Int,
     Str,
     Array,
@@ -58,14 +59,16 @@ enum class Typed_AST_Kind {
     Comma,
     Tuple,
     
+    // declarations
+    Let,
+    
     // unique
     If,
     For,
     For_Range,
-    Let,
     Type_Signiture,
-    Dot,
-    Dot_Tuple,
+    Field_Access,
+    Field_Access_Tuple,
     Processed_Pattern,
 };
 
@@ -110,6 +113,14 @@ struct Typed_AST_Ident : public Typed_AST {
     
     Typed_AST_Ident(String id, Value_Type type);
     ~Typed_AST_Ident() override;
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_UUID : public Typed_AST {
+    UUID id;
+    
+    Typed_AST_UUID(Typed_AST_Kind kind, UUID id, Value_Type type);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -232,13 +243,22 @@ struct Typed_AST_Let : public Typed_AST {
     bool is_constant(Compiler &c) override;
 };
 
-struct Typed_AST_Dot : public Typed_AST_Binary {
+struct Typed_AST_Field_Access : public Typed_AST {
     bool deref;
+    Ref<Typed_AST> instance;
+    Size field_offset;
     
-    Typed_AST_Dot(Typed_AST_Kind kind, Value_Type type, bool deref, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
+    Typed_AST_Field_Access(Value_Type type, bool deref, Ref<Typed_AST> instance, Size field_offset);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
 
-struct Untyped_AST_Multiary;
-Ref<Typed_AST_Multiary> typecheck(Ref<Untyped_AST_Multiary> node);
+struct Typed_AST_Field_Access_Tuple : public Typed_AST_Binary {
+    bool deref;
+    
+    Typed_AST_Field_Access_Tuple(Typed_AST_Kind kind, Value_Type type, bool deref, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+Ref<Typed_AST_Multiary> typecheck(struct Interpreter &interp, Ref<struct Untyped_AST_Multiary> node);

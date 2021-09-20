@@ -15,13 +15,6 @@
 #include "tokenizer.h"
 #include "typer.h"
 
-#include <fstream>
-
-#define PRINT_DEBUG_DIAGNOSTICS 1
-#define TYPECHECK 0
-#define COMPILE_AST 1
-#define RUN_VIRTUAL_MACHINE 1
-
 void Stack::alloc(size_t size) {
     verify(_top + size <= Stack::Size, "Out of memory!");
     _top += size;
@@ -691,80 +684,20 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
     #undef MARK
 }
 
-static String read_entire_file(const char *path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-    verify(file.is_open(), "'%s' could not be opened.", path);
-    
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    
-    auto source = String::with_size(size);
-    file.read(source.c_str(), size);
-    verify(file.good(), "Could not read from '%s'.", path);
-    
-    // guarantee null terminator
-    source.c_str()[size] = 0;
-    
-    return source;
-}
-
-void print_tokens(const std::vector<Token> &tokens) {
-    for (size_t i = 0; i < tokens.size(); i++) {
-        printf("%04zu: ", i);
-        tokens[i].print();
+bool Struct_Definition::has_field(String id) {
+    for (auto &f : fields) {
+        if (f.id == id) {
+            return true;
+        }
     }
+    return false;
 }
 
-void interpret(const char *path) {
-    String source = read_entire_file(path);
-    auto tokens = tokenize(source);
-    
-#if PRINT_DEBUG_DIAGNOSTICS
-    print_tokens(tokens);
-#endif
-    
-    auto ast = parse(tokens);
-    
-#if PRINT_DEBUG_DIAGNOSTICS
-    printf("------\n");
-    ast->print();
-#endif
-
-#if TYPECHECK
-    auto typed_ast = typecheck(ast);
-    
-#if PRINT_DEBUG_DIAGNOSTICS
-    printf("------\n");
-    typed_ast->print();
-#endif
-    
-#if COMPILE_AST
-    Data_Section constants;
-    Data_Section str_constants;
-    
-    Function_Definition program;
-    auto global = Compiler { constants, str_constants, &program };
-    global.compile(typed_ast);
-    
-#if PRINT_DEBUG_DIAGNOSTICS
-    printf("------\n");
-    print_code(program.bytecode, global.constants, global.str_constants);
-#endif
-    
-    Mem.clear();
-    SMem.clear();
-    
-#if RUN_VIRTUAL_MACHINE
-    auto  vm = VM { constants, str_constants };
-    vm.call(&program, 0);
-    vm.run();
-    
-#if PRINT_DEBUG_DIAGNOSTICS
-    printf("------\n");
-    vm.print_stack();
-#endif
-    
-#endif // RUN_VIRTUAL_MACHINE
-#endif // COMPILE_AST
-#endif // TYPECHECK
+Struct_Field *Struct_Definition::find_field(String id) {
+    for (auto &f : fields) {
+        if (f.id == id) {
+            return &f;
+        }
+    }
+    return nullptr;
 }
