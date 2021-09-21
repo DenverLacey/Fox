@@ -1098,8 +1098,8 @@ void Typed_AST_If::compile(Compiler &c) {
     }
 }
 
-void Typed_AST_Type_Signiture::compile(Compiler &c) {
-    internal_error("Call to Typed_AST_Type_Signiture::compile() is disallowed.");
+void Typed_AST_Type_Signature::compile(Compiler &c) {
+    internal_error("Call to Typed_AST_Type_Signature::compile() is disallowed.");
 }
 
 void Typed_AST_Processed_Pattern::compile(Compiler &c) {

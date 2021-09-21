@@ -182,12 +182,12 @@ bool Typed_AST_If::is_constant(Compiler &c) {
     return cond->is_constant(c) && then->is_constant(c) && else_->is_constant(c);
 }
 
-Typed_AST_Type_Signiture::Typed_AST_Type_Signiture(Ref<Value_Type> value_type) {
-    this->kind = Typed_AST_Kind::Type_Signiture;
+Typed_AST_Type_Signature::Typed_AST_Type_Signature(Ref<Value_Type> value_type) {
+    this->kind = Typed_AST_Kind::Type_Signature;
     this->value_type = value_type;
 }
 
-bool Typed_AST_Type_Signiture::is_constant(Compiler &c) {
+bool Typed_AST_Type_Signature::is_constant(Compiler &c) {
     return true;
 }
 
@@ -239,7 +239,7 @@ bool Typed_AST_For::is_constant(Compiler &c) {
 Typed_AST_Let::Typed_AST_Let(
     bool is_const,
     Ref<Typed_AST_Processed_Pattern> target,
-    Ref<Typed_AST_Type_Signiture> specified_type,
+    Ref<Typed_AST_Type_Signature> specified_type,
     Ref<Typed_AST> initializer)
 {
     kind = Typed_AST_Kind::Let;
@@ -340,7 +340,7 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::If:              return Typed_AST_Kind::If;
         case Untyped_AST_Kind::For:             return Typed_AST_Kind::For;
         case Untyped_AST_Kind::Let:             return Typed_AST_Kind::Let;
-        case Untyped_AST_Kind::Type_Signiture:  return Typed_AST_Kind::Type_Signiture;
+        case Untyped_AST_Kind::Type_Signature:  return Typed_AST_Kind::Type_Signature;
 //        case Untyped_AST_Kind::Struct:          return Typed_AST_Kind::Struct;
             
         case Untyped_AST_Kind::Pattern_Underscore:
@@ -535,8 +535,8 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
                 print_sub_at_indent("init", let->initializer, indent + 1);
             }
         } break;
-        case Typed_AST_Kind::Type_Signiture: {
-            Ref<Typed_AST_Type_Signiture> sig = node.cast<Typed_AST_Type_Signiture>();
+        case Typed_AST_Kind::Type_Signature: {
+            Ref<Typed_AST_Type_Signature> sig = node.cast<Typed_AST_Type_Signature>();
             printf("%s\n", sig->value_type->debug_str());
         } break;
         case Typed_AST_Kind::Processed_Pattern: {
@@ -1089,9 +1089,9 @@ Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
     return Mem.make<Typed_AST_If>(then->type, cond, then, else_);
 }
 
-Ref<Typed_AST> Untyped_AST_Type_Signiture::typecheck(Typer &t) {
+Ref<Typed_AST> Untyped_AST_Type_Signature::typecheck(Typer &t) {
     auto resolved_type = Mem.make<Value_Type>(t.resolve_value_type(*value_type));
-    return Mem.make<Typed_AST_Type_Signiture>(resolved_type);
+    return Mem.make<Typed_AST_Type_Signature>(resolved_type);
 }
 
 Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
@@ -1142,12 +1142,12 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
         ty = init->type;
     }
     
-    Ref<Typed_AST_Type_Signiture> sig = nullptr;
+    Ref<Typed_AST_Type_Signature> sig = nullptr;
     if (specified_type) {
         if (init) {
             verify(specified_type->value_type->assignable_from(init->type), "Specified type (%s) does not match given type (%s).", specified_type->value_type->debug_str(), init->type.debug_str());
         }
-        sig = specified_type->typecheck(t).cast<Typed_AST_Type_Signiture>();
+        sig = specified_type->typecheck(t).cast<Typed_AST_Type_Signature>();
         internal_verify(sig, "Failed to cast to Type_Sig in Untyped_AST_Let::typecheck().");
         ty = *sig->value_type;
     }

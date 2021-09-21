@@ -202,7 +202,7 @@ struct Parser {
             String mem_id = expect(Token_Kind::Ident, "Expected identifier of field in struct declaration.").data.s.clone();
             expect(Token_Kind::Colon, "Expected ':' after field identifier.");
             auto type = parse_type_signiture();
-            auto sig = Mem.make<Untyped_AST_Type_Signiture>(type);
+            auto sig = Mem.make<Untyped_AST_Type_Signature>(type);
             decl->add_field(mem_id, sig);
         } while (match(Token_Kind::Comma) && has_more());
         
@@ -241,10 +241,10 @@ struct Parser {
     Ref<Untyped_AST_Let> parse_let_statement() {
         auto target = parse_pattern();
         
-        Ref<Untyped_AST_Type_Signiture> specified_type = nullptr;
+        Ref<Untyped_AST_Type_Signature> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
             auto type = parse_type_signiture();
-            specified_type = Mem.make<Untyped_AST_Type_Signiture>(type);
+            specified_type = Mem.make<Untyped_AST_Type_Signature>(type);
         }
         
         Ref<Untyped_AST> initializer = nullptr;
@@ -267,10 +267,10 @@ struct Parser {
         // @TODO: check that nothings marked 'mut'
         auto target = parse_pattern();
         
-        Ref<Untyped_AST_Type_Signiture> specified_type = nullptr;
+        Ref<Untyped_AST_Type_Signature> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
             auto type = parse_type_signiture();
-            specified_type = Mem.make<Untyped_AST_Type_Signiture>(type);
+            specified_type = Mem.make<Untyped_AST_Type_Signature>(type);
         }
         
         expect(Token_Kind::Eq, "Expected '=' in 'const' statement because it requires an initializer expression.");

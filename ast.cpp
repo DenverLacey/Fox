@@ -123,15 +123,15 @@ Ref<Untyped_AST> Untyped_AST_Multiary::clone() {
     return block;
 }
 
-Untyped_AST_Type_Signiture::Untyped_AST_Type_Signiture(Ref<Value_Type> value_type) {
-    this->kind = Untyped_AST_Kind::Type_Signiture;
+Untyped_AST_Type_Signature::Untyped_AST_Type_Signature(Ref<Value_Type> value_type) {
+    this->kind = Untyped_AST_Kind::Type_Signature;
     this->value_type = value_type;
 }
 
-Ref<Untyped_AST> Untyped_AST_Type_Signiture::clone() {
+Ref<Untyped_AST> Untyped_AST_Type_Signature::clone() {
     Ref<Value_Type> type = Mem.make<Value_Type>();
     *type = value_type->clone();
-    return Mem.make<Untyped_AST_Type_Signiture>(type);
+    return Mem.make<Untyped_AST_Type_Signature>(type);
 }
 
 Untyped_AST_Array::Untyped_AST_Array(
@@ -318,7 +318,7 @@ Ref<Untyped_AST> Untyped_AST_For::clone() {
 Untyped_AST_Let::Untyped_AST_Let(
     bool is_const,
     Ref<Untyped_AST_Pattern> target,
-    Ref<Untyped_AST_Type_Signiture> specified_type,
+    Ref<Untyped_AST_Type_Signature> specified_type,
     Ref<Untyped_AST> initializer)
 {
     kind = Untyped_AST_Kind::Let;
@@ -329,13 +329,13 @@ Untyped_AST_Let::Untyped_AST_Let(
 }
 
 Ref<Untyped_AST> Untyped_AST_Let::clone() {
-    auto sig = specified_type ? specified_type->clone().cast<Untyped_AST_Type_Signiture>() : nullptr;
+    auto sig = specified_type ? specified_type->clone().cast<Untyped_AST_Type_Signature>() : nullptr;
     return Mem.make<Untyped_AST_Let>(is_const, target->clone().cast<Untyped_AST_Pattern>(), sig, initializer->clone());
 }
 
 Untyped_AST_Generic_Specialization::Untyped_AST_Generic_Specialization(
     String id,
-    std::vector<Ref<Untyped_AST_Type_Signiture>> &&params)
+    std::vector<Ref<Untyped_AST_Type_Signature>> &&params)
 {
     this->id = id;
     this->params = std::move(params);
@@ -361,7 +361,7 @@ Untyped_AST_Struct_Declaration::~Untyped_AST_Struct_Declaration() {
 
 void Untyped_AST_Struct_Declaration::add_field(
     String id,
-    Ref<Untyped_AST_Type_Signiture> type)
+    Ref<Untyped_AST_Type_Signature> type)
 {
     fields.push_back({ id, type });
 }
@@ -369,7 +369,7 @@ void Untyped_AST_Struct_Declaration::add_field(
 Ref<Untyped_AST> Untyped_AST_Struct_Declaration::clone() {
     auto copy = Mem.make<Untyped_AST_Struct_Declaration>(id.clone());
     for (auto &f : fields) {
-        copy->add_field(f.id.clone(), f.type->clone().cast<Untyped_AST_Type_Signiture>());
+        copy->add_field(f.id.clone(), f.type->clone().cast<Untyped_AST_Type_Signature>());
     }
     return copy;
 }
@@ -612,8 +612,8 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 print_sub_at_indent("init", let->initializer, indent + 1);
             }
         } break;
-        case Untyped_AST_Kind::Type_Signiture: {
-            Ref<Untyped_AST_Type_Signiture> sig = node.cast<Untyped_AST_Type_Signiture>();
+        case Untyped_AST_Kind::Type_Signature: {
+            Ref<Untyped_AST_Type_Signature> sig = node.cast<Untyped_AST_Type_Signature>();
             printf("%s\n", sig->value_type->debug_str());
         } break;
         case Untyped_AST_Kind::Array:

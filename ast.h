@@ -75,7 +75,7 @@ enum class Untyped_AST_Kind {
     // unique
     If,
     For,
-    Type_Signiture,
+    Type_Signature,
     Generic_Specialization,
 };
 
@@ -265,10 +265,10 @@ struct Untyped_AST_For : public Untyped_AST {
     Ref<Untyped_AST> clone() override;
 };
 
-struct Untyped_AST_Type_Signiture : public Untyped_AST {
+struct Untyped_AST_Type_Signature : public Untyped_AST {
     Ref<Value_Type> value_type;
     
-    Untyped_AST_Type_Signiture(Ref<Value_Type> value_type);
+    Untyped_AST_Type_Signature(Ref<Value_Type> value_type);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
@@ -276,19 +276,19 @@ struct Untyped_AST_Type_Signiture : public Untyped_AST {
 struct Untyped_AST_Let : public Untyped_AST {
     bool is_const;
     Ref<Untyped_AST_Pattern> target;
-    Ref<Untyped_AST_Type_Signiture> specified_type;
+    Ref<Untyped_AST_Type_Signature> specified_type;
     Ref<Untyped_AST> initializer;
     
-    Untyped_AST_Let(bool is_const, Ref<Untyped_AST_Pattern> target, Ref<Untyped_AST_Type_Signiture> specified_type, Ref<Untyped_AST> initializer);
+    Untyped_AST_Let(bool is_const, Ref<Untyped_AST_Pattern> target, Ref<Untyped_AST_Type_Signature> specified_type, Ref<Untyped_AST> initializer);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
 
 struct Untyped_AST_Generic_Specialization : public Untyped_AST {
     String id;
-    std::vector<Ref<Untyped_AST_Type_Signiture>> params;
+    std::vector<Ref<Untyped_AST_Type_Signature>> params;
     
-    Untyped_AST_Generic_Specialization(String id, std::vector<Ref<Untyped_AST_Type_Signiture>> &&params);
+    Untyped_AST_Generic_Specialization(String id, std::vector<Ref<Untyped_AST_Type_Signature>> &&params);
     ~Untyped_AST_Generic_Specialization() override;
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
@@ -297,7 +297,7 @@ struct Untyped_AST_Generic_Specialization : public Untyped_AST {
 struct Untyped_AST_Struct_Declaration : public Untyped_AST {
     struct Field {
         String id;
-        Ref<Untyped_AST_Type_Signiture> type;
+        Ref<Untyped_AST_Type_Signature> type;
     };
     
     String id;
@@ -305,7 +305,7 @@ struct Untyped_AST_Struct_Declaration : public Untyped_AST {
     
     Untyped_AST_Struct_Declaration(String id);
     ~Untyped_AST_Struct_Declaration() override;
-    void add_field(String id, Ref<Untyped_AST_Type_Signiture> type);
+    void add_field(String id, Ref<Untyped_AST_Type_Signature> type);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

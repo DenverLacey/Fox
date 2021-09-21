@@ -66,7 +66,7 @@ enum class Typed_AST_Kind {
     If,
     For,
     For_Range,
-    Type_Signiture,
+    Type_Signature,
     Field_Access,
     Field_Access_Tuple,
     Processed_Pattern,
@@ -198,10 +198,10 @@ struct Typed_AST_If : public Typed_AST {
     bool is_constant(Compiler &c) override;
 };
 
-struct Typed_AST_Type_Signiture : public Typed_AST {
+struct Typed_AST_Type_Signature : public Typed_AST {
     Ref<Value_Type> value_type;
     
-    Typed_AST_Type_Signiture(Ref<Value_Type> value_type);
+    Typed_AST_Type_Signature(Ref<Value_Type> value_type);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -235,10 +235,10 @@ struct Typed_AST_For : public Typed_AST {
 struct Typed_AST_Let : public Typed_AST {
     bool is_const;
     Ref<Typed_AST_Processed_Pattern> target;
-    Ref<Typed_AST_Type_Signiture> specified_type;
+    Ref<Typed_AST_Type_Signature> specified_type;
     Ref<Typed_AST> initializer;
     
-    Typed_AST_Let(bool is_const, Ref<Typed_AST_Processed_Pattern> target, Ref<Typed_AST_Type_Signiture> specified_type, Ref<Typed_AST> initializer);
+    Typed_AST_Let(bool is_const, Ref<Typed_AST_Processed_Pattern> target, Ref<Typed_AST_Type_Signature> specified_type, Ref<Typed_AST> initializer);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
