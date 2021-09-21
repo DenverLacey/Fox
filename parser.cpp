@@ -291,7 +291,14 @@ struct Parser {
             case Token_Kind::Ident: {
                 auto id = n.data.s.clone();
                 if (match(Token_Kind::Left_Curly)) {
-                    internal_error("Struct Patterns not yet implmented.");
+                    auto struct_id = Mem.make<Untyped_AST_Ident>(id);
+                    auto sp = Mem.make<Untyped_AST_Pattern_Struct>(struct_id);
+                    do {
+                        if (check(Token_Kind::Right_Curly)) break;
+                        sp->add(parse_pattern());
+                    } while (match(Token_Kind::Comma) && has_more());
+                    expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct pattern.");
+                    p = sp;
                 } else if (match(Token_Kind::Left_Paren)) {
                     internal_error("Enum Patterns not yet implemented.");
                 } else {

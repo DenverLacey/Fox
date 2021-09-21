@@ -256,6 +256,21 @@ void Untyped_AST_Pattern_Tuple::add(Ref<Untyped_AST_Pattern> sub) {
     sub_patterns.push_back(sub);
 }
 
+Untyped_AST_Pattern_Struct::Untyped_AST_Pattern_Struct(
+    Ref<Untyped_AST_Ident> struct_id)
+{
+    this->kind = Untyped_AST_Kind::Pattern_Struct;
+    this->struct_id = struct_id;
+}
+
+Ref<Untyped_AST> Untyped_AST_Pattern_Struct::clone() {
+    auto copy = Mem.make<Untyped_AST_Pattern_Struct>(struct_id->clone().cast<Untyped_AST_Ident>());
+    for (auto s : sub_patterns) {
+        copy->add(s->clone().cast<Untyped_AST_Pattern>());
+    }
+    return copy;
+}
+
 Untyped_AST_If::Untyped_AST_If(
     Ref<Untyped_AST> cond,
     Ref<Untyped_AST> then,
@@ -417,6 +432,17 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
             }
             printf(")");
         } break;
+        case Untyped_AST_Kind::Pattern_Struct: {
+            auto s = p.cast<Untyped_AST_Pattern_Struct>();
+            printf("%.*s {", s->struct_id->id.size(), s->struct_id->id.c_str());
+            for (size_t i = 0; i < s->sub_patterns.size(); i++) {
+                auto sub = s->sub_patterns[i];
+                printf(" ");
+                print_pattern(sub);
+                if (i + 1 < s->sub_patterns.size()) printf(",");
+            }
+            printf(" }");
+        } break;
             
         default:
             internal_error("Invalid Kind for Pattern: %d.", p->kind);
@@ -539,7 +565,8 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
-        case Untyped_AST_Kind::Pattern_Tuple: {
+        case Untyped_AST_Kind::Pattern_Tuple:
+        case Untyped_AST_Kind::Pattern_Struct: {
             auto p = node.cast<Untyped_AST_Pattern>();
             print_pattern(p);
             printf("\n");
