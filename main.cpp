@@ -14,6 +14,8 @@
 // [x]  Implement compile-time code execution.
 // [ ]  Maybe get rid of AST_Type_Signiture cause it might be pointless and easier
 //      just to use Ref<Value_Type>.
+// [ ]  Implement mutable function parameters.
+// [ ]  Implement return checking.
 //
 
 #include <iostream>

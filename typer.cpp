@@ -13,7 +13,7 @@
 #include "error.h"
 #include "interpreter.h"
 
-#include <list>
+#include <forward_list>
 #include <unordered_map>
 #include <string>
 
@@ -104,6 +104,15 @@ Typed_AST_Unary::Typed_AST_Unary(Typed_AST_Kind kind, Value_Type type, Ref<Typed
 
 bool Typed_AST_Unary::is_constant(Compiler &c) {
     return sub->is_constant(c);
+}
+
+Typed_AST_Return::Typed_AST_Return(Ref<Typed_AST> sub)
+    : Typed_AST_Unary(Typed_AST_Kind::Return, value_types::None, sub)
+{
+}
+
+bool Typed_AST_Return::is_constant(Compiler &c) {
+    return sub ? sub->is_constant(c) : true;
 }
 
 Typed_AST_Binary::Typed_AST_Binary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs) {
@@ -285,18 +294,18 @@ bool Typed_AST_Field_Access_Tuple::is_constant(Compiler &c) {
     return lhs->is_constant(c);
 }
 
-//Typed_AST_Struct_Declaration::Typed_AST_Struct_Declaration(
-//    String id,
-//    Ref<Struct_Definition> defn)
-//{
-//    this->kind = Typed_AST_Kind::Struct;
-//    this->id = id;
-//    this->defn = defn;
-//}
-//
-//bool Typed_AST_Struct_Declaration::is_constant(Compiler &c) {
-//    return true;
-//}
+Typed_AST_Fn_Declaration::Typed_AST_Fn_Declaration(
+    Function_Definition *defn,
+    Ref<Typed_AST_Multiary> body)
+{
+    this->kind = Typed_AST_Kind::Fn_Decl;
+    this->defn = defn;
+    this->body = body;
+}
+
+bool Typed_AST_Fn_Declaration::is_constant(Compiler &c) {
+    return true;
+}
 
 static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
     switch (kind) {
@@ -340,12 +349,13 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::If:              return Typed_AST_Kind::If;
         case Untyped_AST_Kind::For:             return Typed_AST_Kind::For;
         case Untyped_AST_Kind::Let:             return Typed_AST_Kind::Let;
+        case Untyped_AST_Kind::Fn_Decl:         return Typed_AST_Kind::Fn_Decl;
         case Untyped_AST_Kind::Type_Signature:  return Typed_AST_Kind::Type_Signature;
-//        case Untyped_AST_Kind::Struct:          return Typed_AST_Kind::Struct;
             
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
         case Untyped_AST_Kind::Pattern_Tuple:
+        case Untyped_AST_Kind::Pattern_Struct:
             return Typed_AST_Kind::Processed_Pattern;
             
         case Untyped_AST_Kind::Generic_Specialization:
@@ -355,41 +365,41 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
 }
 
 constexpr size_t INDENT_SIZE = 2;
-static void print_at_indent(const Ref<Typed_AST> node, size_t indent);
+static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size_t indent);
 
-static void print_sub_at_indent(const char *name, const Ref<Typed_AST> sub, size_t indent) {
+static void print_sub_at_indent(Interpreter *interp, const char *name, const Ref<Typed_AST> sub, size_t indent) {
     printf("%*s%s: ", indent * INDENT_SIZE, "", name);
-    print_at_indent(sub, indent);
+    print_at_indent(interp, sub, indent);
 }
 
-static void print_unary_at_indent(const char *id, const Ref<Typed_AST_Unary> u, size_t indent) {
+static void print_unary_at_indent(Interpreter *interp, const char *id, const Ref<Typed_AST_Unary> u, size_t indent) {
     printf("(%s) %s\n", id, u->type.debug_str());
-    print_sub_at_indent("sub", u->sub, indent + 1);
+    print_sub_at_indent(interp, "sub", u->sub, indent + 1);
 }
 
-static void print_binary_at_indent(const char *id, const Ref<Typed_AST_Binary> b, size_t indent) {
+static void print_binary_at_indent(Interpreter *interp, const char *id, const Ref<Typed_AST_Binary> b, size_t indent) {
     printf("(%s) %s\n", id, b->type.debug_str());
-    print_sub_at_indent("lhs", b->lhs, indent + 1);
-    print_sub_at_indent("rhs", b->rhs, indent + 1);
+    print_sub_at_indent(interp, "lhs", b->lhs, indent + 1);
+    print_sub_at_indent(interp, "rhs", b->rhs, indent + 1);
 }
 
-static void print_ternary_at_indent(const char *id, const Ref<Typed_AST_Ternary> t, size_t indent) {
+static void print_ternary_at_indent(Interpreter *interp, const char *id, const Ref<Typed_AST_Ternary> t, size_t indent) {
     printf("(%s) %s\n", id, t->type.debug_str());
-    print_sub_at_indent("lhs", t->lhs, indent + 1);
-    print_sub_at_indent("mid", t->mid, indent + 1);
-    print_sub_at_indent("rhs", t->rhs, indent + 1);
+    print_sub_at_indent(interp, "lhs", t->lhs, indent + 1);
+    print_sub_at_indent(interp, "mid", t->mid, indent + 1);
+    print_sub_at_indent(interp, "rhs", t->rhs, indent + 1);
 }
 
-static void print_multiary_at_indent(const char *id, const Ref<Typed_AST_Multiary> m, size_t indent) {
+static void print_multiary_at_indent(Interpreter *interp, const char *id, const Ref<Typed_AST_Multiary> m, size_t indent) {
     printf("(%s) %s\n", id, m->type.debug_str());
     for (size_t i = 0; i < m->nodes.size(); i++) {
         const Ref<Typed_AST> node = m->nodes[i];
         printf("%*s%zu: ", (indent + 1) * INDENT_SIZE, "", i);
-        print_at_indent(node, indent + 1);
+        print_at_indent(interp, node, indent + 1);
     }
 }
 
-static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
+static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size_t indent) {
     switch (node->kind) {
         case Typed_AST_Kind::Bool: {
             Ref<Typed_AST_Bool> lit = node.cast<Typed_AST_Bool>();
@@ -407,6 +417,16 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
             Ref<Typed_AST_Ident> id = node.cast<Typed_AST_Ident>();
             printf("%.*s :: %s\n", id->id.size(), id->id.c_str(), id->type.debug_str());
         } break;
+        case Typed_AST_Kind::Ident_Struct: {
+            auto id = node.cast<Typed_AST_UUID>();
+            auto defn = id->type.data.type.type->data.struct_.defn;
+            printf("%.*s :: %s\n", defn->name.size(), defn->name.c_str(), id->type.debug_str());
+        } break;
+        case Typed_AST_Kind::Ident_Func: {
+            auto id = node.cast<Typed_AST_UUID>();
+            auto defn = interp->funcbook.get_func_by_uuid(id->id);
+            printf("%.*s#%zu :: %s\n", defn->name.size(), defn->name.c_str(), id->id, defn->type.debug_str());
+        } break;
         case Typed_AST_Kind::Int: {
             Ref<Typed_AST_Int> lit = node.cast<Typed_AST_Int>();
             printf("%lld\n", lit->value);
@@ -416,123 +436,135 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
             printf("\"%.*s\"\n", lit->value.size(), lit->value.c_str());
         } break;
         case Typed_AST_Kind::Negation: {
-            print_unary_at_indent("-", node.cast<Typed_AST_Unary>(), indent);
+            print_unary_at_indent(interp, "-", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Not: {
-            print_unary_at_indent("!", node.cast<Typed_AST_Unary>(), indent);
+            print_unary_at_indent(interp, "!", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Address_Of: {
-            print_unary_at_indent("&", node.cast<Typed_AST_Unary>(), indent);
+            print_unary_at_indent(interp, "&", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Address_Of_Mut: {
-            print_unary_at_indent("&mut", node.cast<Typed_AST_Unary>(), indent);
+            print_unary_at_indent(interp, "&mut", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Deref: {
-            print_unary_at_indent("*", node.cast<Typed_AST_Unary>(), indent);
+            print_unary_at_indent(interp, "*", node.cast<Typed_AST_Unary>(), indent);
+        } break;
+        case Typed_AST_Kind::Return: {
+            auto ret = node.cast<Typed_AST_Return>();
+            printf("(ret)\n");
+            if (ret->sub) {
+                print_sub_at_indent(interp, "sub", ret->sub, indent + 1);
+            } else {
+                printf("%*ssub: nullptr\n", (indent + 1) * INDENT_SIZE, "");
+            }
         } break;
         case Typed_AST_Kind::Addition: {
-            print_binary_at_indent("+", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "+", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Subtraction: {
-            print_binary_at_indent("-", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "-", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Multiplication: {
-            print_binary_at_indent("*", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "*", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Division: {
-            print_binary_at_indent("/", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "/", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Mod: {
-            print_binary_at_indent("%", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "%", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Assignment: {
-            print_binary_at_indent("=", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Equal: {
-            print_binary_at_indent("==", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "==", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Not_Equal: {
-            print_binary_at_indent("!=", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "!=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Less: {
-            print_binary_at_indent("<", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "<", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Less_Eq: {
-            print_binary_at_indent("<=", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "<=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Greater: {
-            print_binary_at_indent(">", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, ">", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Greater_Eq: {
-            print_binary_at_indent(">=", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, ">=", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::While: {
-            print_binary_at_indent("while", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "while", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::And: {
-            print_binary_at_indent("and", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "and", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Or: {
-            print_binary_at_indent("or", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "or", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Field_Access: {
             auto dot = node.cast<Typed_AST_Field_Access>();
             printf("(.) %s\n", dot->type.debug_str());
-            print_sub_at_indent("instance", dot->instance, indent + 1);
+            print_sub_at_indent(interp, "instance", dot->instance, indent + 1);
             printf("%*soffset: %d\n", (indent + 1) * INDENT_SIZE, "", dot->field_offset);
         } break;
         case Typed_AST_Kind::Field_Access_Tuple: {
-            print_binary_at_indent(".", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, ".", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Subscript:
         case Typed_AST_Kind::Negative_Subscript: {
-            print_binary_at_indent("[]", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "[]", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Range: {
-            print_binary_at_indent("..", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "..", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Inclusive_Range: {
-            print_binary_at_indent("...", node.cast<Typed_AST_Binary>(), indent);
+            print_binary_at_indent(interp, "...", node.cast<Typed_AST_Binary>(), indent);
+        } break;
+        case Typed_AST_Kind::Invocation: {
+            print_binary_at_indent(interp, "call", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::If: {
             Ref<Typed_AST_If> t = node.cast<Typed_AST_If>();
             printf("(if)\n");
-            print_sub_at_indent("cond", t->cond, indent + 1);
-            print_sub_at_indent("then", t->then, indent + 1);
+            print_sub_at_indent(interp, "cond", t->cond, indent + 1);
+            print_sub_at_indent(interp, "then", t->then, indent + 1);
             if (t->else_) {
-                print_sub_at_indent("else", t->else_, indent + 1);
+                print_sub_at_indent(interp, "else", t->else_, indent + 1);
             }
         } break;
         case Typed_AST_Kind::For:
         case Typed_AST_Kind::For_Range: {
             auto f = node.cast<Typed_AST_For>();
             printf("(for)\n");
-            print_sub_at_indent("target", f->target, indent + 1);
+            print_sub_at_indent(interp, "target", f->target, indent + 1);
             if (f->counter != "") {
                 printf("%*scounter: %s\n", (indent + 1) * INDENT_SIZE, "", f->counter.c_str());
             }
-            print_sub_at_indent("iterable", f->iterable, indent + 1);
-            print_sub_at_indent("body", f->body, indent + 1);
+            print_sub_at_indent(interp, "iterable", f->iterable, indent + 1);
+            print_sub_at_indent(interp, "body", f->body, indent + 1);
         } break;
         case Typed_AST_Kind::Block: {
-            print_multiary_at_indent("block", node.cast<Typed_AST_Multiary>(), indent);
+            print_multiary_at_indent(interp, "block", node.cast<Typed_AST_Multiary>(), indent);
         } break;
         case Typed_AST_Kind::Comma: {
-            print_multiary_at_indent(",", node.cast<Typed_AST_Multiary>(), indent);
+            print_multiary_at_indent(interp, ",", node.cast<Typed_AST_Multiary>(), indent);
         } break;
         case Typed_AST_Kind::Tuple: {
-            print_multiary_at_indent("tuple", node.cast<Typed_AST_Multiary>(), indent);
+            print_multiary_at_indent(interp, "tuple", node.cast<Typed_AST_Multiary>(), indent);
         } break;
         case Typed_AST_Kind::Let: {
             Ref<Typed_AST_Let> let = node.cast<Typed_AST_Let>();
             printf("(%s)\n", let->is_const ? "const" : "let");
             
-            print_sub_at_indent("target", let->target, indent + 1);
+            print_sub_at_indent(interp, "target", let->target, indent + 1);
             if (let->specified_type) {
-                print_sub_at_indent("type", let->specified_type, indent + 1);
+                print_sub_at_indent(interp, "type", let->specified_type, indent + 1);
             }
             if (let->initializer) {
-                print_sub_at_indent("init", let->initializer, indent + 1);
+                print_sub_at_indent(interp, "init", let->initializer, indent + 1);
             }
         } break;
         case Typed_AST_Kind::Type_Signature: {
@@ -562,7 +594,14 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
             }
             printf("%*scount: %zu\n", (indent + 1) * INDENT_SIZE, "", array->count);
             printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
-            print_sub_at_indent("elems", array->element_nodes, indent + 1);
+            print_sub_at_indent(interp, "elems", array->element_nodes, indent + 1);
+        } break;
+        case Typed_AST_Kind::Fn_Decl: {
+            auto decl = node.cast<Typed_AST_Fn_Declaration>();
+            printf("(fn-decl)\n");
+            printf("%*sfn_id: #%zu\n", (indent + 1) * INDENT_SIZE, "", decl->defn->id);
+            printf("%*sfn_type: %s\n", (indent + 1) * INDENT_SIZE, "", decl->defn->type.debug_str());
+            print_sub_at_indent(interp, "body", decl->body, indent + 1);
         } break;
             
         default:
@@ -571,8 +610,8 @@ static void print_at_indent(const Ref<Typed_AST> node, size_t indent) {
     }
 }
 
-void Typed_AST::print() const {
-    print_at_indent(Ref<Typed_AST>((Typed_AST *)this), 0);
+void Typed_AST::print(Interpreter *interp) const {
+    print_at_indent(interp, Ref<Typed_AST>((Typed_AST *)this), 0);
 }
 
 struct Typer_Scope {
@@ -582,7 +621,25 @@ struct Typer_Scope {
 struct Typer {
     Interpreter *interp;
     Module *module;
-    std::list<Typer_Scope> scopes;
+    Typer_Scope *global_scope;
+    Function_Definition *function;
+    std::forward_list<Typer_Scope> scopes;
+    
+    Typer(Interpreter *interp, String module_path) {
+        this->interp = interp;
+        this->module = interp->create_module(module_path);
+        this->function = nullptr;
+        
+        begin_scope(); // global scope
+        global_scope = &current_scope();
+    }
+    
+    Typer(const Typer &t, Function_Definition *function) {
+        this->interp = t.interp;
+        this->module = t.module;
+        this->global_scope = t.global_scope;
+        this->function = function;
+    }
     
     Typer_Scope &current_scope() {
         return scopes.front();
@@ -603,6 +660,13 @@ struct Typer {
             out_type = it->second;
             return true;
         }
+        
+        auto it = global_scope->variables.find(id);
+        if (it != global_scope->variables.end()) {
+            out_type = it->second;
+            return true;
+        }
+        
         return false;
     }
     
@@ -722,11 +786,15 @@ Ref<Typed_AST_Multiary> typecheck(
     Interpreter &interp,
     Ref<Untyped_AST_Multiary> node)
 {
-    Typer t;
-    t.interp = &interp;
-    t.module = interp.create_module("<@TODO MODULE PATH>");
+    auto t = Typer { &interp, "<@TODO MODULE PATH>" };
     
-    return node->typecheck(t).cast<Typed_AST_Multiary>();
+    auto typechecked = Mem.make<Typed_AST_Multiary>(to_typed(node->kind));
+    for (auto &n : node->nodes) {
+        if (auto tn = n->typecheck(t))
+            typechecked->add(tn);
+    }
+    
+    return typechecked;
 }
 
 Ref<Typed_AST> Untyped_AST_Bool::typecheck(Typer &t) {
@@ -746,21 +814,28 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     verify(t.type_of_variable(id.c_str(), ty), "Unresolved identifier '%s'.", id.c_str());
     
     Ref<Typed_AST> ident;
-    if (ty.kind == Value_Type_Kind::Type) {
-        switch (ty.data.type.type->kind) {
-            case Value_Type_Kind::Struct:
-                ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, ty.data.type.type->data.struct_.defn->id, ty);
-                break;
-            case Value_Type_Kind::Enum:
-                internal_error("Enum idents not yet implemented.");
-                break;
+    switch (ty.kind) {
+        case Value_Type_Kind::Type: {
+            switch (ty.data.type.type->kind) {
+                case Value_Type_Kind::Struct:
+                    ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, ty.data.type.type->data.struct_.defn->id, ty);
+                    break;
+                case Value_Type_Kind::Enum:
+                    internal_error("Enum idents not yet implemented.");
+                    break;
                 
-            default:
-                internal_error("Invalid Value_Type_Kind for Type type.");
-                break;
-        }
-    } else {
-        ident = Mem.make<Typed_AST_Ident>(id.clone(), ty);
+                default:
+                    internal_error("Invalid Value_Type_Kind for Type type.");
+                    break;
+            }
+        } break;
+        case Value_Type_Kind::Function: {
+            ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, ty.data.func.id, ty);
+        } break;
+            
+        default:
+            ident = Mem.make<Typed_AST_Ident>(id.clone(), ty);
+            break;
     }
     
     return ident;
@@ -805,6 +880,75 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
             assert(false);
             return nullptr;
     }
+}
+
+Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
+    verify(t.function, "Return statement outside of function.");
+
+    Ref<Typed_AST> sub = nullptr;
+    if (t.function->type.kind == Value_Type_Kind::Void) {
+        verify(!this->sub, "Return statement does not match function definition. (%s) vs (%s).", t.function->type.data.func.return_type->debug_str(), this->sub->typecheck(t)->type.size());
+    } else {
+        sub = this->sub->typecheck(t);
+        verify(t.function->type.data.func.return_type->assignable_from(sub->type), "Return statement does not match function definition. (%s) vs (%s).", t.function->type.data.func.return_type->debug_str(), sub->type.size());
+    }
+    
+    // @TODO: return checking stuff
+    
+    return Mem.make<Typed_AST_Return>(sub);
+}
+
+static Ref<Typed_AST_Binary> typecheck_invocation(
+    Untyped_AST_Binary &call,
+    Typer &t)
+{
+    auto func = call.lhs->typecheck(t);
+    auto rhs = call.rhs.cast<Untyped_AST_Multiary>();
+    internal_verify(rhs, "Failed to cast rhs to Multiary* in typecheck_invocation().");
+    
+    // @TODO: Check for function pointer type of stuff
+    verify(func->kind == Typed_AST_Kind::Ident_Func, "First operand of function call must be a function.");
+    
+    auto func_id = func.cast<Typed_AST_UUID>();
+    auto defn = t.interp->funcbook.get_func_by_uuid(func_id->id);
+    internal_verify(defn, "Failed to retrieve function with id #%zu.", func_id->id);
+    
+    // @TODO: default arguments stuff (if we do default arguments)
+    
+    verify(rhs->nodes.size() == defn->type.data.func.arg_types.size(), "Incorrect number of arguments for invocation. Expected %zu but was given %zu.", defn->type.data.func.arg_types.size(), rhs->nodes.size());
+    
+    auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    args->nodes.reserve(defn->type.data.func.arg_types.size());
+    for (size_t i = 0; i < defn->type.data.func.arg_types.size(); i++) {
+        args->nodes.push_back(nullptr);
+    }
+    
+    bool began_named_args = false;
+    size_t num_ppos_args = 0;
+    for (auto arg_node : rhs->nodes) {
+        Ref<Untyped_AST> arg_expr;
+        size_t arg_pos;
+        if (arg_node->kind == Untyped_AST_Kind::Binding) {
+            began_named_args = true;
+            internal_error("Named arguments not yet implemented.");
+        } else if (began_named_args) {
+            error("Cannot have positional argruments after named arguments in function call.");
+        } else {
+            arg_expr = arg_node;
+            arg_pos = num_ppos_args++;
+        }
+        
+        auto &arg = args->nodes[arg_pos];
+        verify(!arg, "Argument given more than once."); // @TODO: better error message
+        arg = arg_expr->typecheck(t);
+    }
+    
+    return Mem.make<Typed_AST_Binary>(
+        Typed_AST_Kind::Invocation,
+        *defn->type.data.func.return_type,
+        func,
+        args
+    );
 }
 
 Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
@@ -886,15 +1030,6 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(or) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Or, value_types::Bool, lhs, rhs);
-//        case Untyped_AST_Kind::Field_Access: {
-//            bool needs_deref = lhs->type.kind == Value_Type_Kind::Ptr;
-//            Value_Type &ty = needs_deref ? *lhs->type.child_type() : lhs->type;
-//            verify(ty.kind == Value_Type_Kind::Struct, "(.) requires first operand to be a struct type but was given (%s).", lhs->type.debug_str());
-//            String mem_id = rhs.cast<Untyped_AST_Ident>()->id;
-//            Value_Type *mem_ty = ty.data.struct_.defn->type_of_field(mem_id);
-//            verify(mem_ty, "'%.*s' is not a field of '%.*s'.", mem_id.size(), mem_id.c_str(), ty.data.struct_.defn->name.size(), ty.data.struct_.defn->name.c_str());
-//            return Mem.make<Typed_AST_Field_Access>(*mem_ty, needs_deref, lhs)
-//        } break;
         case Untyped_AST_Kind::Field_Access_Tuple: {
             bool needs_deref = lhs->type.kind == Value_Type_Kind::Ptr;
             Value_Type &ty = needs_deref ? *lhs->type.child_type() : lhs->type;
@@ -941,7 +1076,8 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(...) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int, "(...) requires operands to be of type (int) but was given (%s).", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Inclusive_Range, value_types::range_of(true, &lhs->type), lhs, rhs);
-            
+        case Untyped_AST_Kind::Invocation:
+            return typecheck_invocation(*this, t);
         case Untyped_AST_Kind::While:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs);
@@ -1008,7 +1144,8 @@ Ref<Typed_AST> Untyped_AST_Struct_Literal::typecheck(Typer &t) {
     auto struct_id = this->struct_id->typecheck(t).cast<Typed_AST_UUID>();
     internal_verify(struct_id, "Failed to cast struct_id to UUID* in Struct_Literal::typecheck().");
     
-    auto defn = &t.interp->typebook.structs[t.module->structs[struct_id->id]];
+    auto defn = t.interp->typebook.get_struct_by_uuid(struct_id->id);
+    internal_verify(defn, "Failed to retrieve struct-defn #%zu from typebook.", struct_id->id);
     auto bindings = this->bindings;
     
     verify(defn->fields.size() == bindings->nodes.size(), "Incorrect number of arguments in struct literal. Expected %zu but was given %zu.", defn->fields.size(), bindings->nodes.size());
@@ -1180,13 +1317,14 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     }
     
     defn.size = current_offset;
-    size_t type_id = t.interp->typebook.add_struct(defn);
-    t.module->structs[defn.id] = type_id;
+    auto new_defn = t.interp->typebook.add_struct(defn);
+    auto [_, success] = t.module->structs.insert(new_defn->id);
+    internal_verify(success, "Failed to add struct with id #%zu to module set.", new_defn->id);
     
     String id = this->id.clone();
     Value_Type *struct_type = Mem.make<Value_Type>().as_ptr();
     struct_type->kind = Value_Type_Kind::Struct;
-    struct_type->data.struct_.defn = &t.interp->typebook.structs[type_id];
+    struct_type->data.struct_.defn = new_defn;
     
     Value_Type type;
     type.kind = Value_Type_Kind::Type;
@@ -1195,4 +1333,82 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     t.put_variable(id.c_str(), type, false);
     
     return nullptr;
+}
+
+Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
+    Function_Definition defn;
+    defn.id = t.interp->next_uuid();
+    defn.module = t.module;
+    defn.name = id.clone();
+    
+    Value_Type func_type;
+    func_type.kind = Value_Type_Kind::Function;
+    func_type.data.func.id = defn.id;
+    
+    Value_Type *return_type = Mem.make<Value_Type>().as_ptr();
+    if (this->return_type_signature) {
+        *return_type = this->return_type_signature->typecheck(t)
+            .cast<Typed_AST_Type_Signature>()->value_type->clone();
+    } else {
+        *return_type = value_types::Void;
+    }
+    
+    func_type.data.func.return_type = return_type;
+    
+    auto param_types = Array<Value_Type>::with_size(params->nodes.size());
+    for (size_t i = 0; i < param_types.size(); i++) {
+        auto param = params->nodes[i];
+        
+        //
+        // @TODO: [ ]
+        //      Sort out default arguments. (If we do default arguments)
+        //
+        
+        String param_name;
+        Value_Type param_type;
+        switch (param->kind) {
+            case Untyped_AST_Kind::Assignment:
+                internal_error("Default arguments not yet implemented.");
+                break;
+            case Untyped_AST_Kind::Binding: {
+                auto b = param.cast<Untyped_AST_Binary>();
+                param_name = b->lhs.cast<Untyped_AST_Ident>()->id.clone();
+                param_type = *b->rhs->typecheck(t)
+                    .cast<Typed_AST_Type_Signature>()->value_type;
+            } break;
+                
+            default:
+                error("Expected a parameter.");
+                break;
+        }
+        
+        param_types[i] = param_type;
+        defn.param_names.push_back(param_name);
+    }
+    
+    func_type.data.func.arg_types = param_types;
+    defn.type = func_type;
+    
+    auto new_defn = t.interp->funcbook.add_func(defn);
+    auto [_, success] = t.module->funcs.insert(new_defn->id);
+    internal_verify(success, "Failed to add function with id #%zu to module set.", new_defn->id);
+    
+    t.put_variable(id.c_str(), func_type, false);
+    
+    // actually typecheck the function
+    auto new_t = Typer { t, new_defn };
+    
+    new_t.begin_scope();
+    for (size_t i = 0; i < new_defn->param_names.size(); i++) {
+        String param_name = new_defn->param_names[i];
+        Value_Type param_type = new_defn->type.data.func.arg_types[i];
+        new_t.put_variable(param_name.c_str(), param_type, /*@TODO*/ false);
+    }
+    
+    auto body = this->body->typecheck(new_t);
+    
+    return Mem.make<Typed_AST_Fn_Declaration>(
+        new_defn,
+        body.cast<Typed_AST_Multiary>()
+    );
 }

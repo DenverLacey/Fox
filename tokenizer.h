@@ -55,6 +55,7 @@ enum class Token_Kind {
     And,
     Or,
     In,
+    Return,
     
     // operators
     Plus,           // +

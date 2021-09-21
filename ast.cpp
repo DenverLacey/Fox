@@ -81,6 +81,15 @@ Ref<Untyped_AST> Untyped_AST_Unary::clone() {
     return Mem.make<Untyped_AST_Unary>(kind, sub->clone());
 }
 
+Untyped_AST_Return::Untyped_AST_Return(Ref<Untyped_AST> sub)
+    : Untyped_AST_Unary(Untyped_AST_Kind::Return, sub)
+{
+}
+
+Ref<Untyped_AST> Untyped_AST_Return::clone() {
+    return Mem.make<Untyped_AST_Return>(sub ? sub->clone() : nullptr);
+}
+
 Untyped_AST_Binary::Untyped_AST_Binary(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs, Ref<Untyped_AST> rhs) {
     this->kind = kind;
     this->lhs = lhs;
@@ -374,6 +383,32 @@ Ref<Untyped_AST> Untyped_AST_Struct_Declaration::clone() {
     return copy;
 }
 
+Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
+    String id,
+    Ref<Untyped_AST_Multiary> params,
+    Ref<Untyped_AST_Type_Signature> return_type_signature,
+    Ref<Untyped_AST_Multiary> body)
+{
+    this->kind = Untyped_AST_Kind::Fn_Decl;
+    this->id = id;
+    this->params = params;
+    this->return_type_signature = return_type_signature;
+    this->body = body;
+}
+
+Untyped_AST_Fn_Declaration::~Untyped_AST_Fn_Declaration() {
+    id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Fn_Declaration::clone() {
+    return Mem.make<Untyped_AST_Fn_Declaration>(
+        id.clone(),
+        params->clone().cast<Untyped_AST_Multiary>(),
+        return_type_signature->clone().cast<Untyped_AST_Type_Signature>(),
+        body->clone().cast<Untyped_AST_Multiary>()
+    );
+}
+
 constexpr size_t INDENT_SIZE = 2;
 static void print_at_indent(const Ref<Untyped_AST> node, size_t indent);
 
@@ -497,6 +532,15 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Deref: {
             print_unary_at_indent("*", node.cast<Untyped_AST_Unary>(), indent);
         } break;
+        case Untyped_AST_Kind::Return: {
+            auto ret = node.cast<Untyped_AST_Return>();
+            printf("(ret)\n");
+            if (ret->sub) {
+                print_sub_at_indent("sub", ret->sub, indent + 1);
+            } else {
+                printf("%*ssub: nullptr\n", (indent + 1) * INDENT_SIZE, "");
+            }
+        } break;
         case Untyped_AST_Kind::Addition: {
             print_binary_at_indent("+", node.cast<Untyped_AST_Binary>(), indent);
         } break;
@@ -562,6 +606,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
         case Untyped_AST_Kind::Binding: {
             print_binary_at_indent(":", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
+        case Untyped_AST_Kind::Invocation: {
+            print_binary_at_indent("call", node.cast<Untyped_AST_Binary>(), indent);
         } break;
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
@@ -636,6 +683,16 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             for (auto &f : decl->fields) {
                 printf("%*s%s: %s\n", (indent + 2) * INDENT_SIZE, "", f.id.c_str(), f.type->value_type->debug_str());
             }
+        } break;
+        case Untyped_AST_Kind::Fn_Decl: {
+            auto decl = node.cast<Untyped_AST_Fn_Declaration>();
+            printf("(fn-decl)\n");
+            printf("%*sid: %.*s\n", (indent + 1) * INDENT_SIZE, "", decl->id.size(), decl->id.c_str());
+            print_sub_at_indent("params", decl->params, indent + 1);
+            if (decl->return_type_signature) {
+                print_sub_at_indent("return", decl->return_type_signature, indent + 1);
+            }
+            print_sub_at_indent("body", decl->body, indent + 1);
         } break;
             
         default:

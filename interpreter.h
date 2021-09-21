@@ -13,27 +13,31 @@
 #include "Bucket_Array.h"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 
 struct Module {
     String module_path;
-    std::unordered_map<UUID, size_t> structs;
-    std::unordered_map<UUID, size_t> enums;
-    std::unordered_map<UUID, size_t> funcs;
+    std::unordered_set<UUID> structs;
+    std::unordered_set<UUID> enums;
+    std::unordered_set<UUID> funcs;
 };
 
 struct Type_Book {
-    Bucket_Array<Struct_Definition> structs;
-    Bucket_Array<Enum_Definition> enums;
+    std::unordered_map<UUID, Struct_Definition> structs;
+    std::unordered_map<UUID, Enum_Definition> enums;
     
-    size_t add_struct(const Struct_Definition &defn);
-    size_t add_enum(const Enum_Definition &defn);
+    Struct_Definition *add_struct(const Struct_Definition &defn);
+    Enum_Definition *add_enum(const Enum_Definition &defn);
+    Struct_Definition *get_struct_by_uuid(UUID id);
+    Enum_Definition *get_enum_by_uuid(UUID id);
 };
 
 struct Function_Book {
-    Bucket_Array<Function_Definition> funcs;
+    std::unordered_map<UUID, Function_Definition> funcs;
     
-    size_t add_func(const Function_Definition &defn);
+    Function_Definition *add_func(const Function_Definition &defn);
+    Function_Definition *get_func_by_uuid(UUID id);
 };
 
 struct Interpreter {

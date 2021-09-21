@@ -15,6 +15,8 @@
 #include "mem.h"
 #include "typer.h"
 
+struct Module;
+
 enum class Opcode : uint8_t {
     None = 0,
     
@@ -110,15 +112,18 @@ enum class Opcode : uint8_t {
     Jump_False_No_Pop,
     
     // INVOCATION
-//    BYTE_CALL,
+    Call,   //    BYTE_CALL,
 //    BYTE_CALL_NATIVE,
 };
 
 using Chunk = std::vector<Opcode>;
 
 struct Function_Definition {
-    String ident;
+    UUID id;
+    Module *module;
+    String name;
     Value_Type type;
+    std::vector<String> param_names;
 //    CodeLocation location;
     Chunk bytecode;
 };
@@ -189,8 +194,6 @@ struct Struct_Field {
     String id;
     Value_Type type;
 };
-
-struct Module;
 
 struct Struct_Definition {
     Size size;

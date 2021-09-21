@@ -19,6 +19,7 @@ enum class Typed_AST_Kind {
     Float,
     Ident,
     Ident_Struct,
+    Ident_Func,
     Int,
     Str,
     Array,
@@ -30,6 +31,7 @@ enum class Typed_AST_Kind {
     Address_Of,
     Address_Of_Mut,
     Deref,
+    Return,
     
     // binary
     Addition,
@@ -51,6 +53,7 @@ enum class Typed_AST_Kind {
     Negative_Subscript,
     Range,
     Inclusive_Range,
+    Invocation,
     
     // ternary
     
@@ -61,6 +64,7 @@ enum class Typed_AST_Kind {
     
     // declarations
     Let,
+    Fn_Decl,
     
     // unique
     If,
@@ -79,7 +83,7 @@ struct Typed_AST {
     Value_Type type;
     
     virtual ~Typed_AST() = default;
-    void print() const;
+    void print(struct Interpreter *interp) const;
     virtual void compile(Compiler &c) = 0;
     virtual bool is_constant(Compiler &c) = 0;
 };
@@ -146,6 +150,12 @@ struct Typed_AST_Unary : public Typed_AST {
     Ref<Typed_AST> sub;
     
     Typed_AST_Unary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> sub);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Return : public Typed_AST_Unary {
+    Typed_AST_Return(Ref<Typed_AST> sub);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -257,6 +267,15 @@ struct Typed_AST_Field_Access_Tuple : public Typed_AST_Binary {
     bool deref;
     
     Typed_AST_Field_Access_Tuple(Typed_AST_Kind kind, Value_Type type, bool deref, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Fn_Declaration : public Typed_AST {
+    struct Function_Definition *defn;
+    Ref<Typed_AST_Multiary> body;
+    
+    Typed_AST_Fn_Declaration(Function_Definition *defn, Ref<Typed_AST_Multiary> body);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

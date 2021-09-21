@@ -306,6 +306,14 @@ void VM::run() {
                 if (!cond) frame->pc += (int)jump;
             } break;
                 
+            // Invocation
+            case Opcode::Call: {
+                Size arg_size = READ(Size, frame);
+                Function_Definition *defn = stack.pop<Function_Definition *>();
+                call(defn, arg_size);
+                frame = &frames.top();
+            } break;
+                
             case Opcode::Return: {
                 if (frames.size() - 1 == 0)
                     return;
@@ -669,6 +677,13 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 size_t jump = READ(size_t, i);
                 size_t dest = mark + jump + 9; // add 9 for bytecode
                 printf(IDX "Jump_False_No_Pop => %zX\n", mark, dest);
+            } break;
+                
+            // Invocation
+            case Opcode::Call: {
+                MARK(i);
+                Size arg_size = READ(Size, i);
+                printf(IDX "Call %ub\n", mark, arg_size * 8);
             } break;
                 
             default:

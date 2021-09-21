@@ -441,6 +441,14 @@ Size Tuple_Type_Data::offset_of_type(size_t idx) {
     return offset;
 }
 
+Size Function_Type_Data::arg_size() const {
+    Size size = 0;
+    for (auto &arg : arg_types) {
+        size += arg.size();
+    }
+    return size;
+}
+
 namespace value_types {
 Value_Type ptr_to(Value_Type *child_type) {
     auto pty = Ptr;

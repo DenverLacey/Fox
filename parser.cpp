@@ -56,6 +56,10 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Left_Bracket: return Precedence::Call;
         case Token_Kind::Right_Bracket: return Precedence::None;
             
+        // arrows
+        case Token_Kind::Thin_Right_Arrow: return Precedence::None;
+        case Token_Kind::Fat_Right_Arrow: return Precedence::None;
+            
         // keywords
         case Token_Kind::Let: return Precedence::None;
         case Token_Kind::Mut: return Precedence::None;
@@ -71,6 +75,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::And: return Precedence::And;
         case Token_Kind::Or: return Precedence::Or;
         case Token_Kind::Underscore: return Precedence::None;
+        case Token_Kind::Return: return Precedence::None;
             
         // operators
         case Token_Kind::Plus: return Precedence::Term;
@@ -187,7 +192,31 @@ struct Parser {
     }
     
     Ref<Untyped_AST> parse_fn_declaration() {
-        return nullptr;
+        String id = expect(Token_Kind::Ident, "Expected identifier after 'fn' keyword").data.s.clone();
+        
+        if (match(Token_Kind::Left_Angle)) {
+            internal_error("Generic functions not yet implemented.");
+            expect(Token_Kind::Right_Angle, "Expected '>' to terminate generic parameter list.");
+        }
+        
+        expect(Token_Kind::Left_Paren, "Expected '(' to begin function parameter list.");
+        auto params = parse_comma_separated_expressions();
+        expect(Token_Kind::Right_Paren, "Expected ')' to terminate function parameter list.");
+        
+        Ref<Untyped_AST_Type_Signature> return_type_signature = nullptr;
+        if (match(Token_Kind::Thin_Right_Arrow)) {
+            auto type = parse_type_signiture();
+            return_type_signature = Mem.make<Untyped_AST_Type_Signature>(type);
+        }
+        
+        auto body = parse_block();
+        
+        return Mem.make<Untyped_AST_Fn_Declaration>(
+            id,
+            params,
+            return_type_signature,
+            body
+        );
     }
     
     Ref<Untyped_AST> parse_struct_declaration() {
@@ -229,6 +258,9 @@ struct Parser {
             s = parse_while_statement();
         } else if (match(Token_Kind::For)) {
             s = parse_for_statement();
+        } else if (match(Token_Kind::Return)) {
+            s = parse_return_statement();
+            expect(Token_Kind::Semi, "Expected ';' after statement.");
         } else if (check(Token_Kind::Left_Curly)) {
             s = parse_block();
         } else {
@@ -421,6 +453,14 @@ struct Parser {
         return Mem.make<Untyped_AST_For>(target, counter, iterable, body);
     }
     
+    Ref<Untyped_AST_Return> parse_return_statement() {
+        Ref<Untyped_AST> sub = nullptr;
+        if (!check(Token_Kind::Semi)) {
+            sub = parse_expression();
+        }
+        return Mem.make<Untyped_AST_Return>(sub);
+    }
+    
     Ref<Untyped_AST> parse_expression_or_assignment() {
         return parse_precedence(Precedence::Assignment);
     }
@@ -525,14 +565,16 @@ struct Parser {
         switch (token.kind) {
             // delimeters
             case Token_Kind::Left_Paren:
-                // a = parse_invocation(prev);
+                a = parse_invocation(prev);
                 break;
             case Token_Kind::Comma:
                 a = parse_comma_separated_expressions(prev);
                 break;
-            case Token_Kind::Colon:
-                a = parse_binary(Untyped_AST_Kind::Binding, prec, prev);
-                break;
+            case Token_Kind::Colon: {
+                auto value_type = parse_type_signiture();
+                auto type_signature = Mem.make<Untyped_AST_Type_Signature>(value_type);
+                a = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, prev, type_signature);
+            } break;
             case Token_Kind::Left_Curly:
                 a = parse_struct_literal(prev);
                 break;
@@ -640,6 +682,12 @@ struct Parser {
         }
         expect(Token_Kind::Right_Curly, "Expected '}' to end block.");
         return block;
+    }
+    
+    Ref<Untyped_AST_Binary> parse_invocation(Ref<Untyped_AST> lhs) {
+        auto args = parse_comma_separated_expressions();
+        expect(Token_Kind::Right_Paren, "Expected ')' to terminate function call.");
+        return Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Invocation, lhs, args);
     }
     
     Ref<Untyped_AST_Multiary> parse_comma_separated_expressions(

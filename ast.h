@@ -31,6 +31,7 @@ enum class Untyped_AST_Kind {
     Address_Of,
     Address_Of_Mut,
     Deref,
+    Return,
     
     // binary
     Addition,
@@ -54,6 +55,7 @@ enum class Untyped_AST_Kind {
     Range,
     Inclusive_Range,
     Binding,
+    Invocation,
     
     // ternary
     
@@ -71,6 +73,7 @@ enum class Untyped_AST_Kind {
     // declarations
     Let,
     Struct_Decl,
+    Fn_Decl,
     
     // unique
     If,
@@ -145,6 +148,12 @@ struct Untyped_AST_Unary : public Untyped_AST {
     Ref<Untyped_AST> sub;
     
     Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Return : public Untyped_AST_Unary {
+    Untyped_AST_Return(Ref<Untyped_AST> sub);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
@@ -306,6 +315,18 @@ struct Untyped_AST_Struct_Declaration : public Untyped_AST {
     Untyped_AST_Struct_Declaration(String id);
     ~Untyped_AST_Struct_Declaration() override;
     void add_field(String id, Ref<Untyped_AST_Type_Signature> type);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Fn_Declaration : public Untyped_AST {
+    String id;
+    Ref<Untyped_AST_Multiary> params;
+    Ref<Untyped_AST_Type_Signature> return_type_signature;
+    Ref<Untyped_AST_Multiary> body;
+    
+    Untyped_AST_Fn_Declaration(String id, Ref<Untyped_AST_Multiary> params, Ref<Untyped_AST_Type_Signature> return_type_signature, Ref<Untyped_AST_Multiary> body);
+    ~Untyped_AST_Fn_Declaration();
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

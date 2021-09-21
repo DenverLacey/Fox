@@ -29,7 +29,6 @@ public:
     Bucket_Array(const Bucket_Array<T> &) = delete;
     Bucket_Array(Bucket_Array<T> &&) = default;
     
-    
 public:
     inline T &operator[](size_t idx) {
         size_t bucket_idx = idx / Bucket_Size;

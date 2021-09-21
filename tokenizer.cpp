@@ -116,6 +116,9 @@ void Token::print() const {
         case Token_Kind::In:
             printf("In\n");
             break;
+        case Token_Kind::Return:
+            printf("Return\n");
+            break;
         case Token_Kind::Plus:
             printf("Plus\n");
             break;
@@ -604,6 +607,8 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::Or;
     } else if (word == "in") {
         tok.kind = Token_Kind::In;
+    } else if (word == "return") {
+        tok.kind = Token_Kind::Return;
     } else {
         tok.kind = Token_Kind::Ident;
         tok.data.s = word;

@@ -9,8 +9,10 @@
 #include "compiler.h"
 
 #include "error.h"
+#include "interpreter.h"
 
 Compiler::Compiler(
+    Interpreter *interp,
     Data_Section &constants,
     Data_Section &str_constants,
     Function_Definition *function)
@@ -22,17 +24,19 @@ Compiler::Compiler(
     global = this;
     global_scope = nullptr;
     this->function = function;
+    this->interp = interp;
 }
 
 Compiler::Compiler(Compiler *parent, Function_Definition *function)
   : constants(parent->constants),
     str_constants(parent->str_constants)
 {
-    stack_top = parent->stack_top;
+    stack_top = 0;
     this->parent = parent;
     global = parent->global;
     global_scope = parent->global_scope;
     this->function = function;
+    this->interp = parent->interp;
 }
 
 Function_Definition *Compiler::compile(Ref<Typed_AST_Multiary> multi) {
@@ -740,6 +744,21 @@ void Typed_AST_Unary::compile(Compiler &c) {
     c.stack_top = stack_top + type.size();
 }
 
+void Typed_AST_Return::compile(Compiler &c) {
+    Address stack_top = c.stack_top;
+    
+    Size size = 0;
+    if (sub) {
+        size = sub->type.size();
+        sub->compile(c);
+    }
+    
+    c.emit_opcode(Opcode::Return);
+    c.emit_size(size);
+    
+    c.stack_top = stack_top;
+}
+
 static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
     Address stack_top = c.stack_top;
     
@@ -918,6 +937,17 @@ static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &s
     c.stack_top = stack_top + sub.type.size();
 }
 
+static void compile_invocation(Compiler &c, Typed_AST_Binary &call) {
+    Address stack_top = c.stack_top;
+    
+    call.rhs->compile(c);
+    call.lhs->compile(c);
+    c.emit_opcode(Opcode::Call);
+    c.emit_size(call.lhs->type.data.func.arg_size());
+    
+    c.stack_top = stack_top + call.type.size();
+}
+
 void Typed_AST_Binary::compile(Compiler &c) {
     Address stack_top = c.stack_top;
     
@@ -964,6 +994,9 @@ void Typed_AST_Binary::compile(Compiler &c) {
         case Typed_AST_Kind::Inclusive_Range:
             lhs->compile(c);
             rhs->compile(c);
+            return;
+        case Typed_AST_Kind::Invocation:
+            compile_invocation(c, *this);
             return;
     }
     
@@ -1397,6 +1430,48 @@ void Typed_AST_UUID::compile(Compiler &c) {
     if (type.kind == Value_Type_Kind::Type) {
         internal_error("Cannot compile a UUID of a type.");
     } else {
-        internal_error("Typed_AST_UUID::compile() not yet implemented.");
+        Address stack_top = c.stack_top;
+        
+        switch (type.kind) {
+            case Value_Type_Kind::Function: {
+                Function_Definition *defn = c.interp->funcbook.get_func_by_uuid(id);
+                internal_verify(defn, "Failed to retrieve Function_Definition in Typed_AST_UUID::compile().");
+                c.emit_opcode(Opcode::Lit_Pointer);
+                c.emit_value<runtime::Pointer>(defn);
+            } break;
+                
+            default:
+                internal_error("Invalid Value_Type_Kind in Typed_AST_UUID::compile().");
+                break;
+        }
+        
+        c.stack_top = stack_top + type.size();
+    }
+}
+
+void Typed_AST_Fn_Declaration::compile(Compiler &c) {
+    auto fn = c.interp->funcbook.get_func_by_uuid(defn->id);
+    auto new_c = Compiler { &c, fn };
+    
+    new_c.begin_scope();
+    for (size_t i = 0; i < defn->param_names.size(); i++) {
+        new_c.put_variable(
+            defn->param_names[i],
+            defn->type.data.func.arg_types[i],
+            new_c.stack_top
+        );
+        new_c.stack_top += defn->type.data.func.arg_types[i].size();
+    }
+    
+    for (auto n : body->nodes) {
+        n->compile(new_c);
+    }
+    
+    // @TODO: [ ]
+    //      Only put return instruction if needed.
+    //
+    if (fn->type.data.func.return_type->kind == Value_Type_Kind::Void) {
+        new_c.emit_opcode(Opcode::Return);
+        new_c.emit_size(0);
     }
 }

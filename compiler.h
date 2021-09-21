@@ -12,7 +12,7 @@
 #include <stack>
 #include <string>
 #include <unordered_map>
-#include <forward_list> // replace this with something that doesn't totally suck
+#include <forward_list>
 
 #include "ast.h"
 #include "typer.h"
@@ -62,6 +62,8 @@ struct Compiler {
     Compiler *global;
     Function_Definition *function;
     
+    Interpreter *interp;
+    
     Compiler_Scope *global_scope;
     std::forward_list<Compiler_Scope> scopes;
     
@@ -84,7 +86,7 @@ struct Compiler {
 //    std::vector<PolyTable> poly_params;
 //    std::list<FunctionDefinition> *fn_buffer; // see above
     
-    Compiler(Data_Section &constants, Data_Section &str_constants, Function_Definition *function);
+    Compiler(Interpreter *interp, Data_Section &constants, Data_Section &str_constants, Function_Definition *function);
     Compiler(Compiler *parent, Function_Definition *function);
     
     Function_Definition *compile(Ref<Typed_AST_Multiary> node);
