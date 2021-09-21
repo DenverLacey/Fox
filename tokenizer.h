@@ -36,6 +36,10 @@ enum class Token_Kind {
     Left_Bracket,   // [
     Right_Bracket,  // ]
     
+    // Arrows
+    Thin_Right_Arrow,   // ->
+    Fat_Right_Arrow,    // =>
+    
     // keyword
     Underscore,
     Const,

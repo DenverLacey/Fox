@@ -68,6 +68,12 @@ void Token::print() const {
         case Token_Kind::Right_Bracket:
             printf("Right_Bracket\n");
             break;
+        case Token_Kind::Thin_Right_Arrow:
+            printf("Thin_Right_Arrow\n");
+            break;
+        case Token_Kind::Fat_Right_Arrow:
+            printf("Fat_Right_Arrow\n");
+            break;
         case Token_Kind::Underscore:
             printf("Underscore\n");
             break;
@@ -467,6 +473,8 @@ static Token punctuation(Tokenizer &t) {
         case '-':
             if (t.match('=')) {
                 tok.kind = Token_Kind::Dash_Eq;
+            } else if (t.match('>')) {
+                tok.kind = Token_Kind::Thin_Right_Arrow;
             } else {
                 tok.kind = Token_Kind::Dash;
             }
@@ -502,6 +510,8 @@ static Token punctuation(Tokenizer &t) {
         case '=':
             if (t.match('=')) {
                 tok.kind = Token_Kind::Double_Eq;
+            } else if (t.match('>')) {
+                tok.kind = Token_Kind::Fat_Right_Arrow;
             } else {
                 tok.kind = Token_Kind::Eq;
             }

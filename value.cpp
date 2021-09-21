@@ -475,4 +475,12 @@ Value_Type tup_from(size_t count, Value_Type *child_types) {
     ty.data.tuple.child_types = ::Array { count, child_types };
     return ty;
 }
+
+Value_Type func(Value_Type *return_type, size_t arg_count, Value_Type *arg_types) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Function;
+    ty.data.func.return_type = return_type;
+    ty.data.func.arg_types = ::Array { arg_count, arg_types };
+    return ty;
+}
 } // namespace value_types

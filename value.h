@@ -146,6 +146,7 @@ Value_Type array_of(size_t count, Value_Type *element_type);
 Value_Type slice_of(Value_Type *element_type);
 Value_Type range_of(bool inclusive, Value_Type *child_type);
 Value_Type tup_from(size_t count, Value_Type *child_types);
+Value_Type func(Value_Type *return_type, size_t arg_count, Value_Type *arg_types);
 
 template<typename ...Ts>
 Value_Type tup_of(Ts ...child_types) {

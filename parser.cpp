@@ -361,16 +361,19 @@ struct Parser {
             } break;
             case Token_Kind::Left_Paren: {
                 std::vector<Ref<Value_Type>> subtypes;
-                if (!check(Token_Kind::Right_Paren)) {
-                    do {
-                        subtypes.push_back(parse_type_signiture());
-                    } while (match(Token_Kind::Comma) && has_more());
-                }
+                do {
+                    if (check(Token_Kind::Right_Paren)) break;
+                    subtypes.push_back(parse_type_signiture());
+                } while (match(Token_Kind::Comma) && has_more());
+                
                 expect(Token_Kind::Right_Paren, "Expected ')' in type signiture.");
                 
-                // @TODO: Check for '->' if function signiture
-                
-                *type = value_types::tup_from(subtypes.size(), flatten(subtypes));
+                if (match(Token_Kind::Thin_Right_Arrow)) {
+                    auto return_type = parse_type_signiture().as_ptr();
+                    *type = value_types::func(return_type, subtypes.size(), flatten(subtypes));
+                } else {
+                    *type = value_types::tup_from(subtypes.size(), flatten(subtypes));
+                }
             } break;
             default:
                 error("Invalid type signiture.");
