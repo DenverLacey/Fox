@@ -118,7 +118,7 @@ using Chunk = std::vector<Opcode>;
 
 struct Function_Definition {
     String ident;
-//    FunctionType type;
+    Value_Type type;
 //    CodeLocation location;
     Chunk bytecode;
 };

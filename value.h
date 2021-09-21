@@ -29,6 +29,7 @@ enum class Value_Type_Kind : uint8_t {
     Range,
     Struct,
     Enum,
+    Function,
     Type,
 };
 
@@ -88,6 +89,11 @@ struct Enum_Type_Data {
     struct Enum_Definition *defn;
 };
 
+struct Function_Type_Data {
+    Value_Type *return_type;
+    Array<Value_Type> arg_types;
+};
+
 struct Type_Type_Data {
     Value_Type *type;
 };
@@ -101,6 +107,7 @@ union Value_Type_Data {
     Range_Type_Data range;
     Struct_Type_Data struct_;
     Enum_Type_Data enum_;
+    Function_Type_Data func;
     Type_Type_Data type;
 };
 

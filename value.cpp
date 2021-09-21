@@ -56,6 +56,9 @@ Size Value_Type::size() const {
             internal_error("Enums not yet implemented.");
             return 0;
             
+        case Value_Type_Kind::Function:
+            return sizeof(runtime::Pointer);
+            
         case Value_Type_Kind::Type:
             internal_error("Type.size() not yet implemented.");
             return 0;
@@ -133,6 +136,14 @@ char *Value_Type::debug_str() const {
         case Value_Type_Kind::Enum:
             assert(false);
             break;
+        case Value_Type_Kind::Function:
+            s << "(";
+            for (size_t i = 0; i < data.func.arg_types.size(); i++) {
+                s << data.func.arg_types[i].debug_str();
+                if (i + 1 < data.func.arg_types.size()) s << ", ";
+            }
+            s << ") -> " << data.func.return_type->debug_str();
+            break;
         case Value_Type_Kind::Type:
             s << "typeof(" << data.type.type->debug_str() << ")";
             break;
@@ -203,6 +214,13 @@ Value_Type Value_Type::clone() const {
             ty.data.struct_.defn = data.struct_.defn;
             break;
             
+        case Value_Type_Kind::Function: {
+            auto return_type = Mem.make<Value_Type>().as_ptr();
+            *return_type = data.func.return_type->clone();
+            ty.data.func.return_type = return_type;
+            ty.data.func.arg_types = data.func.arg_types.clone();
+        } break;
+            
         case Value_Type_Kind::Type: {
             Value_Type *type = Mem.make<Value_Type>().as_ptr();
             *type = *data.type.type;
@@ -251,6 +269,23 @@ bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
                 for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
                     auto ai = data.tuple.child_types[i];
                     auto bi = other.data.tuple.child_types[i];
+                    if (!ai.eq_ignoring_mutability(bi)) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            break;
+        case Value_Type_Kind::Function:
+            if (data.func.arg_types.size() != other.data.func.arg_types.size() ||
+                data.func.return_type
+                    ->eq_ignoring_mutability(*other.data.func.return_type))
+            {
+                match = false;
+            } else {
+                for (size_t i = 0; i < data.func.arg_types.size(); i++) {
+                    auto ai = data.func.arg_types[i];
+                    auto bi = other.data.func.arg_types[i];
                     if (!ai.eq_ignoring_mutability(bi)) {
                         match = false;
                         break;
@@ -320,6 +355,23 @@ bool Value_Type::assignable_from(const Value_Type &other) {
                 }
             }
             break;
+        case Value_Type_Kind::Function:
+            if (data.func.arg_types.size() != other.data.func.arg_types.size() ||
+                data.func.return_type
+                    ->eq_ignoring_mutability(*other.data.func.return_type))
+            {
+                match = false;
+            } else {
+                for (size_t i = 0; i < data.func.arg_types.size(); i++) {
+                    auto ai = data.func.arg_types[i];
+                    auto bi = other.data.func.arg_types[i];
+                    if (!ai.eq_ignoring_mutability(bi)) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            break;
         case Value_Type_Kind::Range:
             if (data.range.inclusive != other.data.range.inclusive) {
                 match = false;
@@ -360,6 +412,18 @@ bool Value_Type::is_resolved() const {
             break;
         case Value_Type_Kind::Enum:
             internal_error("Cannot check if an enum type is resolved yet.");
+            break;
+            
+        case Value_Type_Kind::Function:
+            if (!data.func.return_type->is_resolved()) {
+                return false;
+            } else {
+                for (auto &arg : data.func.arg_types) {
+                    if (!arg.is_resolved()) {
+                        return false;
+                    }
+                }
+            }
             break;
             
         default:

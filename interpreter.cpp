@@ -114,3 +114,8 @@ size_t Type_Book::add_enum(const Enum_Definition &defn) {
     enums.add(std::move(defn));
     return enums.size() - 1;
 }
+
+size_t Function_Book::add_func(const Function_Definition &defn) {
+    funcs.add(std::move(defn));
+    return funcs.size() - 1;
+}
