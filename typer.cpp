@@ -930,7 +930,20 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
         size_t arg_pos;
         if (arg_node->kind == Untyped_AST_Kind::Binding) {
             began_named_args = true;
-            internal_error("Named arguments not yet implemented.");
+            
+            auto arg_bin = arg_node.cast<Untyped_AST_Binary>();
+            String arg_id = arg_bin->lhs.cast<Untyped_AST_Ident>()->id;
+            
+            arg_pos = -1;
+            for (size_t i = 0; i < defn->param_names.size(); i++) {
+                if (arg_id == defn->param_names[i]) {
+                    arg_pos = i;
+                    break;
+                }
+            }
+            verify(arg_pos != -1, "Unknown parameter '%.*s'.", arg_id.size(), arg_id.c_str());
+            
+            arg_expr = arg_bin->rhs;
         } else if (began_named_args) {
             error("Cannot have positional argruments after named arguments in function call.");
         } else {
@@ -952,6 +965,14 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
 }
 
 Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
+    switch (kind) {
+        case Untyped_AST_Kind::Invocation:
+            return typecheck_invocation(*this, t);
+            
+        default:
+            break;
+    }
+    
     auto lhs = this->lhs->typecheck(t);
     auto rhs = this->rhs->typecheck(t);
     switch (kind) {
@@ -1076,8 +1097,6 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(...) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int, "(...) requires operands to be of type (int) but was given (%s).", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Inclusive_Range, value_types::range_of(true, &lhs->type), lhs, rhs);
-        case Untyped_AST_Kind::Invocation:
-            return typecheck_invocation(*this, t);
         case Untyped_AST_Kind::While:
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs);

@@ -200,7 +200,7 @@ struct Parser {
         }
         
         expect(Token_Kind::Left_Paren, "Expected '(' to begin function parameter list.");
-        auto params = parse_comma_separated_expressions();
+        auto params = parse_parameter_list();
         expect(Token_Kind::Right_Paren, "Expected ')' to terminate function parameter list.");
         
         Ref<Untyped_AST_Type_Signature> return_type_signature = nullptr;
@@ -571,9 +571,10 @@ struct Parser {
                 a = parse_comma_separated_expressions(prev);
                 break;
             case Token_Kind::Colon: {
-                auto value_type = parse_type_signiture();
-                auto type_signature = Mem.make<Untyped_AST_Type_Signature>(value_type);
-                a = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, prev, type_signature);
+//                auto value_type = parse_type_signiture();
+//                auto type_signature = Mem.make<Untyped_AST_Type_Signature>(value_type);
+//                a = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, prev, type_signature);
+                a = parse_binary(Untyped_AST_Kind::Binding, prec, prev);
             } break;
             case Token_Kind::Left_Curly:
                 a = parse_struct_literal(prev);
@@ -700,6 +701,23 @@ struct Parser {
             comma->add(parse_precedence(Precedence::Comma + 1));
         } while (match(Token_Kind::Comma) && has_more());
         return comma;
+    }
+    
+    Ref<Untyped_AST_Multiary> parse_parameter_list() {
+        auto params = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
+        do {
+            if (check_terminating_delimeter()) break;
+            // @TODO: use patterns instead of idents
+//            auto target = parse_pattern();
+            auto id = expect(Token_Kind::Ident, "Expected parameter name.").data.s.clone();
+            auto target = Mem.make<Untyped_AST_Ident>(id);
+            expect(Token_Kind::Colon, "Expected ':' before parameters type.");
+            auto value_type = parse_type_signiture();
+            auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+            auto binding = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, target, sig);
+            params->add(binding);
+        } while (match(Token_Kind::Comma) && has_more());
+        return params;
     }
     
     Ref<Untyped_AST> parse_dot_operator(Ref<Untyped_AST> lhs) {
