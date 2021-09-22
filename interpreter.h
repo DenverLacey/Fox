@@ -46,6 +46,9 @@ struct Interpreter {
     Function_Book funcbook;
     Bucket_Array<Module> modules;
     
+    Data_Section constants;
+    Data_Section str_constants;
+    
     void interpret(const char *filepath);
     Module *create_module(String module_path);
     UUID next_uuid();

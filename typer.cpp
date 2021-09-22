@@ -951,9 +951,14 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
             arg_pos = num_ppos_args++;
         }
         
+        auto typecheck_arg_expr = arg_expr->typecheck(t);
+        verify(defn->type.data.func.arg_types[arg_pos]
+                   .assignable_from(typecheck_arg_expr->type),
+               "Argument type mismatch. Expected (%s) but was given (%s).", defn->type.data.func.arg_types[arg_pos].debug_str(), typecheck_arg_expr->type.debug_str());
+        
         auto &arg = args->nodes[arg_pos];
-        verify(!arg, "Argument given more than once."); // @TODO: better error message
-        arg = arg_expr->typecheck(t);
+        verify(!arg, "Argument '%.*s' given more than once.", defn->param_names[arg_pos].size(), defn->param_names[arg_pos].c_str());
+        arg = typecheck_arg_expr;
     }
     
     return Mem.make<Typed_AST_Binary>(
@@ -1391,9 +1396,11 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
                 break;
             case Untyped_AST_Kind::Binding: {
                 auto b = param.cast<Untyped_AST_Binary>();
-                param_name = b->lhs.cast<Untyped_AST_Ident>()->id.clone();
+                auto id = b->lhs.cast<Untyped_AST_Pattern_Ident>();
+                param_name = id->id.clone();
                 param_type = *b->rhs->typecheck(t)
                     .cast<Typed_AST_Type_Signature>()->value_type;
+                param_type.is_mut = id->is_mut;
             } break;
                 
             default:
@@ -1421,7 +1428,7 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     for (size_t i = 0; i < new_defn->param_names.size(); i++) {
         String param_name = new_defn->param_names[i];
         Value_Type param_type = new_defn->type.data.func.arg_types[i];
-        new_t.put_variable(param_name.c_str(), param_type, /*@TODO*/ false);
+        new_t.put_variable(param_name.c_str(), param_type, param_type.is_mut);
     }
     
     auto body = this->body->typecheck(new_t);

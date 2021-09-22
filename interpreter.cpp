@@ -64,9 +64,6 @@ void Interpreter::interpret(const char *path) {
 #endif
     
 #if COMPILE_AST
-    Data_Section constants;
-    Data_Section str_constants;
-    
     Function_Definition program;
     auto global = Compiler { this, constants, str_constants, &program };
     global.compile(typed_ast);
@@ -74,11 +71,11 @@ void Interpreter::interpret(const char *path) {
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("------\n");
     printf("<MAIN>:\n");
-    print_code(program.bytecode, global.constants, global.str_constants);
+    print_code(program.bytecode, constants, str_constants);
     
     for (auto &[_, fn] : funcbook.funcs) {
         printf("\n%.*s#%zu%s:\n", fn.name.size(), fn.name.c_str(), fn.id, fn.type.debug_str());
-        print_code(fn.bytecode, global.constants, global.str_constants);
+        print_code(fn.bytecode, constants, str_constants);
     }
 #endif
     

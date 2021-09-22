@@ -707,10 +707,9 @@ struct Parser {
         auto params = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
         do {
             if (check_terminating_delimeter()) break;
-            // @TODO: use patterns instead of idents
-//            auto target = parse_pattern();
+            bool is_mut = match(Token_Kind::Mut);
             auto id = expect(Token_Kind::Ident, "Expected parameter name.").data.s.clone();
-            auto target = Mem.make<Untyped_AST_Ident>(id);
+            auto target = Mem.make<Untyped_AST_Pattern_Ident>(is_mut, id);
             expect(Token_Kind::Colon, "Expected ':' before parameters type.");
             auto value_type = parse_type_signiture();
             auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
