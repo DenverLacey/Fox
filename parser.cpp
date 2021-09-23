@@ -37,13 +37,13 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Err: return Precedence::None;
             
         // literals
-        case Token_Kind::True: return Precedence::None;
-        case Token_Kind::False: return Precedence::None;
-        case Token_Kind::Int: return Precedence::None;
-        case Token_Kind::Float: return Precedence::None;
-        case Token_Kind::Char: return Precedence::None;
+        case Token_Kind::True:   return Precedence::None;
+        case Token_Kind::False:  return Precedence::None;
+        case Token_Kind::Int:    return Precedence::None;
+        case Token_Kind::Float:  return Precedence::None;
+        case Token_Kind::Char:   return Precedence::None;
         case Token_Kind::String: return Precedence::None;
-        case Token_Kind::Ident: return Precedence::None;
+        case Token_Kind::Ident:  return Precedence::None;
             
         // delimeters
         case Token_Kind::Semi: return Precedence::None;
@@ -51,7 +51,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Comma: return Precedence::Comma;
         case Token_Kind::Left_Paren: return Precedence::Call;
         case Token_Kind::Right_Paren: return Precedence::None;
-        case Token_Kind::Left_Curly: return Precedence::Call;
+        case Token_Kind::Left_Curly: return Precedence::None;
         case Token_Kind::Right_Curly: return Precedence::None;
         case Token_Kind::Left_Bracket: return Precedence::Call;
         case Token_Kind::Right_Bracket: return Precedence::None;
@@ -160,6 +160,18 @@ struct Parser {
                 return true;
         }
         return false;
+    }
+    
+    bool check_beginning_of_struct_literal() {
+        if (!check(Token_Kind::Left_Curly)) return false;
+        if (!check(Token_Kind::Ident, 1)) return false;
+        if (!(check(Token_Kind::Colon, 2) ||
+              check(Token_Kind::Comma, 2) ||
+              check(Token_Kind::Right_Curly, 2)))
+        {
+            return false;
+        }
+        return true;
     }
     
     bool match(Token_Kind kind) {
@@ -407,6 +419,19 @@ struct Parser {
                     *type = value_types::tup_from(subtypes.size(), flatten(subtypes));
                 }
             } break;
+            case Token_Kind::Left_Bracket: {
+                if (check(Token_Kind::Right_Bracket)) {
+                    type->kind = Value_Type_Kind::Slice;
+                } else {
+                    auto count = expect(Token_Kind::Int, "Expected integer literal in array type signature").data.i;
+                    type->kind = Value_Type_Kind::Array;
+                    type->data.array.count = count;
+                }
+                expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
+                bool is_mut = match(Token_Kind::Mut);
+                type->data.array.element_type = parse_type_signiture().as_ptr();
+                type->data.array.element_type->is_mut = is_mut;
+            } break;
             default:
                 error("Invalid type signiture.");
                 break;
@@ -504,25 +529,28 @@ struct Parser {
                 
             // literals
             case Token_Kind::Ident:
-                 a = Mem.make<Untyped_AST_Ident>(token.data.s.clone());
+                a = Mem.make<Untyped_AST_Ident>(token.data.s.clone());
+                if (check_beginning_of_struct_literal()) {
+                    a = parse_struct_literal(a);
+                }
                 break;
             case Token_Kind::True:
-                 a = Mem.make<Untyped_AST_Bool>(true);
+                a = Mem.make<Untyped_AST_Bool>(true);
                 break;
             case Token_Kind::False:
-                 a = Mem.make<Untyped_AST_Bool>(false);
+                a = Mem.make<Untyped_AST_Bool>(false);
                 break;
             case Token_Kind::Int:
-                 a = Mem.make<Untyped_AST_Int>(token.data.i);
+                a = Mem.make<Untyped_AST_Int>(token.data.i);
                 break;
             case Token_Kind::Float:
-                 a = Mem.make<Untyped_AST_Float>(token.data.f);
+                a = Mem.make<Untyped_AST_Float>(token.data.f);
                 break;
             case Token_Kind::Char:
-                 a = Mem.make<Untyped_AST_Char>(token.data.c);
+                a = Mem.make<Untyped_AST_Char>(token.data.c);
                 break;
             case Token_Kind::String:
-                 a = Mem.make<Untyped_AST_Str>(token.data.s);
+                a = Mem.make<Untyped_AST_Str>(token.data.s);
                 break;
                 
             // operators
@@ -570,14 +598,8 @@ struct Parser {
             case Token_Kind::Comma:
                 a = parse_comma_separated_expressions(prev);
                 break;
-            case Token_Kind::Colon: {
-//                auto value_type = parse_type_signiture();
-//                auto type_signature = Mem.make<Untyped_AST_Type_Signature>(value_type);
-//                a = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, prev, type_signature);
+            case Token_Kind::Colon:
                 a = parse_binary(Untyped_AST_Kind::Binding, prec, prev);
-            } break;
-            case Token_Kind::Left_Curly:
-                a = parse_struct_literal(prev);
                 break;
             case Token_Kind::Left_Bracket:
                 a = parse_binary(Untyped_AST_Kind::Subscript, Precedence::Comma + 1, prev);
@@ -800,6 +822,7 @@ struct Parser {
     }
     
     Ref<Untyped_AST_Struct_Literal> parse_struct_literal(Ref<Untyped_AST> id) {
+        expect(Token_Kind::Left_Curly, "Expected '{' in struct literal.");
         auto bindings = parse_comma_separated_expressions();
         expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct literal.");
         return Mem.make<Untyped_AST_Struct_Literal>(

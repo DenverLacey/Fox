@@ -42,6 +42,8 @@ enum class Opcode : uint8_t {
     Int_Div,
     Int_Neg,
     Mod,
+    Inc,
+    Dec,
     
     Float_Add,
     Float_Sub,

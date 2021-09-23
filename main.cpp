@@ -16,6 +16,8 @@
 //      just to use Ref<Value_Type>.
 // [x]  Implement mutable function parameters.
 // [ ]  Implement return checking.
+// [ ]  Change variable declarations without initializers to accept immutable arrays
+//      where the element type is mutable.
 //
 
 #include <iostream>

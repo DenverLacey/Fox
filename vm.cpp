@@ -137,6 +137,15 @@ void VM::run() {
             case Opcode::Int_Div:   BIOP_CHECK_FOR_ZERO(runtime::Int, /, "/");
             case Opcode::Int_Neg:   UNOP(runtime::Int, -);
             case Opcode::Mod:       BIOP_CHECK_FOR_ZERO(runtime::Int, %, "%%");
+            case Opcode::Inc: {
+                runtime::Int *n = stack.pop<runtime::Int *>();
+                (*n)++;
+            } break;
+            case Opcode::Dec: {
+                runtime::Int *n = stack.pop<runtime::Int *>();
+                (*n)--;
+            } break;
+                
             case Opcode::Float_Add: BIOP(runtime::Float, +);
             case Opcode::Float_Sub: BIOP(runtime::Float, -);
             case Opcode::Float_Mul: BIOP(runtime::Float, *);
@@ -446,6 +455,14 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 break;
             case Opcode::Mod:
                 printf(IDX "Mod\n", i);
+                i++;
+                break;
+            case Opcode::Inc:
+                printf(IDX "Inc\n", i);
+                i++;
+                break;
+            case Opcode::Dec:
+                printf(IDX "Dec\n", i);
                 i++;
                 break;
             case Opcode::Float_Add:

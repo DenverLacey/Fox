@@ -1232,19 +1232,9 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
 //    patch_loop_controls(c, c->continues);
     
     // increment counter
-    c.emit_opcode(Opcode::Lit_1);
-    
-    c.emit_opcode(Opcode::Push_Value);
-    c.emit_size(counter_v.type.size());
-    c.emit_address(counter_v.address);
-    
-    c.emit_opcode(Opcode::Int_Add);
-    
     c.emit_opcode(Opcode::Push_Pointer);
     c.emit_address(counter_v.address);
-    
-    c.emit_opcode(Opcode::Move);
-    c.emit_size(counter_v.type.size());
+    c.emit_opcode(Opcode::Inc);
 
     c.emit_loop(loop_start);
 
@@ -1297,35 +1287,15 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
     
     if (counter_v) {
         // increment counter
-        c.emit_opcode(Opcode::Lit_1);
-        
-        c.emit_opcode(Opcode::Push_Value);
-        c.emit_size(counter_v->type.size());
-        c.emit_address(counter_v->address);
-        
-        c.emit_opcode(Opcode::Int_Add);
-        
         c.emit_opcode(Opcode::Push_Pointer);
         c.emit_address(counter_v->address);
-        
-        c.emit_opcode(Opcode::Move);
-        c.emit_size(counter_v->type.size());
+        c.emit_opcode(Opcode::Inc);
     }
     
     // increment target_v
-    c.emit_opcode(Opcode::Lit_1);
-    
-    c.emit_opcode(Opcode::Push_Value);
-    c.emit_size(target_v.type.size());
-    c.emit_address(target_v.address);
-    
-    c.emit_opcode(Opcode::Int_Add);
-    
     c.emit_opcode(Opcode::Push_Pointer);
     c.emit_address(target_v.address);
-    
-    c.emit_opcode(Opcode::Move);
-    c.emit_size(target_v.type.size());
+    c.emit_opcode(Opcode::Inc);
     
     c.emit_loop(loop_start);
     

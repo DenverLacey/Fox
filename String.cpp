@@ -56,7 +56,7 @@ char *String::c_str() {
     return _data;
 }
 
-char *String::c_str() const {
+const char *String::c_str() const {
     return _data;
 }
 

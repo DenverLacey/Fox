@@ -60,7 +60,7 @@ Size Value_Type::size() const {
             return sizeof(runtime::Pointer);
             
         case Value_Type_Kind::Type:
-            internal_error("Type.size() not yet implemented.");
+            internal_error("Value_Type_Kind::Type::size() not yet implemented.");
             return 0;
             
         default:
@@ -401,7 +401,7 @@ bool Value_Type::is_resolved() const {
             for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
                 if (!data.tuple.child_types[i].is_resolved()) return false;
             }
-            return true;
+            break;
             
         case Value_Type_Kind::Struct:
             for (auto &f : data.struct_.defn->fields) {
