@@ -48,6 +48,7 @@ public:
     inline const T *begin() const { return _data; }
     inline const T *end() const { return _data + _size; }
     inline T *data() { return _data; }
+    inline const T *data() const { return _data; }
     inline size_t size() const { return _size; }
     
     inline T &operator[](size_t idx) { return _data[idx]; }

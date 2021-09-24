@@ -122,12 +122,14 @@ struct Value_Type {
     Size size() const;
     char *debug_str() const;
     Value_Type *child_type();
+    const Value_Type *child_type() const;
     Value_Type clone() const;
     
     bool eq(const Value_Type &other);
     bool eq_ignoring_mutability(const Value_Type &other);
     bool assignable_from(const Value_Type &other);
     bool is_resolved() const;
+    bool is_partially_mutable() const;
 };
 
 namespace value_types {

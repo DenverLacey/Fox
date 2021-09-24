@@ -181,7 +181,7 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
             constant.address = add_str_constant({ value.s, (size_t)value.len });
         } break;
         case Value_Type_Kind::Ptr:
-            internal_error("declaring constants of pointer types not yet implemented.");
+            todo("declaring constants of pointer types not yet implemented.");
             break;
         case Value_Type_Kind::Array: {
             size_t size = let.initializer->type.size();
@@ -190,7 +190,7 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
             constant.address = add_constant(data, size);
         } break;
         case Value_Type_Kind::Slice:
-            internal_error("declaring constants of slice types not yet implemented.");
+            todo("declaring constants of slice types not yet implemented.");
             break;
         case Value_Type_Kind::Tuple: {
             size_t size = let.initializer->type.size();
@@ -206,10 +206,10 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
         } break;
             
         case Value_Type_Kind::Struct:
-            internal_error("declaring constants of a struct type not yet implemented.");
+            todo("declaring constants of a struct type not yet implemented.");
             break;
         case Value_Type_Kind::Enum:
-            internal_error("declaring constats of an enum type not yet implemented.");
+            todo("declaring constats of an enum type not yet implemented.");
             break;
             
         case Value_Type_Kind::Void:
@@ -263,12 +263,13 @@ void Compiler::compile_constant(Variable constant) {
             emit_value<runtime::Pointer>(value);
         } break;
         case Value_Type_Kind::Array: {
-            emit_opcode(Opcode::Load_Const_Array);
+//            emit_opcode(Opcode::Load_Const_Array);
+            emit_opcode(Opcode::Load_Const);
             emit_size(constant.type.size());
             emit_value<size_t>(constant.address);
         } break;
         case Value_Type_Kind::Slice:
-            internal_error("Constant Slices not yet compilable.");
+            todo("Constant Slices not yet compilable.");
             break;
             
         case Value_Type_Kind::Tuple:
@@ -280,7 +281,7 @@ void Compiler::compile_constant(Variable constant) {
             
         case Value_Type_Kind::Struct:
         case Value_Type_Kind::Enum:
-            internal_error("Constant struct and enum values not compilable yet.");
+            todo("Constant struct and enum values not compilable yet.");
             
         default:
             internal_error("Invalid Value_Type_kind in Compiler::compile_constant(): %d", constant.type.kind);
@@ -838,7 +839,7 @@ static void emit_dynamic_offset_load(
 }
 
 static void compile_range_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
-    internal_error("Subscript with range not yet implemented.");
+    todo("Subscript with range not yet implemented.");
     
     Address stack_top = c.stack_top;
     c.stack_top = stack_top + sub.type.size();

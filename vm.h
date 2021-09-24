@@ -33,7 +33,7 @@ enum class Opcode : uint8_t {
     // CONSTANTS
     Load_Const,
     Load_Const_String,
-    Load_Const_Array,
+//    Load_Const_Array,
     
     // ARITHMETIC
     Int_Add,

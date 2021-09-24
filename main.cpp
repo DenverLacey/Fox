@@ -7,17 +7,13 @@
 //
 
 // @TODOS:
-// [x]  Add negation operation.
-// [ ]  Add absolute-value operator (unary +)?
-// [ ]  Add increment and decrement opcode in vm as an optimisation?
-// [ ]  Use increment opcode in for-range loop.
-// [x]  Implement compile-time code execution.
 // [ ]  Maybe get rid of AST_Type_Signiture cause it might be pointless and easier
 //      just to use Ref<Value_Type>.
-// [x]  Implement mutable function parameters.
-// [ ]  Implement return checking.
-// [ ]  Change variable declarations without initializers to accept immutable arrays
+// [x]  Implement return checking.
+// [x]  Change variable declarations without initializers to accept immutable arrays
 //      where the element type is mutable.
+// [ ]  Handle array subscript for constant arrays.
+// [ ]  Maybe handle dereferencing constant pointers.
 //
 
 #include <iostream>

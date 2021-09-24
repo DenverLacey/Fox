@@ -623,6 +623,7 @@ struct Typer {
     Module *module;
     Typer_Scope *global_scope;
     Function_Definition *function;
+    bool has_return;
     std::forward_list<Typer_Scope> scopes;
     
     Typer(Interpreter *interp, String module_path) {
@@ -639,6 +640,7 @@ struct Typer {
         this->module = t.module;
         this->global_scope = t.global_scope;
         this->function = function;
+        this->has_return = false;
     }
     
     Typer_Scope &current_scope() {
@@ -736,7 +738,7 @@ struct Typer {
                 internal_error("Attempted to resolve a None Value_Type.");
                 break;
             case Value_Type_Kind::Unresolved_Type:
-                internal_error("Resolving an Unresolved type not yet implemented.");
+                todo("Resolving an Unresolved type not yet implemented.");
                 break;
                 
             case Value_Type_Kind::Ptr: {
@@ -768,10 +770,10 @@ struct Typer {
             } break;
 
             case Value_Type_Kind::Struct:
-                internal_error("Canont resolve struct types yet.");
+                todo("Canont resolve struct types yet.");
                 break;
             case Value_Type_Kind::Enum:
-                internal_error("Cannot resolve enum types yet.");
+                todo("Cannot resolve enum types yet.");
                 break;
                 
             default:
@@ -821,7 +823,7 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
                     ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, ty.data.type.type->data.struct_.defn->id, ty);
                     break;
                 case Value_Type_Kind::Enum:
-                    internal_error("Enum idents not yet implemented.");
+                    todo("Enum idents not yet implemented.");
                     break;
                 
                 default:
@@ -855,10 +857,10 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Negation:
             verify(sub->type.kind == Value_Type_Kind::Int ||
                    sub->type.kind == Value_Type_Kind::Float,
-                   "(-) requires operand to be an (int) or a (float) but was given (%s).", sub->type.debug_str());
+                   "(-) requires operand to be an 'int' or a 'float' but was given '%s'.", sub->type.debug_str());
             return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Negation, sub->type, sub);
         case Untyped_AST_Kind::Not:
-            verify(sub->type.kind == Value_Type_Kind::Bool, "(!) requires operand to be a (bool) but got a (%s).", sub->type.debug_str());
+            verify(sub->type.kind == Value_Type_Kind::Bool, "(!) requires operand to be a 'bool' but got a '%s'.", sub->type.debug_str());
             return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Not, value_types::Bool, sub);
         case Untyped_AST_Kind::Address_Of: {
             verify(sub->type.kind != Value_Type_Kind::None, "Cannot take a pointer to something that doesn't return a value.");
@@ -873,7 +875,7 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
             return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of_Mut, pty, sub);
         }
         case Untyped_AST_Kind::Deref:
-            verify(sub->type.kind == Value_Type_Kind::Ptr, "Cannot dereference something of type (%s) because it is not a pointer type.", sub->type.debug_str());
+            verify(sub->type.kind == Value_Type_Kind::Ptr, "Cannot dereference something of type '%s' because it is not a pointer type.", sub->type.debug_str());
             return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.child_type, sub);
             
         default:
@@ -887,13 +889,13 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
 
     Ref<Typed_AST> sub = nullptr;
     if (t.function->type.kind == Value_Type_Kind::Void) {
-        verify(!this->sub, "Return statement does not match function definition. (%s) vs (%s).", t.function->type.data.func.return_type->debug_str(), this->sub->typecheck(t)->type.size());
+        verify(!this->sub, "Return statement does not match function definition. Expected '%s' but was given '%s'.", t.function->type.data.func.return_type->debug_str(), this->sub->typecheck(t)->type.size());
     } else {
         sub = this->sub->typecheck(t);
-        verify(t.function->type.data.func.return_type->assignable_from(sub->type), "Return statement does not match function definition. (%s) vs (%s).", t.function->type.data.func.return_type->debug_str(), sub->type.size());
+        verify(t.function->type.data.func.return_type->assignable_from(sub->type), "Return statement does not match function definition. Expected '%s' but was given '%s'.", t.function->type.data.func.return_type->debug_str(), sub->type.debug_str());
     }
     
-    // @TODO: return checking stuff
+    t.has_return = true;
     
     return Mem.make<Typed_AST_Return>(sub);
 }
@@ -954,7 +956,7 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
         auto typecheck_arg_expr = arg_expr->typecheck(t);
         verify(defn->type.data.func.arg_types[arg_pos]
                    .assignable_from(typecheck_arg_expr->type),
-               "Argument type mismatch. Expected (%s) but was given (%s).", defn->type.data.func.arg_types[arg_pos].debug_str(), typecheck_arg_expr->type.debug_str());
+               "Argument type mismatch. Expected '%s' but was given '%s'.", defn->type.data.func.arg_types[arg_pos].debug_str(), typecheck_arg_expr->type.debug_str());
         
         auto &arg = args->nodes[arg_pos];
         verify(!arg, "Argument '%.*s' given more than once.", defn->param_names[arg_pos].size(), defn->param_names[arg_pos].c_str());
@@ -984,38 +986,38 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Addition:
             verify(lhs->type.kind == rhs->type.kind, "(+) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, "(+) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   lhs->type.kind == Value_Type_Kind::Float, "(+) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, "(+) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
+                   rhs->type.kind == Value_Type_Kind::Float, "(+) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Addition, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Subtraction:
             verify(lhs->type.kind == rhs->type.kind, "(-) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, "(-) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   lhs->type.kind == Value_Type_Kind::Float, "(-) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, "(-) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
+                   rhs->type.kind == Value_Type_Kind::Float, "(-) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Subtraction, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Multiplication:
             verify(lhs->type.kind == rhs->type.kind, "(*) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   lhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
+                   rhs->type.kind == Value_Type_Kind::Float, "(*) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Multiplication, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Division:
             verify(lhs->type.kind == rhs->type.kind, "(/) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   lhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either (int) or (float) but was given (%s).", rhs->type.debug_str());
+                   rhs->type.kind == Value_Type_Kind::Float, "(/) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Division, lhs->type, lhs, rhs);
         case Untyped_AST_Kind::Mod:
             verify(lhs->type.kind == rhs->type.kind, "(+) requires both operands to be the same type.");
-            verify(lhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be (int) but was given (%s).", rhs->type.debug_str());
+            verify(lhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be 'int' but was given '%s'.", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Int, "(+) requires operands to be 'int' but was given '%s'.", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Mod, value_types::Int, lhs, rhs);
         case Untyped_AST_Kind::Assignment:
-            verify(lhs->type.is_mut, "Cannot assign to something of type (%s) because it is immutable.", lhs->type.debug_str());
+            verify(lhs->type.is_mut, "Cannot assign to something of type '%s' because it is immutable.", lhs->type.debug_str());
             verify(lhs->type.assignable_from(rhs->type), "(=) requires both operands to be the same type.");
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Assignment, value_types::None, lhs, rhs);
         case Untyped_AST_Kind::Equal:
@@ -1028,38 +1030,38 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(<) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
-                   "(<) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   "(<) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Greater:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(>) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
-                   "(>) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   "(>) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Greater, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Less_Eq:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(<=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
-                   "(<=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   "(<=) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less_Eq, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Greater_Eq:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(>=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
                    lhs->type.kind == Value_Type_Kind::Float,
-                   "(>=) requires operands to be (int) or (float) but was given (%s).", lhs->type.debug_str());
+                   "(>=) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Greater_Eq, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::And:
-            verify(lhs->type.kind == Value_Type_Kind::Bool, "(and) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Bool, "(and) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
+            verify(lhs->type.kind == Value_Type_Kind::Bool, "(and) requires first operand to be 'bool' but was given '%s'.", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Bool, "(and) requires second operand to be 'bool' but was given '%s'.", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::And, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Or:
-            verify(lhs->type.kind == Value_Type_Kind::Bool, "(or) requires first operand to be (bool) but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be (bool) but was given (%s).", rhs->type.debug_str());
+            verify(lhs->type.kind == Value_Type_Kind::Bool, "(or) requires first operand to be 'bool' but was given '%s'.", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Bool, "(or) requires second operand to be 'bool' but was given '%s'.", rhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Or, value_types::Bool, lhs, rhs);
         case Untyped_AST_Kind::Field_Access_Tuple: {
             bool needs_deref = lhs->type.kind == Value_Type_Kind::Ptr;
             Value_Type &ty = needs_deref ? *lhs->type.child_type() : lhs->type;
-            verify(ty.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given (%s).", lhs->type.debug_str());
+            verify(ty.kind == Value_Type_Kind::Tuple, "(.) requires first operand to be a tuple but was given '%s'.", lhs->type.debug_str());
             auto i = rhs.cast<Typed_AST_Int>();
             internal_verify(i, "Dot_Tuple got a rhs that wasn't an int.");
             verify(i->value < ty.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
@@ -1076,8 +1078,8 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Subscript: {
             verify(lhs->type.kind == Value_Type_Kind::Array ||
                    lhs->type.kind == Value_Type_Kind::Slice,
-                   "([]) requires first operand to be an array or slice but was given (%s).", lhs->type.debug_str());
-            verify(rhs->type.kind == Value_Type_Kind::Int, "([]) requires second operand to be (int) but was given (%s).", rhs->type.debug_str());
+                   "([]) requires first operand to be an array or slice but was given '%s'.", lhs->type.debug_str());
+            verify(rhs->type.kind == Value_Type_Kind::Int, "([]) requires second operand to be 'int' but was given '%s'.", rhs->type.debug_str());
             
             Typed_AST_Kind kind = Typed_AST_Kind::Subscript;
             
@@ -1096,14 +1098,15 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
         }
         case Untyped_AST_Kind::Range:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(..) requires both operands to be the same type.");
-            verify(lhs->type.kind == Value_Type_Kind::Int, "(..) requires operands to be of type (int) but was given (%s).", lhs->type.debug_str());
+            verify(lhs->type.kind == Value_Type_Kind::Int, "(..) requires operands to be of type 'int' but was given '%s'.", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Range, value_types::range_of(false, &lhs->type), lhs, rhs);
         case Untyped_AST_Kind::Inclusive_Range:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), "(...) requires both operands to be the same type.");
-            verify(lhs->type.kind == Value_Type_Kind::Int, "(...) requires operands to be of type (int) but was given (%s).", lhs->type.debug_str());
+            verify(lhs->type.kind == Value_Type_Kind::Int, "(...) requires operands to be of type 'int' but was given '%s'.", lhs->type.debug_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Inclusive_Range, value_types::range_of(true, &lhs->type), lhs, rhs);
         case Untyped_AST_Kind::While:
-            verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be (bool) but was given (%s).", lhs->type.debug_str());
+            verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be 'bool' but was given '%s'.", lhs->type.debug_str());
+            t.has_return = false;
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs);
             
         default:
@@ -1159,7 +1162,7 @@ Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
         element_type->is_mut = is_mut;
     }
     for (size_t i = 0; i < element_nodes->nodes.size(); i++) {
-        verify(element_nodes->nodes[i]->type.eq_ignoring_mutability(*element_type), "Element %zu in array literal does not match the expected type (%s).", i+1, element_type->debug_str());
+        verify(element_nodes->nodes[i]->type.eq_ignoring_mutability(*element_type), "Element %zu in array literal does not match the expected type '%s'.", i+1, element_type->debug_str());
     }
     return Mem.make<Typed_AST_Array>(*array_type, to_typed(kind), count, array_type, element_nodes);
 }
@@ -1187,14 +1190,14 @@ Ref<Typed_AST> Untyped_AST_Struct_Literal::typecheck(Typer &t) {
                 auto bid = binding.cast<Untyped_AST_Ident>();
                 verify(field.id == bid->id, "Given identifier doesn't match name of field. Expected '%.*s' but was given '%.*s'. Please specify field.", field.id.size(), field.id.c_str(), bid->id.size(), bid->id.c_str());
                 arg = bid->typecheck(t);
-                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. (%s) vs. (%s).", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
+                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. '%s' vs. '%s'.", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
             } break;
             case Untyped_AST_Kind::Binding: {
                 auto b = binding.cast<Untyped_AST_Binary>();
                 auto bid = b->lhs.cast<Untyped_AST_Ident>();
                 verify(field.id == bid->id, "Given identifier doesn't match name of field. Expected '%.*s' but was given '%.*s'.", field.id.size(), field.id.c_str(), bid->id.size(), bid->id.c_str());
                 arg = b->rhs->typecheck(t);
-                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. (%s) vs (%s).", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
+                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. Expected '%s' but was given '%s'.", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
             } break;
                 
             default:
@@ -1213,7 +1216,7 @@ Ref<Typed_AST> Untyped_AST_Field_Access::typecheck(Typer &t) {
     
     bool needs_deref = instance->type.kind == Value_Type_Kind::Ptr;
     Value_Type &ty = needs_deref ? *instance->type.child_type() : instance->type;
-    verify(ty.kind == Value_Type_Kind::Struct, "(.) requires first operand to be a struct type but was given (%s).", instance->type.debug_str());
+    verify(ty.kind == Value_Type_Kind::Struct, "(.) requires first operand to be a struct type but was given '%s'.", instance->type.debug_str());
     
     Struct_Field *field = ty.data.struct_.defn->find_field(field_id);
     verify(field, "'%.*s' is not a field of '%.*s'.", field_id.size(), field_id.c_str(), ty.data.struct_.defn->name.size(), ty.data.struct_.defn->name.c_str());
@@ -1245,8 +1248,11 @@ Ref<Typed_AST> Untyped_AST_Pattern_Struct::typecheck(Typer &t) {
 Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
     auto cond = this->cond->typecheck(t);
     auto then = this->then->typecheck(t);
+    
+    t.has_return = false;
+    
     auto else_ = this->else_ ? this->else_->typecheck(t) : nullptr;
-    verify(!else_ || then->type.eq(else_->type), "Both branches of (if) must be the same. (%s) vs (%s).", then->type.debug_str(), else_->type.debug_str());
+    verify(!else_ || then->type.eq(else_->type), "Both branches of (if) must be the same. '%s' vs '%s'.", then->type.debug_str(), else_->type.debug_str());
     return Mem.make<Typed_AST_If>(then->type, cond, then, else_);
 }
 
@@ -1265,7 +1271,7 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
             break;
             
         default:
-            error("Cannot iterate over something of type (%s).", iterable->type.debug_str());
+            error("Cannot iterate over something of type '%s'.", iterable->type.debug_str());
             break;
     }
     
@@ -1283,6 +1289,8 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
     auto body = this->body->typecheck(t);
     
     t.end_scope();
+    
+    t.has_return = false;
     
     return Mem.make<Typed_AST_For>(
         iterable->type.kind == Value_Type_Kind::Range ?
@@ -1306,7 +1314,7 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
     Ref<Typed_AST_Type_Signature> sig = nullptr;
     if (specified_type) {
         if (init) {
-            verify(specified_type->value_type->assignable_from(init->type), "Specified type (%s) does not match given type (%s).", specified_type->value_type->debug_str(), init->type.debug_str());
+            verify(specified_type->value_type->assignable_from(init->type), "Specified type '%s' does not match given type '%s'.", specified_type->value_type->debug_str(), init->type.debug_str());
         }
         sig = specified_type->typecheck(t).cast<Typed_AST_Type_Signature>();
         internal_verify(sig, "Failed to cast to Type_Sig in Untyped_AST_Let::typecheck().");
@@ -1320,7 +1328,7 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Generic_Specialization::typecheck(Typer &t) {
-    internal_error("Generic_Specialization::typecheck() not yet implemented.");
+    todo("Generic_Specialization::typecheck() not yet implemented.");
 }
 
 Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
@@ -1392,7 +1400,7 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
         Value_Type param_type;
         switch (param->kind) {
             case Untyped_AST_Kind::Assignment:
-                internal_error("Default arguments not yet implemented.");
+                todo("Default arguments not yet implemented.");
                 break;
             case Untyped_AST_Kind::Binding: {
                 auto b = param.cast<Untyped_AST_Binary>();
@@ -1432,6 +1440,9 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     }
     
     auto body = this->body->typecheck(new_t);
+    
+    verify(new_defn->type.data.func.return_type->kind == Value_Type_Kind::Void ||
+           new_t.has_return, "Not all paths return a value in non-void function '%.*s'.", new_defn->name.size(), new_defn->name.c_str());
     
     return Mem.make<Typed_AST_Fn_Declaration>(
         new_defn,

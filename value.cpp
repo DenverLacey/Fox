@@ -53,14 +53,14 @@ Size Value_Type::size() const {
             return data.struct_.defn->size;
             
         case Value_Type_Kind::Enum:
-            internal_error("Enums not yet implemented.");
+            todo("Enums not yet implemented.");
             return 0;
             
         case Value_Type_Kind::Function:
             return sizeof(runtime::Pointer);
             
         case Value_Type_Kind::Type:
-            internal_error("Value_Type_Kind::Type::size() not yet implemented.");
+            todo("Value_Type_Kind::Type::size() not yet implemented.");
             return 0;
             
         default:
@@ -154,6 +154,11 @@ char *Value_Type::debug_str() const {
 }
 
 Value_Type *Value_Type::child_type() {
+    const Value_Type *const me = this;
+    return (Value_Type *)me->child_type();
+}
+
+const Value_Type *Value_Type::child_type() const {
     switch (kind) {
         case Value_Type_Kind::Ptr:
             return data.ptr.child_type;
@@ -228,7 +233,7 @@ Value_Type Value_Type::clone() const {
         } break;
             
         case Value_Type_Kind::Enum:
-            internal_error("Struct and Enum can't be cloned yet.");
+            todo("Enum can't be cloned yet.");
             break;
             
         default:
@@ -411,7 +416,7 @@ bool Value_Type::is_resolved() const {
             }
             break;
         case Value_Type_Kind::Enum:
-            internal_error("Cannot check if an enum type is resolved yet.");
+            todo("Cannot check if an enum type is resolved yet.");
             break;
             
         case Value_Type_Kind::Function:
@@ -431,6 +436,20 @@ bool Value_Type::is_resolved() const {
     }
     
     return true;
+}
+
+bool Value_Type::is_partially_mutable() const {
+    switch (kind) {
+        case Value_Type_Kind::Ptr:
+        case Value_Type_Kind::Array:
+        case Value_Type_Kind::Slice:
+            return child_type()->is_partially_mutable();
+            
+        default:
+            break;
+    }
+    
+    return is_mut;
 }
 
 Size Tuple_Type_Data::offset_of_type(size_t idx) {

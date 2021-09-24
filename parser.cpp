@@ -163,15 +163,14 @@ struct Parser {
     }
     
     bool check_beginning_of_struct_literal() {
-        if (!check(Token_Kind::Left_Curly)) return false;
-        if (!check(Token_Kind::Ident, 1)) return false;
-        if (!(check(Token_Kind::Colon, 2) ||
-              check(Token_Kind::Comma, 2) ||
-              check(Token_Kind::Right_Curly, 2)))
-        {
-            return false;
-        }
-        return true;
+        return check(Token_Kind::Left_Curly) &&
+        
+              (check(Token_Kind::Ident, 1) ||
+               check(Token_Kind::Right_Curly, 1)) &&
+        
+              (check(Token_Kind::Colon, 2) ||
+               check(Token_Kind::Comma, 2) ||
+               check(Token_Kind::Right_Curly, 2));
     }
     
     bool match(Token_Kind kind) {
@@ -207,7 +206,7 @@ struct Parser {
         String id = expect(Token_Kind::Ident, "Expected identifier after 'fn' keyword").data.s.clone();
         
         if (match(Token_Kind::Left_Angle)) {
-            internal_error("Generic functions not yet implemented.");
+            todo("Generic functions not yet implemented.");
             expect(Token_Kind::Right_Angle, "Expected '>' to terminate generic parameter list.");
         }
         
@@ -297,7 +296,7 @@ struct Parser {
         }
         
         verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
-        verify(initializer || target->are_all_variables_mut(), "'let' statements without an initializer must be marked 'mut'.");
+        verify(initializer || target->are_all_variables_mut() || (specified_type ? specified_type->value_type->is_partially_mutable() : false), "'let' statements without an initializer must be marked 'mut'.");
         
         return Mem.make<Untyped_AST_Let>(false, target, specified_type, initializer);
     }
@@ -344,7 +343,7 @@ struct Parser {
                     expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct pattern.");
                     p = sp;
                 } else if (match(Token_Kind::Left_Paren)) {
-                    internal_error("Enum Patterns not yet implemented.");
+                    todo("Enum Patterns not yet implemented.");
                 } else {
                     p = Mem.make<Untyped_AST_Pattern_Ident>(false, id);
                 }

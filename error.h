@@ -21,3 +21,6 @@
 
 #define internal_verify(cond, ...) \
     if (!(cond)) internal_error(__VA_ARGS__)
+
+[[noreturn]] void todo(const char *err, ...);
+[[noreturn]] void todo(const char *err, va_list args);
