@@ -340,8 +340,9 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::And:             return Typed_AST_Kind::And;
         case Untyped_AST_Kind::Or:              return Typed_AST_Kind::Or;
         case Untyped_AST_Kind::While:           return Typed_AST_Kind::While;
-        case Untyped_AST_Kind::Field_Access:             return Typed_AST_Kind::Field_Access;
-        case Untyped_AST_Kind::Field_Access_Tuple:       return Typed_AST_Kind::Field_Access_Tuple;
+        case Untyped_AST_Kind::Field_Access:    return Typed_AST_Kind::Field_Access;
+        case Untyped_AST_Kind::Field_Access_Tuple:
+            return Typed_AST_Kind::Field_Access_Tuple;
         case Untyped_AST_Kind::Subscript:       return Typed_AST_Kind::Subscript;
         case Untyped_AST_Kind::Block:           return Typed_AST_Kind::Block;
         case Untyped_AST_Kind::Comma:           return Typed_AST_Kind::Comma;
@@ -361,7 +362,8 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Generic_Specialization:
             break;
     }
-    assert(false);
+    
+    internal_error("Invalid Untyped_AST_Kind value: %d\n", kind);
 }
 
 constexpr size_t INDENT_SIZE = 2;
@@ -527,7 +529,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             print_binary_at_indent(interp, "call", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::If: {
-            Ref<Typed_AST_If> t = node.cast<Typed_AST_If>();
+            auto t = node.cast<Typed_AST_If>();
             printf("(if)\n");
             print_sub_at_indent(interp, "cond", t->cond, indent + 1);
             print_sub_at_indent(interp, "then", t->then, indent + 1);
@@ -556,7 +558,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             print_multiary_at_indent(interp, "tuple", node.cast<Typed_AST_Multiary>(), indent);
         } break;
         case Typed_AST_Kind::Let: {
-            Ref<Typed_AST_Let> let = node.cast<Typed_AST_Let>();
+            auto let = node.cast<Typed_AST_Let>();
             printf("(%s)\n", let->is_const ? "const" : "let");
             
             print_sub_at_indent(interp, "target", let->target, indent + 1);
@@ -568,7 +570,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             }
         } break;
         case Typed_AST_Kind::Type_Signature: {
-            Ref<Typed_AST_Type_Signature> sig = node.cast<Typed_AST_Type_Signature>();
+            auto sig = node.cast<Typed_AST_Type_Signature>();
             printf("%s\n", sig->value_type->debug_str());
         } break;
         case Typed_AST_Kind::Processed_Pattern: {
@@ -586,7 +588,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         } break;
         case Typed_AST_Kind::Array:
         case Typed_AST_Kind::Slice: {
-            Ref<Typed_AST_Array> array = node.cast<Typed_AST_Array>();
+            auto array = node.cast<Typed_AST_Array>();
             if (array->array_type->kind == Value_Type_Kind::Array) {
                 printf("(array)\n");
             } else {
@@ -605,7 +607,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         } break;
             
         default:
-            assert(false);
+            internal_error("Invalid Typed_AST_Kind value: %d\n", node->kind);
             break;
     }
 }
@@ -879,7 +881,7 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
             return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.child_type, sub);
             
         default:
-            assert(false);
+            internal_error("Invalid Unary Untyped_AST_Kind value: %d\n", kind);
             return nullptr;
     }
 }
@@ -926,7 +928,7 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
     }
     
     bool began_named_args = false;
-    size_t num_ppos_args = 0;
+    size_t num_positional_args = 0;
     for (auto arg_node : rhs->nodes) {
         Ref<Untyped_AST> arg_expr;
         size_t arg_pos;
@@ -950,7 +952,7 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
             error("Cannot have positional argruments after named arguments in function call.");
         } else {
             arg_expr = arg_node;
-            arg_pos = num_ppos_args++;
+            arg_pos = num_positional_args++;
         }
         
         auto typecheck_arg_expr = arg_expr->typecheck(t);
@@ -1110,7 +1112,7 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs);
             
         default:
-            assert(false);
+            internal_error("Invalid Binary Untyped_AST_Kind value: %d\n", kind);
     }
     return nullptr;
 }
@@ -1122,7 +1124,7 @@ Ref<Typed_AST> Untyped_AST_Ternary::typecheck(Typer &t) {
     switch (kind) {
             
         default:
-            assert(false);
+            internal_error("Invalid Ternary Untyped_AST_Kind value: %d\n", kind);
             return nullptr;
     }
 }

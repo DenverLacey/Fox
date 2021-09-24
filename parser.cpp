@@ -104,13 +104,14 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Slash_Eq: return Precedence::Assignment;
         case Token_Kind::Percent_Eq: return Precedence::Assignment;
     }
-    assert(false);
+    
+    internal_error("Invalid Precednece value: %d\n", token.kind);
 }
 
 Precedence operator+(Precedence p, int step) {
-    auto q = (int)p + step;
-    q = std::clamp(q, (int)Precedence::None, (int)Precedence::Primary);
-    return (Precedence)q;
+    auto q = static_cast<int>(p) + step;
+    q = std::clamp(q, static_cast<int>(Precedence::None), static_cast<int>(Precedence::Primary));
+    return static_cast<Precedence>(q);
 }
 
 struct Parser {
@@ -752,7 +753,7 @@ struct Parser {
             auto id_str = next().data.s.clone();
             if (match(Token_Kind::Left_Paren)) {
                 // dot call
-                assert(false);
+                todo("Parsing dot-calls not yet implemented.");
             } else {
                 dot = Mem.make<Untyped_AST_Field_Access>(lhs, id_str);
             }

@@ -702,5 +702,5 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
 }
 
 void Untyped_AST::print() const {
-    print_at_indent(Ref<Untyped_AST>((Untyped_AST *)this), 0);
+    print_at_indent(Ref<Untyped_AST>(const_cast<Untyped_AST *>(this)), 0);
 }

@@ -10,7 +10,6 @@
 
 #include <iostream>
 #include <sstream>
-#include <assert.h>
 
 #include "error.h"
 #include "interpreter.h"
@@ -134,7 +133,7 @@ char *Value_Type::debug_str() const {
             s << defn->name.c_str() << "#" << defn->id;
         } break;
         case Value_Type_Kind::Enum:
-            assert(false);
+            todo("Value_Type::Enum::debug_str() not yet implemented.");
             break;
         case Value_Type_Kind::Function:
             s << "(";
@@ -154,8 +153,8 @@ char *Value_Type::debug_str() const {
 }
 
 Value_Type *Value_Type::child_type() {
-    const Value_Type *const me = this;
-    return (Value_Type *)me->child_type();
+    auto me = static_cast<const Value_Type *>(this);
+    return const_cast<Value_Type *>(me->child_type());
 }
 
 const Value_Type *Value_Type::child_type() const {
@@ -309,7 +308,7 @@ bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
             match = data.struct_.defn->id == other.data.struct_.defn->id;
             break;
         case Value_Type_Kind::Enum:
-            assert(false);
+            todo("Value_Type::eq_ignoring_mutability() for Enums not yet implemented.");
     }
     
     return match;
@@ -385,9 +384,16 @@ bool Value_Type::assignable_from(const Value_Type &other) {
             }
             break;
         case Value_Type_Kind::Struct:
-            assert(false);
+            //
+            // @TODO:
+            //      When / if struct inheritance becomes a thing then this would
+            //      need to be more sophisticated.
+            //
+            match = data.struct_.defn->id == other.data.struct_.defn->id;
+            break;
         case Value_Type_Kind::Enum:
-            assert(false);
+            todo("Value_Type::assignable_from() for Enums not yet implemented.");
+            break;
     }
     
     return match;

@@ -51,7 +51,7 @@ Function_Definition *Compiler::compile(Ref<Typed_AST_Multiary> multi) {
 
 void Compiler::emit_byte(uint8_t byte) {
     static_assert(sizeof(Opcode) == 1, "This function assumess Opcode is 8 bits large.");
-    function->bytecode.push_back((Opcode)byte);
+    function->bytecode.push_back(static_cast<Opcode>(byte));
 }
 
 void Compiler::emit_opcode(Opcode op) {
@@ -81,7 +81,8 @@ size_t Compiler::emit_jump(Opcode jump_code, bool update_stack_top) {
 
 void Compiler::patch_jump(size_t jump) {
     size_t to = function->bytecode.size();
-    *(size_t *)&function->bytecode[jump] = to - jump - sizeof(size_t);
+    size_t *jump_size = reinterpret_cast<size_t *>(&function->bytecode[jump]);
+    *jump_size = to - jump - sizeof(size_t);
 }
 
 void Compiler::emit_loop(size_t loop_start) {
@@ -178,7 +179,7 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
         case Value_Type_Kind::Str: {
             runtime::String value;
             evaluate_unchecked(let.initializer, value);
-            constant.address = add_str_constant({ value.s, (size_t)value.len });
+            constant.address = add_str_constant({ value.s, static_cast<size_t>(value.len) });
         } break;
         case Value_Type_Kind::Ptr:
             todo("declaring constants of pointer types not yet implemented.");
@@ -263,7 +264,6 @@ void Compiler::compile_constant(Variable constant) {
             emit_value<runtime::Pointer>(value);
         } break;
         case Value_Type_Kind::Array: {
-//            emit_opcode(Opcode::Load_Const_Array);
             emit_opcode(Opcode::Load_Const);
             emit_size(constant.type.size());
             emit_value<size_t>(constant.address);
@@ -310,7 +310,7 @@ size_t Compiler::add_constant(void *data, size_t size) {
     size_t index = constants.size();
     size_t i;
     for (i = 0; i < size; i++) {
-        constants.push_back(*(((uint8_t *)data) + i));
+        constants.push_back(*((reinterpret_cast<uint8_t *>(data)) + i));
     }
     for (; i < alligned_size; i++) {
         constants.push_back(0);
@@ -340,7 +340,7 @@ size_t Compiler::add_str_constant(String source) {
     
     // write 64 bit length into buffer
     for (int i = 0; i < sizeof(size_t); i++) {
-        str_constants.push_back(*(((uint8_t *)&len) + i));
+        str_constants.push_back(*((reinterpret_cast<uint8_t *>(&len)) + i));
     }
     
     // write string into buffer
@@ -1071,7 +1071,7 @@ void Typed_AST_Binary::compile(Compiler &c) {
 }
 
 void Typed_AST_Ternary::compile(Compiler &c) {
-    assert(false);
+    internal_error("Attempted compilation of Typed_AST_Ternary when there are no ternary operations.");
     Address stack_top = c.stack_top;
     c.stack_top = stack_top + type.size();
 }
@@ -1142,7 +1142,7 @@ void Typed_AST_Processed_Pattern::compile(Compiler &c) {
 
 static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     // initialize counter variable
-    Variable counter_v = { false, value_types::Int, (Address)c.stack_top };
+    Variable counter_v = { false, value_types::Int, static_cast<Address>(c.stack_top) };
     c.emit_opcode(Opcode::Lit_0);
     c.stack_top += counter_v.type.size();
     
@@ -1159,12 +1159,12 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
         verify(v, "Unresolved identifier '%.*s'.", set_id->id.size(), set_id->id.c_str());
         iterable_v = *v;
     } else {
-        iterable_v = { false, f.iterable->type, (Address)c.stack_top };
+        iterable_v = { false, f.iterable->type, static_cast<Address>(c.stack_top) };
         f.iterable->compile(c);
     }
     
     // initialize target variable
-    Variable target_v = { false, *iterable_v.type.child_type(), (Address)c.stack_top };
+    Variable target_v = { false, *iterable_v.type.child_type(), static_cast<Address>(c.stack_top) };
     c.put_variables_from_pattern(*f.target, target_v.address);
     c.emit_opcode(Opcode::Allocate);
     c.emit_size(target_v.type.size());
@@ -1265,7 +1265,7 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
         c.stack_top += value_types::Int.size();
     }
     
-    Variable end_v = { false, range->rhs->type, (Address)c.stack_top };
+    Variable end_v = { false, range->rhs->type, static_cast<Address>(c.stack_top) };
     range->rhs->compile(c);
 
     size_t loop_start = c.function->bytecode.size();

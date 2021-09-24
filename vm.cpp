@@ -118,8 +118,8 @@ void VM::run() {
             case Opcode::Load_Const_String: {
                 size_t constant = READ(size_t, frame);
                 size_t len = *(size_t *)&str_constants[constant];
-                char *s    = (char *)&str_constants[constant + sizeof(size_t)];
-                stack.push<runtime::String>({ s, (runtime::Int)len });
+                char *s = reinterpret_cast<char *>(&str_constants[constant + sizeof(size_t)]);
+                stack.push<runtime::String>({ s, static_cast<runtime::Int>(len) });
             } break;
                 
             // Arithmetic Operations
@@ -145,7 +145,7 @@ void VM::run() {
             case Opcode::Float_Neg: UNOP(runtime::Float, -);
                 
             case Opcode::Str_Add:
-                assert(false);
+                todo("Str_Add not yet implemented.");
                 break;
                 
             // Bitwise Operations
@@ -274,37 +274,37 @@ void VM::run() {
             case Opcode::Flush: {
                 Address flush_point = READ(Address, frame);
                 flush_point += frame->stack_bottom;
-                stack._top = (int)flush_point;
+                stack._top = static_cast<int>(flush_point);
             } break;
             
             // Branching Operations
             case Opcode::Jump: {
                 size_t jump = READ(size_t, frame);
-                frame->pc += (int)jump;
+                frame->pc += static_cast<int>(jump);
             } break;
             case Opcode::Loop: {
                 size_t jump = READ(size_t, frame);
-                frame->pc -= (int)jump;
+                frame->pc -= static_cast<int>(jump);
             } break;
             case Opcode::Jump_True: {
                 size_t jump = READ(size_t, frame);
                 runtime::Bool cond = stack.pop<runtime::Bool>();
-                if (cond) frame->pc += (int)jump;
+                if (cond) frame->pc += static_cast<int>(jump);
             } break;
             case Opcode::Jump_False: {
                 size_t jump = READ(size_t, frame);
                 runtime::Bool cond = stack.pop<runtime::Bool>();
-                if (!cond) frame->pc += (int)jump;
+                if (!cond) frame->pc += static_cast<int>(jump);
             } break;
             case Opcode::Jump_True_No_Pop: {
                 size_t jump = READ(size_t, frame);
                 runtime::Bool cond = stack.top<runtime::Bool>();
-                if (cond) frame->pc += (int)jump;
+                if (cond) frame->pc += static_cast<int>(jump);
             } break;
             case Opcode::Jump_False_No_Pop: {
                 size_t jump = READ(size_t, frame);
                 runtime::Bool cond = stack.top<runtime::Bool>();
-                if (!cond) frame->pc += (int)jump;
+                if (!cond) frame->pc += static_cast<int>(jump);
             } break;
                 
             // Invocation
@@ -413,7 +413,7 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 MARK(i);
                 size_t constant = READ(size_t, i);
                 size_t len = *(size_t *)&str_constants[constant];
-                char *s    = (char *)&str_constants[constant + sizeof(size_t)];
+                char *s = reinterpret_cast<char *>(&str_constants[constant + sizeof(size_t)]);
                 printf(IDX "Load_Const_String [%zu] \"%.*s\"\n", mark, constant, len, s);
             } break;
                 

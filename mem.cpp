@@ -82,11 +82,13 @@ void *Mem_Allocator::reallocate(void *ptr, size_t new_size) {
     if (ptr == previous && new_size == 0) {
         assert(deallocate(ptr));
         newp = nullptr;
-    } else if (ptr != previous || (uint8_t *)ptr + new_size >= end_of_current_bucket) {
+    } else if (ptr != previous ||
+               reinterpret_cast<uint8_t *>(ptr) + new_size >= end_of_current_bucket)
+    {
         newp = allocate(new_size);
     } else {
         newp = ptr;
-        current = (uint8_t *)newp + new_size;
+        current = reinterpret_cast<uint8_t *>(newp) + new_size;
     }
     return newp;
 }
@@ -112,7 +114,7 @@ void Mem_Allocator::clear() {
 void Mem_Allocator::allocate_bucket(size_t size) {
     size_t alloc_size = Minimum_Bucket_Size;
     if (alloc_size < size) alloc_size = size;
-    Bucket bucket = (Bucket)malloc(alloc_size);
+    Bucket bucket = reinterpret_cast<Bucket>(malloc(alloc_size));
     buckets.push_front(bucket);
     previous = current;
     current = bucket;

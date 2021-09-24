@@ -535,7 +535,7 @@ static Token punctuation(Tokenizer &t) {
             break;
         case '&':
             if (t.match('=')) {
-                assert(false);
+                todo("'&=' token not yet implemented.");
             } else if (t.match("mut")) {
                 tok.kind = Token_Kind::Ampersand_Mut;
             } else {

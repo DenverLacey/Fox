@@ -33,7 +33,6 @@ enum class Opcode : uint8_t {
     // CONSTANTS
     Load_Const,
     Load_Const_String,
-//    Load_Const_Array,
     
     // ARITHMETIC
     Int_Add,
@@ -162,12 +161,12 @@ struct Stack {
     template<typename T>
     T pop() {
         void *p = pop(sizeof(T));
-        return *(T *)p;
+        return *reinterpret_cast<T *>(p);
     }
 
     template<typename T>
     T top() {
-        return *(T *)&_buffer[_top - sizeof(T)];
+        return *reinterpret_cast<T *>(top(sizeof(T)));
     }
 };
 
