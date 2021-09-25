@@ -11,7 +11,7 @@
 
 enum class Precedence {
     None,
-    Assignment, // =
+    Assignment, // = += -= *= /= &= etc.
     Comma,      // ,
     Colon,      // :
     Range,      // .. ...
@@ -164,14 +164,89 @@ struct Parser {
     }
     
     bool check_beginning_of_struct_literal() {
-        return check(Token_Kind::Left_Curly) &&
+        return (check(Token_Kind::Left_Curly)) &&
+               
+               (check(Token_Kind::Right_Curly, 1) ||
+               (check(Token_Kind::Ident, 1) &&
         
-              (check(Token_Kind::Ident, 1) ||
-               check(Token_Kind::Right_Curly, 1)) &&
+               (check(Token_Kind::Colon, 2) ||
+                check(Token_Kind::Comma, 2) ||
+                check(Token_Kind::Right_Curly, 2))));
+    }
+    
+    bool match_type_signature() {
+        bool is_type_signature = true;
         
-              (check(Token_Kind::Colon, 2) ||
-               check(Token_Kind::Comma, 2) ||
-               check(Token_Kind::Right_Curly, 2));
+        auto token = next();
+        switch (token.kind) {
+            case Token_Kind::Ident: {
+                auto id = token.data.s;
+                if (id == "void"  ||
+                    id == "bool"  ||
+                    id == "char"  ||
+                    id == "float" ||
+                    id == "int"   ||
+                    id == "str")
+                {
+                    // we're all good :)
+                } else {
+                    is_type_signature = false;
+                }
+            } break;
+            case Token_Kind::Star: {
+                match(Token_Kind::Mut);
+                is_type_signature = match_type_signature();
+            } break;
+            case Token_Kind::Left_Paren: {
+                do {
+                    if (check(Token_Kind::Right_Paren)) break;
+                    is_type_signature = match_type_signature();
+                    if (!is_type_signature) break;
+                } while (match(Token_Kind::Comma) && has_more());
+                
+                if (!is_type_signature) break;
+                
+                is_type_signature = match(Token_Kind::Right_Paren);
+                if (!is_type_signature) break;
+                
+                if (match(Token_Kind::Thin_Right_Arrow)) {
+                    is_type_signature = match_type_signature();
+                    if (!is_type_signature) break;
+                }
+            } break;
+            case Token_Kind::Left_Bracket: {
+                if (!check(Token_Kind::Right_Bracket)) {
+                    is_type_signature = match(Token_Kind::Int);
+                    if (!is_type_signature) break;
+                }
+                
+                is_type_signature = match(Token_Kind::Right_Bracket);
+                if (!is_type_signature) break;
+                
+                is_type_signature = match_type_signature();
+            } break;
+            default:
+                is_type_signature = false;
+                break;
+        }
+        
+        return is_type_signature;
+    }
+    
+    bool check_beginning_of_generic_specification() {
+        size_t reset_point = current;
+        bool is_beginning_of_generic_spec = true;
+        
+        if (!match(Token_Kind::Left_Angle)) {
+            is_beginning_of_generic_spec = false;
+        } else if (!match_type_signature()) {
+            is_beginning_of_generic_spec = false;
+        } else if (!(check(Token_Kind::Comma) || check(Token_Kind::Right_Angle))) {
+            is_beginning_of_generic_spec = false;
+        }
+        
+        current = reset_point;
+        return is_beginning_of_generic_spec;
     }
     
     bool match(Token_Kind kind) {
@@ -239,12 +314,16 @@ struct Parser {
         
         do {
             if (check_terminating_delimeter()) break;
-            // @TODO: Check for 'mut'
-            String mem_id = expect(Token_Kind::Ident, "Expected identifier of field in struct declaration.").data.s.clone();
+            
+            bool force_mut = match(Token_Kind::Mut);
+            String field_id = expect(Token_Kind::Ident, "Expected identifier of field in struct declaration.").data.s.clone();
             expect(Token_Kind::Colon, "Expected ':' after field identifier.");
+            
             auto type = parse_type_signiture();
+            type->is_mut = force_mut;
             auto sig = Mem.make<Untyped_AST_Type_Signature>(type);
-            decl->add_field(mem_id, sig);
+            
+            decl->add_field(field_id, sig);
         } while (match(Token_Kind::Comma) && has_more());
         
         expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct declaration.");
@@ -270,6 +349,8 @@ struct Parser {
             s = parse_while_statement();
         } else if (match(Token_Kind::For)) {
             s = parse_for_statement();
+        } else if (match(Token_Kind::Match)) {
+            s = parse_match_statement();
         } else if (match(Token_Kind::Return)) {
             s = parse_return_statement();
             expect(Token_Kind::Semi, "Expected ';' after statement.");
@@ -308,8 +389,8 @@ struct Parser {
     //      since they share lots of code.
     //
     Ref<Untyped_AST_Let> parse_const_statement() {
-        // @TODO: check that nothings marked 'mut'
         auto target = parse_pattern();
+        verify(target->are_no_variables_mut(), "Cannot mark target of assignment as 'mut' when declaring a constant.");
         
         Ref<Untyped_AST_Type_Signature> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
@@ -324,7 +405,7 @@ struct Parser {
         return Mem.make<Untyped_AST_Let>(true, target, specified_type, initilizer);
     }
     
-    Ref<Untyped_AST_Pattern> parse_pattern() {
+    Ref<Untyped_AST_Pattern> parse_pattern(bool allow_value_pattern = false) {
         Ref<Untyped_AST_Pattern> p = nullptr;
         auto n = next();
         
@@ -339,7 +420,7 @@ struct Parser {
                     auto sp = Mem.make<Untyped_AST_Pattern_Struct>(struct_id);
                     do {
                         if (check(Token_Kind::Right_Curly)) break;
-                        sp->add(parse_pattern());
+                        sp->add(parse_pattern(allow_value_pattern));
                     } while (match(Token_Kind::Comma) && has_more());
                     expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct pattern.");
                     p = sp;
@@ -357,15 +438,26 @@ struct Parser {
                 auto tp = Mem.make<Untyped_AST_Pattern_Tuple>();
                 do {
                     if (check(Token_Kind::Right_Paren)) break;
-                    tp->add(parse_pattern());
+                    tp->add(parse_pattern(allow_value_pattern));
                 } while (match(Token_Kind::Comma) && has_more());
                 expect(Token_Kind::Right_Paren, "Expected ')' to terminate tuple pattern.");
                 p = tp;
             } break;
                 
-            default:
-                error("Invalid pattern.");
-                break;
+            default: {
+                verify(allow_value_pattern, "Invalid pattern.");
+                
+                //
+                // @HACK:
+                //      We're doing this because to get 'n' we used 'next()' but now
+                //      we need it to parse the expression properly.
+                //      This is a hack and can probably be done better.
+                //
+                current--;
+                
+                auto value = parse_expression();
+                p = Mem.make<Untyped_AST_Pattern_Value>(value);
+            } break;
         }
         
         return p;
@@ -478,6 +570,35 @@ struct Parser {
         return Mem.make<Untyped_AST_For>(target, counter, iterable, body);
     }
     
+    Ref<Untyped_AST_Match> parse_match_statement() {
+        auto cond = parse_expression();
+        
+        expect(Token_Kind::Left_Curly, "Expected '{' in 'match' statement.");
+        
+        auto arms = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
+        Ref<Untyped_AST> default_arm = nullptr;
+        while (!check(Token_Kind::Right_Curly) && has_more()) {
+            auto pat = parse_pattern(/*allow_value_pattern*/ true);
+            expect(Token_Kind::Fat_Right_Arrow, "Expected '=>' while parsing arm of 'match' statement.");
+            auto body = parse_statement();
+            if (pat->kind == Untyped_AST_Kind::Pattern_Underscore) {
+                verify(!default_arm, "There can only be one default arm in 'match' statement.");
+                default_arm = body;
+            } else {
+                auto arm = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Match_Arm, pat, body);
+                arms->add(arm);
+            }
+        }
+        
+        expect(Token_Kind::Right_Curly, "Expected '}' to terminate 'match' statement.");
+        
+        return Mem.make<Untyped_AST_Match>(
+            cond,
+            default_arm,
+            arms
+        );
+    }
+    
     Ref<Untyped_AST_Return> parse_return_statement() {
         Ref<Untyped_AST> sub = nullptr;
         if (!check(Token_Kind::Semi)) {
@@ -532,6 +653,8 @@ struct Parser {
                 a = Mem.make<Untyped_AST_Ident>(token.data.s.clone());
                 if (check_beginning_of_struct_literal()) {
                     a = parse_struct_literal(a);
+                } else if (check_beginning_of_generic_specification()) {
+                    a = parse_generic_specification(a);
                 }
                 break;
             case Token_Kind::True:
@@ -828,6 +951,27 @@ struct Parser {
         return Mem.make<Untyped_AST_Struct_Literal>(
             id.cast<Untyped_AST_Ident>(),
             bindings.cast<Untyped_AST_Multiary>()
+        );
+    }
+    
+    Ref<Untyped_AST_Generic_Specification> parse_generic_specification(
+        Ref<Untyped_AST> id)
+    {
+        expect(Token_Kind::Left_Angle, "Expected '<' to begin generic specification.");
+        
+        auto type_params = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
+        do {
+            if (check(Token_Kind::Right_Curly)) break;
+            auto value_type = parse_type_signiture();
+            auto type_sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+            type_params->add(type_sig);
+        } while (match(Token_Kind::Comma) && has_more());
+        
+        expect(Token_Kind::Right_Angle, "Expected '>' to terminate generic specification.");
+        
+        return Mem.make<Untyped_AST_Generic_Specification>(
+            id.cast<Untyped_AST_Ident>(),
+            type_params
         );
     }
 };

@@ -56,8 +56,10 @@ enum class Untyped_AST_Kind {
     Inclusive_Range,
     Binding,
     Invocation,
+    Match_Arm,
     
     // ternary
+    Match,
     
     // multiary
     Block,
@@ -69,6 +71,7 @@ enum class Untyped_AST_Kind {
     Pattern_Ident,
     Pattern_Tuple,
     Pattern_Struct,
+    Pattern_Value,
     
     // declarations
     Let,
@@ -79,7 +82,7 @@ enum class Untyped_AST_Kind {
     If,
     For,
     Type_Signature,
-    Generic_Specialization,
+    Generic_Specification,
 };
 
 struct Typed_AST;
@@ -217,6 +220,7 @@ struct Untyped_AST_Field_Access : public Untyped_AST {
 
 struct Untyped_AST_Pattern : public Untyped_AST {
     bool are_all_variables_mut();
+    bool are_no_variables_mut();
 };
 
 struct Untyped_AST_Pattern_Underscore : public Untyped_AST_Pattern {
@@ -252,6 +256,14 @@ struct Untyped_AST_Pattern_Struct : public Untyped_AST_Pattern_Tuple {
     Ref<Untyped_AST> clone() override;
 };
 
+struct Untyped_AST_Pattern_Value : public Untyped_AST_Pattern {
+    Ref<Untyped_AST> value;
+    
+    Untyped_AST_Pattern_Value(Ref<Untyped_AST> value);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
 struct Untyped_AST_If : public Untyped_AST {
     Ref<Untyped_AST> cond;
     Ref<Untyped_AST> then;
@@ -270,6 +282,16 @@ struct Untyped_AST_For : public Untyped_AST {
     
     Untyped_AST_For(Ref<Untyped_AST_Pattern> target, String counter, Ref<Untyped_AST> iterable, Ref<Untyped_AST_Multiary> body);
     ~Untyped_AST_For();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Match : public Untyped_AST {
+    Ref<Untyped_AST> cond;
+    Ref<Untyped_AST> default_arm;
+    Ref<Untyped_AST_Multiary> arms;
+    
+    Untyped_AST_Match(Ref<Untyped_AST> cond, Ref<Untyped_AST> default_arm, Ref<Untyped_AST_Multiary> arms);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
@@ -293,12 +315,11 @@ struct Untyped_AST_Let : public Untyped_AST {
     Ref<Untyped_AST> clone() override;
 };
 
-struct Untyped_AST_Generic_Specialization : public Untyped_AST {
-    String id;
-    std::vector<Ref<Untyped_AST_Type_Signature>> params;
+struct Untyped_AST_Generic_Specification : public Untyped_AST {
+    Ref<Untyped_AST_Ident> id;
+    Ref<Untyped_AST_Multiary> type_params;
     
-    Untyped_AST_Generic_Specialization(String id, std::vector<Ref<Untyped_AST_Type_Signature>> &&params);
-    ~Untyped_AST_Generic_Specialization() override;
+    Untyped_AST_Generic_Specification(Ref<Untyped_AST_Ident> id, Ref<Untyped_AST_Multiary> type_params);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

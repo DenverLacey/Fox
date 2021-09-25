@@ -655,29 +655,6 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
                 c.emit_opcode(Opcode::Int_Add);
             }
         } break;
-//        case AST_DOT: {
-//            Binary *dot = (Binary *)ast;
-//
-//            verify(types_match(c, dot->lhs->inferred_type, TYPE_STRUCT), dot->lhs->location, "Type mismatch! Expected a struct type but was given '%s'.", type_to_string(dot->lhs->inferred_type));
-//
-//            StructDefinition *defn = dot->lhs->inferred_type.data.struct_defn;
-//            Identifier *mem_id = (Identifier *)dot->rhs;
-//
-//            auto member = std::find_if(defn->members.begin(), defn->members.end(),
-//            [mem_id] (const StructMember &m) {
-//                return mem_id->len == m.len && memcmp(mem_id->s, m.ident, m.len) == 0;
-//            });
-//
-//            verify(member != defn->members.end(), mem_id->location, "'%.*s' is not a member of '%s'.", mem_id->len, mem_id->s, type_to_string(dot->lhs->inferred_type));
-//
-//            emit_address_bytecode(c, dot->lhs);
-//            emit_byte(c, BYTE_LOAD_CONST);
-//            emit_size(c, sizeof(Integer));
-//            emit_value<Integer>(c, member->offset);
-//            emit_byte(c, BYTE_INTEGER_ADD);
-//        } break;
-//        case AST_DEREF_DOT:
-//            assert(false);
             
         default:
             return false;
@@ -1333,14 +1310,14 @@ void Typed_AST_Let::compile(Compiler &c) {
     
     Value_Type type = specified_type ? *specified_type->value_type : initializer->type;
     
-    c.put_variables_from_pattern(*target, stack_top);
-    
     if (initializer) {
         initializer->compile(c);
     } else {
         c.emit_opcode(Opcode::Clear_Allocate);
         c.emit_size(type.size());
     }
+    
+    c.put_variables_from_pattern(*target, stack_top);
     
     c.stack_top = stack_top + type.size();
 }
@@ -1438,9 +1415,6 @@ void Typed_AST_Fn_Declaration::compile(Compiler &c) {
         n->compile(new_c);
     }
     
-    // @TODO: [ ]
-    //      Only put return instruction if needed.
-    //
     if (fn->type.data.func.return_type->kind == Value_Type_Kind::Void) {
         new_c.emit_opcode(Opcode::Return);
         new_c.emit_size(0);

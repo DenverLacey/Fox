@@ -98,6 +98,9 @@ void Token::print() const {
         case Token_Kind::For:
             printf("For\n");
             break;
+        case Token_Kind::Match:
+            printf("Match\n");
+            break;
         case Token_Kind::Fn:
             printf("Fn\n");
             break;
@@ -405,11 +408,12 @@ static Token character(Tokenizer &t) {
     
     verify(t.next() == '\'', "Character literals must end with a '.");
     
-    size_t len = word_end - word;
-    char *cs = SMem.duplicate(word, len);
-    if (escape_sequences) len = replace_escape_sequence(cs, len);
+    size_t size = word_end - word;
+    char *cs = SMem.duplicate(word, size);
+    if (escape_sequences) size = replace_escape_sequence(cs, size);
+    auto len = utf8::distance(cs, &cs[size]);
     verify(len == 1, "Character literals must contain exactly one character.");
-    char c = *cs;
+    char32_t c = utf8::peek_next(cs, &cs[size]);
     SMem.deallocate(cs, word_end - word);
     
     Token tok;
@@ -595,6 +599,8 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::While;
     } else if (word == "for") {
         tok.kind = Token_Kind::For;
+    } else if (word == "match") {
+        tok.kind = Token_Kind::Match;
     } else if (word == "fn") {
         tok.kind = Token_Kind::Fn;
     } else if (word == "struct") {

@@ -359,7 +359,7 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Pattern_Struct:
             return Typed_AST_Kind::Processed_Pattern;
             
-        case Untyped_AST_Kind::Generic_Specialization:
+        case Untyped_AST_Kind::Generic_Specification:
             break;
     }
     
@@ -616,8 +616,29 @@ void Typed_AST::print(Interpreter *interp) const {
     print_at_indent(interp, Ref<Typed_AST>((Typed_AST *)this), 0);
 }
 
+struct Typer_Binding {
+    enum {
+        Variable,
+        Type,
+        Function
+    } kind;
+    Value_Type value_type;
+    
+    static Typer_Binding variable(Value_Type value_type) {
+        return Typer_Binding { Variable, value_type };
+    }
+    
+    static Typer_Binding type(Value_Type type) {
+        return Typer_Binding { Type, type };
+    }
+    
+    static Typer_Binding function(Value_Type fn_type) {
+        return Typer_Binding { Function, fn_type };
+    }
+};
+
 struct Typer_Scope {
-    std::unordered_map<std::string, Value_Type> variables;
+    std::unordered_map<std::string, Typer_Binding> bindings;
 };
 
 struct Typer {
@@ -657,29 +678,48 @@ struct Typer {
         scopes.pop_front();
     }
     
-    bool type_of_variable(const std::string &id, Value_Type &out_type) {
+    bool type_of_binding(const std::string &id, Value_Type &out_type) {
         for (auto &s : scopes) {
-            auto it = s.variables.find(id);
-            if (it == s.variables.end()) continue;
-            out_type = it->second;
+            auto it = s.bindings.find(id);
+            if (it == s.bindings.end()) continue;
+            out_type = it->second.value_type;
             return true;
         }
         
-        auto it = global_scope->variables.find(id);
-        if (it != global_scope->variables.end()) {
-            out_type = it->second;
+        auto it = global_scope->bindings.find(id);
+        if (it != global_scope->bindings.end()) {
+            out_type = it->second.value_type;
             return true;
         }
         
         return false;
     }
     
-    void put_variable(const std::string &id, Value_Type type, bool is_mut) {
-        type.is_mut = is_mut;
-        current_scope().variables[id] = type;
+    void put_binding(const std::string &id, Typer_Binding binding) {
+        auto &cs = current_scope();
+        
+        auto it = cs.bindings.find(id);
+        verify(it == cs.bindings.end() || it->second.kind == Typer_Binding::Variable, "Cannot shadow a type name or name of a function. Reused identifier was '%s'.", id.c_str());
+        
+        cs.bindings[id] = binding;
     }
     
-    void put_pattern(
+    void bind_variable(const std::string &id, Value_Type type, bool is_mut) {
+        type.is_mut = is_mut;
+        return put_binding(id, Typer_Binding::variable(type));
+    }
+    
+    void bind_type(const std::string &id, Value_Type type) {
+        internal_verify(type.kind == Value_Type_Kind::Type, "Attempted to bind a type name to something other than a type.");
+        return put_binding(id, Typer_Binding::type(type));
+    }
+    
+    void bind_function(const std::string &id, Value_Type fn_type) {
+        internal_verify(fn_type.kind == Value_Type_Kind::Function, "Attempted to bind a function name to a non-function Value_Type.");
+        return put_binding(id, Typer_Binding::function(fn_type));
+    }
+    
+    void bind_pattern(
         Ref<Untyped_AST_Pattern> pattern,
         const Value_Type &type,
         Ref<Typed_AST_Processed_Pattern> out_pp)
@@ -691,7 +731,7 @@ struct Typer {
             case Untyped_AST_Kind::Pattern_Ident: {
                 auto ip = pattern.cast<Untyped_AST_Pattern_Ident>();
                 out_pp->add_binding(ip->id.clone(), type, ip->is_mut);
-                put_variable(ip->id.c_str(), type, ip->is_mut);
+                bind_variable(ip->id.c_str(), type, ip->is_mut);
             } break;
             case Untyped_AST_Kind::Pattern_Tuple: {
                 auto tp = pattern.cast<Untyped_AST_Pattern_Tuple>();
@@ -701,7 +741,7 @@ struct Typer {
                 for (size_t i = 0; i < tp->sub_patterns.size(); i++) {
                     auto sub_pattern = tp->sub_patterns[i];
                     auto sub_type    = type.data.tuple.child_types[i];
-                    put_pattern(sub_pattern, sub_type, out_pp);
+                    bind_pattern(sub_pattern, sub_type, out_pp);
                 }
             } break;
             case Untyped_AST_Kind::Pattern_Struct: {
@@ -718,7 +758,7 @@ struct Typer {
                 for (size_t i = 0; i < sp->sub_patterns.size(); i++) {
                     auto sub_pattern = sp->sub_patterns[i];
                     auto field_type  = defn->fields[i].type;
-                    put_pattern(sub_pattern, field_type, out_pp);
+                    bind_pattern(sub_pattern, field_type, out_pp);
                 }
             } break;
                 
@@ -815,7 +855,7 @@ Ref<Typed_AST> Untyped_AST_Float::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     Value_Type ty;
-    verify(t.type_of_variable(id.c_str(), ty), "Unresolved identifier '%s'.", id.c_str());
+    verify(t.type_of_binding(id.c_str(), ty), "Unresolved identifier '%s'.", id.c_str());
     
     Ref<Typed_AST> ident;
     switch (ty.kind) {
@@ -1192,7 +1232,7 @@ Ref<Typed_AST> Untyped_AST_Struct_Literal::typecheck(Typer &t) {
                 auto bid = binding.cast<Untyped_AST_Ident>();
                 verify(field.id == bid->id, "Given identifier doesn't match name of field. Expected '%.*s' but was given '%.*s'. Please specify field.", field.id.size(), field.id.c_str(), bid->id.size(), bid->id.c_str());
                 arg = bid->typecheck(t);
-                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. '%s' vs. '%s'.", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
+                verify(field.type.assignable_from(arg->type), "Cannot assign to field '%.*s' because of mismatched types. Expected '%s' but was given '%s'.", field.id.size(), field.id.c_str(), field.type.debug_str(), arg->type.debug_str());
             } break;
             case Untyped_AST_Kind::Binding: {
                 auto b = binding.cast<Untyped_AST_Binary>();
@@ -1247,6 +1287,10 @@ Ref<Typed_AST> Untyped_AST_Pattern_Struct::typecheck(Typer &t) {
     internal_error("Call to Untyped_AST_Pattern_Struct::typecheck() is disallowed.");
 }
 
+Ref<Typed_AST> Untyped_AST_Pattern_Value::typecheck(Typer &t) {
+    internal_error("Call to Untyped_AST_Pattern_Value::typecheck() is disallowed.");
+}
+
 Ref<Typed_AST> Untyped_AST_If::typecheck(Typer &t) {
     auto cond = this->cond->typecheck(t);
     auto then = this->then->typecheck(t);
@@ -1282,10 +1326,10 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
     t.begin_scope();
     
     auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();
-    t.put_pattern(target, *target_type, processed_target);
+    t.bind_pattern(target, *target_type, processed_target);
     
     if (counter != "") {
-        t.put_variable(counter.c_str(), value_types::Int, false);
+        t.bind_variable(counter.c_str(), value_types::Int, false);
     }
     
     auto body = this->body->typecheck(t);
@@ -1303,6 +1347,10 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
         iterable,
         body.cast<Typed_AST_Multiary>()
     );
+}
+
+Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {
+    todo("Implement Untyped_AST_Match::typecheck().");
 }
 
 Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
@@ -1324,12 +1372,12 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
     }
 
     auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();
-    t.put_pattern(target, ty, processed_target);
+    t.bind_pattern(target, ty, processed_target);
     
     return Mem.make<Typed_AST_Let>(is_const, processed_target, sig, init);
 }
 
-Ref<Typed_AST> Untyped_AST_Generic_Specialization::typecheck(Typer &t) {
+Ref<Typed_AST> Untyped_AST_Generic_Specification::typecheck(Typer &t) {
     todo("Generic_Specialization::typecheck() not yet implemented.");
 }
 
@@ -1364,7 +1412,7 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     type.kind = Value_Type_Kind::Type;
     type.data.type.type = struct_type;
     
-    t.put_variable(id.c_str(), type, false);
+    t.bind_type(id.c_str(), type);
     
     return nullptr;
 }
@@ -1429,7 +1477,7 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     auto [_, success] = t.module->funcs.insert(new_defn->id);
     internal_verify(success, "Failed to add function with id #%zu to module set.", new_defn->id);
     
-    t.put_variable(id.c_str(), func_type, false);
+    t.bind_function(id.c_str(), func_type);
     
     // actually typecheck the function
     auto new_t = Typer { t, new_defn };
@@ -1438,7 +1486,7 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     for (size_t i = 0; i < new_defn->param_names.size(); i++) {
         String param_name = new_defn->param_names[i];
         Value_Type param_type = new_defn->type.data.func.arg_types[i];
-        new_t.put_variable(param_name.c_str(), param_type, param_type.is_mut);
+        new_t.bind_variable(param_name.c_str(), param_type, param_type.is_mut);
     }
     
     auto body = this->body->typecheck(new_t);

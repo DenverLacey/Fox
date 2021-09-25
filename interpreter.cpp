@@ -83,7 +83,7 @@ void Interpreter::interpret(const char *path) {
     SMem.clear();
     
 #if RUN_VIRTUAL_MACHINE
-    auto  vm = VM { constants, str_constants };
+    auto vm = VM { constants, str_constants };
     vm.call(&program, 0);
     vm.run();
     

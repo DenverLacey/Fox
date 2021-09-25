@@ -11,6 +11,9 @@
 //      just to use Ref<Value_Type>.
 // [ ]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
+// [ ]  Merge Typed_AST_Field_Access and Typed_AST_Field_Access_Tuple.
+// [ ]  Implement typechecking for match statements.
+// [ ]  Implement compilation for match statements.
 //
 
 #include <iostream>

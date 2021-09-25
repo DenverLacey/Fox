@@ -222,9 +222,37 @@ bool Untyped_AST_Pattern::are_all_variables_mut() {
             
         default:
             internal_error("Invalid pattern kind: %d.", kind);
-            is_mut = false;
+            break;
     }
     return is_mut;
+}
+
+bool Untyped_AST_Pattern::are_no_variables_mut() {
+    bool not_mut;
+    switch (kind) {
+        case Untyped_AST_Kind::Pattern_Underscore:
+            not_mut = true;
+            break;
+        case Untyped_AST_Kind::Pattern_Ident: {
+            auto ip = dynamic_cast<Untyped_AST_Pattern_Ident *>(this);
+            internal_verify(ip, "Failed to cast pattern to Pattern_Ident*");
+            not_mut = !ip->is_mut;
+        } break;
+        case Untyped_AST_Kind::Pattern_Tuple: {
+            auto tp = dynamic_cast<Untyped_AST_Pattern_Tuple *>(this);
+            internal_verify(tp, "Failed to cast pattern to Pattern_Tuple*");
+            not_mut = true;
+            for (auto sub : tp->sub_patterns) {
+                not_mut = sub->are_no_variables_mut();
+                if (!not_mut) break;
+            }
+        } break;
+            
+        default:
+            internal_error("Invalid pattern kind: %d.", kind);
+            break;
+    }
+    return not_mut;
 }
 
 Untyped_AST_Pattern_Underscore::Untyped_AST_Pattern_Underscore() {
@@ -280,6 +308,15 @@ Ref<Untyped_AST> Untyped_AST_Pattern_Struct::clone() {
     return copy;
 }
 
+Untyped_AST_Pattern_Value::Untyped_AST_Pattern_Value(Ref<Untyped_AST> value) {
+    this->kind = Untyped_AST_Kind::Pattern_Value;
+    this->value = value;
+}
+
+Ref<Untyped_AST> Untyped_AST_Pattern_Value::clone() {
+    return Mem.make<Untyped_AST_Pattern_Value>(value->clone());
+}
+
 Untyped_AST_If::Untyped_AST_If(
     Ref<Untyped_AST> cond,
     Ref<Untyped_AST> then,
@@ -324,6 +361,25 @@ Ref<Untyped_AST> Untyped_AST_For::clone() {
     );
 }
 
+Untyped_AST_Match::Untyped_AST_Match(
+    Ref<Untyped_AST> cond,
+    Ref<Untyped_AST> default_arm,
+    Ref<Untyped_AST_Multiary> arms)
+{
+    this->kind = Untyped_AST_Kind::Match;
+    this->cond = cond;
+    this->default_arm = default_arm;
+    this->arms = arms;
+}
+
+Ref<Untyped_AST> Untyped_AST_Match::clone() {
+    return Mem.make<Untyped_AST_Match>(
+        cond->clone(),
+        default_arm->clone(),
+        arms->clone().cast<Untyped_AST_Multiary>()
+    );
+}
+
 Untyped_AST_Let::Untyped_AST_Let(
     bool is_const,
     Ref<Untyped_AST_Pattern> target,
@@ -342,21 +398,20 @@ Ref<Untyped_AST> Untyped_AST_Let::clone() {
     return Mem.make<Untyped_AST_Let>(is_const, target->clone().cast<Untyped_AST_Pattern>(), sig, initializer->clone());
 }
 
-Untyped_AST_Generic_Specialization::Untyped_AST_Generic_Specialization(
-    String id,
-    std::vector<Ref<Untyped_AST_Type_Signature>> &&params)
+Untyped_AST_Generic_Specification::Untyped_AST_Generic_Specification(
+    Ref<Untyped_AST_Ident> id,
+    Ref<Untyped_AST_Multiary> type_params)
 {
+    this->kind = Untyped_AST_Kind::Generic_Specification;
     this->id = id;
-    this->params = std::move(params);
+    this->type_params = type_params;
 }
 
-Untyped_AST_Generic_Specialization::~Untyped_AST_Generic_Specialization() {
-    id.free();
-}
-
-Ref<Untyped_AST> Untyped_AST_Generic_Specialization::clone() {
-    auto copy = params;
-    return Mem.make<Untyped_AST_Generic_Specialization>(id.clone(), std::move(copy));
+Ref<Untyped_AST> Untyped_AST_Generic_Specification::clone() {
+    return Mem.make<Untyped_AST_Generic_Specification>(
+        id->clone().cast<Untyped_AST_Ident>(),
+        type_params->clone().cast<Untyped_AST_Multiary>()
+    );
 }
 
 Untyped_AST_Struct_Declaration::Untyped_AST_Struct_Declaration(String id) {
@@ -610,6 +665,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Invocation: {
             print_binary_at_indent("call", node.cast<Untyped_AST_Binary>(), indent);
         } break;
+        case Untyped_AST_Kind::Match_Arm: {
+            print_binary_at_indent("arm", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
         case Untyped_AST_Kind::Pattern_Tuple:
@@ -617,6 +675,10 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             auto p = node.cast<Untyped_AST_Pattern>();
             print_pattern(p);
             printf("\n");
+        } break;
+        case Untyped_AST_Kind::Pattern_Value: {
+            auto vp = node.cast<Untyped_AST_Pattern_Value>();
+            print_at_indent(vp->value, indent);
         } break;
         case Untyped_AST_Kind::If: {
             Ref<Untyped_AST_If> t = node.cast<Untyped_AST_If>();
@@ -636,6 +698,15 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             }
             print_sub_at_indent("iterable", f->iterable, indent + 1);
             print_sub_at_indent("body", f->body, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Match: {
+            auto m = node.cast<Untyped_AST_Match>();
+            printf("(match)\n");
+            print_sub_at_indent("cond", m->cond, indent + 1);
+            if (m->default_arm) {
+                print_sub_at_indent("default", m->default_arm, indent + 1);
+            }
+            print_sub_at_indent("arms", m->arms, indent + 1);
         } break;
         case Untyped_AST_Kind::Block: {
             print_multiary_at_indent("block", node.cast<Untyped_AST_Multiary>(), indent);
@@ -693,6 +764,13 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 print_sub_at_indent("return", decl->return_type_signature, indent + 1);
             }
             print_sub_at_indent("body", decl->body, indent + 1);
+        } break;
+            
+        case Untyped_AST_Kind::Generic_Specification: {
+            auto spec = node.cast<Untyped_AST_Generic_Specification>();
+            printf("(<>)\n");
+            print_sub_at_indent("id", spec->id, indent + 1);
+            print_sub_at_indent("type params", spec->type_params, indent + 1);
         } break;
             
         default:
