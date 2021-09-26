@@ -59,7 +59,6 @@ enum class Untyped_AST_Kind {
     Match_Arm,
     
     // ternary
-    Match,
     
     // multiary
     Block,
@@ -81,6 +80,7 @@ enum class Untyped_AST_Kind {
     // unique
     If,
     For,
+    Match,
     Type_Signature,
     Generic_Specification,
 };

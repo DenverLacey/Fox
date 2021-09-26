@@ -223,6 +223,32 @@ bool Typed_AST_Processed_Pattern::is_constant(Compiler &c) {
     return true;
 }
 
+Typed_AST_Match_Pattern::Typed_AST_Match_Pattern() {
+    this->kind = Typed_AST_Kind::Match_Pattern;
+}
+
+void Typed_AST_Match_Pattern::add_binding(Ref<Typed_AST> binding) {
+    bindings.push_back(binding);
+}
+
+bool Typed_AST_Match_Pattern::is_simple_value_pattern() {
+    for (auto b : bindings) {
+        if (!b || b->kind == Typed_AST_Kind::Ident) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Typed_AST_Match_Pattern::is_constant(Compiler &c) {
+    for (auto b : bindings) {
+        if (!b->is_constant(c)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 Typed_AST_For::Typed_AST_For(
     Typed_AST_Kind kind,
     Ref<Typed_AST_Processed_Pattern> target,
@@ -243,6 +269,21 @@ Typed_AST_For::~Typed_AST_For() {
 
 bool Typed_AST_For::is_constant(Compiler &c) {
     return iterable->is_constant(c) && body->is_constant(c);
+}
+
+Typed_AST_Match::Typed_AST_Match(
+    Ref<Typed_AST> cond,
+    Ref<Typed_AST> default_arm,
+    Ref<Typed_AST_Multiary> arms)
+{
+    this->kind = Typed_AST_Kind::Match;
+    this->cond = cond;
+    this->default_arm = default_arm;
+    this->arms = arms;
+}
+
+bool Typed_AST_Match::is_constant(Compiler &c) {
+    todo("Implement Typed_AST_Match::is_constant().");
 }
 
 Typed_AST_Let::Typed_AST_Let(
@@ -279,21 +320,6 @@ bool Typed_AST_Field_Access::is_constant(Compiler &c) {
     return instance->is_constant(c);
 }
 
-Typed_AST_Field_Access_Tuple::Typed_AST_Field_Access_Tuple(
-    Typed_AST_Kind kind,
-    Value_Type type,
-    bool deref,
-    Ref<Typed_AST> lhs,
-    Ref<Typed_AST> rhs)
-        : Typed_AST_Binary(kind, type, lhs, rhs)
-{
-    this->deref = deref;
-}
-
-bool Typed_AST_Field_Access_Tuple::is_constant(Compiler &c) {
-    return lhs->is_constant(c);
-}
-
 Typed_AST_Fn_Declaration::Typed_AST_Fn_Declaration(
     Function_Definition *defn,
     Ref<Typed_AST_Multiary> body)
@@ -325,6 +351,7 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Address_Of:      return Typed_AST_Kind::Address_Of;
         case Untyped_AST_Kind::Address_Of_Mut:  return Typed_AST_Kind::Address_Of_Mut;
         case Untyped_AST_Kind::Deref:           return Typed_AST_Kind::Deref;
+        case Untyped_AST_Kind::Return:          return Typed_AST_Kind::Return;
         case Untyped_AST_Kind::Addition:        return Typed_AST_Kind::Addition;
         case Untyped_AST_Kind::Subtraction:     return Typed_AST_Kind::Subtraction;
         case Untyped_AST_Kind::Multiplication:  return Typed_AST_Kind::Multiplication;
@@ -342,13 +369,16 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::While:           return Typed_AST_Kind::While;
         case Untyped_AST_Kind::Field_Access:    return Typed_AST_Kind::Field_Access;
         case Untyped_AST_Kind::Field_Access_Tuple:
-            return Typed_AST_Kind::Field_Access_Tuple;
+            return Typed_AST_Kind::Field_Access;
         case Untyped_AST_Kind::Subscript:       return Typed_AST_Kind::Subscript;
+        case Untyped_AST_Kind::Invocation:      return Typed_AST_Kind::Invocation;
+        case Untyped_AST_Kind::Match_Arm:       return Typed_AST_Kind::Match_Arm;
         case Untyped_AST_Kind::Block:           return Typed_AST_Kind::Block;
         case Untyped_AST_Kind::Comma:           return Typed_AST_Kind::Comma;
         case Untyped_AST_Kind::Tuple:           return Typed_AST_Kind::Tuple;
         case Untyped_AST_Kind::If:              return Typed_AST_Kind::If;
         case Untyped_AST_Kind::For:             return Typed_AST_Kind::For;
+        case Untyped_AST_Kind::Match:           return Typed_AST_Kind::Match;
         case Untyped_AST_Kind::Let:             return Typed_AST_Kind::Let;
         case Untyped_AST_Kind::Fn_Decl:         return Typed_AST_Kind::Fn_Decl;
         case Untyped_AST_Kind::Type_Signature:  return Typed_AST_Kind::Type_Signature;
@@ -358,6 +388,9 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Pattern_Tuple:
         case Untyped_AST_Kind::Pattern_Struct:
             return Typed_AST_Kind::Processed_Pattern;
+            
+        case Untyped_AST_Kind::Pattern_Value:
+            break;
             
         case Untyped_AST_Kind::Generic_Specification:
             break;
@@ -512,9 +545,6 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             print_sub_at_indent(interp, "instance", dot->instance, indent + 1);
             printf("%*soffset: %d\n", (indent + 1) * INDENT_SIZE, "", dot->field_offset);
         } break;
-        case Typed_AST_Kind::Field_Access_Tuple: {
-            print_binary_at_indent(interp, ".", node.cast<Typed_AST_Binary>(), indent);
-        } break;
         case Typed_AST_Kind::Subscript:
         case Typed_AST_Kind::Negative_Subscript: {
             print_binary_at_indent(interp, "[]", node.cast<Typed_AST_Binary>(), indent);
@@ -527,6 +557,9 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         } break;
         case Typed_AST_Kind::Invocation: {
             print_binary_at_indent(interp, "call", node.cast<Typed_AST_Binary>(), indent);
+        } break;
+        case Typed_AST_Kind::Match_Arm: {
+            print_binary_at_indent(interp, "arm", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::If: {
             auto t = node.cast<Typed_AST_If>();
@@ -547,6 +580,15 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             }
             print_sub_at_indent(interp, "iterable", f->iterable, indent + 1);
             print_sub_at_indent(interp, "body", f->body, indent + 1);
+        } break;
+        case Typed_AST_Kind::Match: {
+            auto m = node.cast<Typed_AST_Match>();
+            printf("(match)\n");
+            print_sub_at_indent(interp, "cond", m->cond, indent + 1);
+            if (m->default_arm) {
+                print_sub_at_indent(interp, "default", m->default_arm, indent + 1);
+            }
+            print_sub_at_indent(interp, "arms", m->arms, indent + 1);
         } break;
         case Typed_AST_Kind::Block: {
             print_multiary_at_indent(interp, "block", node.cast<Typed_AST_Multiary>(), indent);
@@ -583,6 +625,19 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
                     printf("_ :: %s\n", b.type.debug_str());
                 } else {
                     printf("%.*s :: %s\n", b.id.size(), b.id.c_str(), b.type.debug_str());
+                }
+            }
+        } break;
+        case Typed_AST_Kind::Match_Pattern: {
+            auto mp = node.cast<Typed_AST_Match_Pattern>();
+            printf("(match-pattern)\n");
+            for (size_t i = 0; i < mp->bindings.size(); i++) {
+                auto b = mp->bindings[i];
+                printf("%*s%zu: ", (indent + 1) * INDENT_SIZE, "", i);
+                if (b) {
+                    print_at_indent(interp, b, indent + 1);
+                } else {
+                    printf("_\n");
                 }
             }
         } break;
@@ -760,6 +815,66 @@ struct Typer {
                     auto field_type  = defn->fields[i].type;
                     bind_pattern(sub_pattern, field_type, out_pp);
                 }
+            } break;
+                
+            default:
+                internal_error("Invalid target kind: %d\n", pattern->kind);
+                break;
+        }
+    }
+    
+    void bind_match_pattern(
+        Ref<Untyped_AST_Pattern> pattern,
+        const Value_Type &type,
+        Ref<Typed_AST_Match_Pattern> out_mp)
+    {
+        switch (pattern->kind) {
+            case Untyped_AST_Kind::Pattern_Underscore:
+                out_mp->add_binding(nullptr);
+                break;
+            case Untyped_AST_Kind::Pattern_Ident: {
+                auto ip = pattern.cast<Untyped_AST_Pattern_Ident>();
+                Value_Type id_type = type;
+                id_type.is_mut = ip->is_mut;
+                auto id = Mem.make<Typed_AST_Ident>(ip->id, id_type);
+                out_mp->add_binding(id);
+                bind_variable(ip->id.c_str(), type, ip->is_mut);
+            } break;
+            case Untyped_AST_Kind::Pattern_Tuple: {
+                auto tp = pattern.cast<Untyped_AST_Pattern_Tuple>();
+                verify(type.kind == Value_Type_Kind::Tuple &&
+                       tp->sub_patterns.size() == type.data.tuple.child_types.size(),
+                       "Cannot match tuple pattern with %s.", type.debug_str());
+                for (size_t i = 0; i < tp->sub_patterns.size(); i++) {
+                    auto sub_pattern = tp->sub_patterns[i];
+                    auto sub_type    = type.data.tuple.child_types[i];
+                    bind_match_pattern(sub_pattern, sub_type, out_mp);
+                }
+            } break;
+            case Untyped_AST_Kind::Pattern_Struct: {
+                auto sp = pattern.cast<Untyped_AST_Pattern_Struct>();
+                auto uuid = sp->struct_id->typecheck(*this).cast<Typed_AST_UUID>();
+                internal_verify(uuid, "Failed to cast to UUID* in Typer::put_pattern().");
+                
+                verify(type.kind == Value_Type_Kind::Struct &&
+                       type.data.struct_.defn->id == uuid->id, "Cannot match %.*s struct pattern with %s.", sp->struct_id->id.size(), sp->struct_id->id.c_str(), type.debug_str());
+                
+                auto defn = type.data.struct_.defn;
+                verify(defn->fields.size() == sp->sub_patterns.size(), "Incorrect number of sub patterns in struct pattern for struct %s. Expected %zu but was given %zu.", type.debug_str(), defn->fields.size(), sp->sub_patterns.size());
+                
+                for (size_t i = 0; i < sp->sub_patterns.size(); i++) {
+                    auto sub_pattern = sp->sub_patterns[i];
+                    auto field_type  = defn->fields[i].type;
+                    bind_match_pattern(sub_pattern, field_type, out_mp);
+                }
+            } break;
+            case Untyped_AST_Kind::Pattern_Value: {
+                auto vp = pattern.cast<Untyped_AST_Pattern_Value>();
+                auto value = vp->value->typecheck(*this);
+                
+                verify(value->type.eq_ignoring_mutability(type), "Type mismatch in pattern. Expected '%s' but was given '%s'.", type.debug_str(), value->type.debug_str());
+                
+                out_mp->add_binding(value);
             } break;
                 
             default:
@@ -1109,12 +1224,11 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(i->value < ty.data.tuple.child_types.size(), "Cannot access type %lld from a %s.", i->value, lhs->type.debug_str());
             Value_Type child_ty = ty.data.tuple.child_types[i->value];
             child_ty.is_mut = ty.is_mut;
-            return Mem.make<Typed_AST_Field_Access_Tuple>(
-                Typed_AST_Kind::Field_Access_Tuple,
+            return Mem.make<Typed_AST_Field_Access>(
                 child_ty,
                 needs_deref,
                 lhs,
-                i
+                lhs->type.data.tuple.offset_of_type(i->value)
             );
         } break;
         case Untyped_AST_Kind::Subscript: {
@@ -1350,7 +1464,33 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {
-    todo("Implement Untyped_AST_Match::typecheck().");
+    auto cond = this->cond->typecheck(t);
+    
+    Ref<Typed_AST> default_arm = nullptr;
+    if (this->default_arm) {
+        default_arm = this->default_arm->typecheck(t);
+    }
+    
+    auto arms = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    for (auto arm : this->arms->nodes) {
+        internal_verify(arm->kind == Untyped_AST_Kind::Match_Arm, "Arm node in match node is not an Untyped_AST_Kind::Match_Arm.");
+        auto arm_bin = arm.cast<Untyped_AST_Binary>();
+        
+        auto pat = arm_bin->lhs.cast<Untyped_AST_Pattern>();
+        auto match_pat = Mem.make<Typed_AST_Match_Pattern>();
+        t.bind_match_pattern(pat, cond->type, match_pat);
+        
+        auto body = arm_bin->rhs->typecheck(t);
+        
+        auto typechecked_arm = Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Match_Arm, value_types::None, match_pat, body);
+        arms->add(typechecked_arm);
+    }
+    
+    return Mem.make<Typed_AST_Match>(
+        cond,
+        default_arm,
+        arms
+    );
 }
 
 Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {

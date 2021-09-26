@@ -509,28 +509,6 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             
             address = inst_address + dot->field_offset;
         } break;
-        case Typed_AST_Kind::Field_Access_Tuple: {
-            auto dot = dynamic_cast<Typed_AST_Field_Access_Tuple *>(&node);
-            internal_verify(dot, "Failed to cast node to Dot* in find_static_address().");
-            
-            if (dot->deref) {
-                status = Find_Static_Address_Result::Not_Found;
-                break;
-            }
-            
-            auto [lhs_status, lhs_address] = find_static_address(c, *dot->lhs);
-            if (lhs_status == Find_Static_Address_Result::Not_Found) {
-                status = Find_Static_Address_Result::Not_Found;
-                break;
-            }
-            
-            status = lhs_status;
-            
-            auto index = dot->rhs.cast<Typed_AST_Int>()->value;
-            auto offset = dot->lhs->type.data.tuple.offset_of_type(index);
-            
-            address = lhs_address + offset;
-        } break;
             
         default:
             status = Find_Static_Address_Result::Not_Found;
@@ -617,33 +595,6 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
             }
             
             Size offset = dot->field_offset;
-            if (offset == 0) {
-                // do nothing
-            } else if (offset == 1) {
-                c.emit_opcode(Opcode::Lit_1);
-                c.emit_opcode(Opcode::Int_Add);
-            } else {
-                c.emit_opcode(Opcode::Lit_Int);
-                c.emit_value<runtime::Int>(offset);
-                c.emit_opcode(Opcode::Int_Add);
-            }
-        } break;
-        case Typed_AST_Kind::Field_Access_Tuple: {
-            auto dot = dynamic_cast<Typed_AST_Field_Access_Tuple *>(&node);
-            internal_verify(dot, "Failed to cast node to Field_Access_Tuple* in emit_dynamic_address_code().");
-            
-            Value_Type *tuple_type;
-            if (dot->deref) {
-                dot->lhs->compile(c);
-                tuple_type = dot->lhs->type.child_type();
-            } else {
-                emit_address_code(c, *dot->lhs);
-                tuple_type = &dot->lhs->type;
-            }
-            
-            auto index = dot->rhs.cast<Typed_AST_Int>()->value;
-            auto offset = tuple_type->data.tuple.offset_of_type(index);
-            
             if (offset == 0) {
                 // do nothing
             } else if (offset == 1) {
@@ -1117,9 +1068,13 @@ void Typed_AST_Processed_Pattern::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Processed_Pattern::compile() is disallowed.");
 }
 
+void Typed_AST_Match_Pattern::compile(Compiler &c) {
+    internal_error("Call to Typed_AST_Match_Pattern::compile() is disallowed.");
+}
+
 static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     // initialize counter variable
-    Variable counter_v = { false, value_types::Int, static_cast<Address>(c.stack_top) };
+    Variable counter_v = { false, value_types::Int, c.stack_top };
     c.emit_opcode(Opcode::Lit_0);
     c.stack_top += counter_v.type.size();
     
@@ -1136,12 +1091,12 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
         verify(v, "Unresolved identifier '%.*s'.", set_id->id.size(), set_id->id.c_str());
         iterable_v = *v;
     } else {
-        iterable_v = { false, f.iterable->type, static_cast<Address>(c.stack_top) };
+        iterable_v = { false, f.iterable->type, c.stack_top };
         f.iterable->compile(c);
     }
     
     // initialize target variable
-    Variable target_v = { false, *iterable_v.type.child_type(), static_cast<Address>(c.stack_top) };
+    Variable target_v = { false, *iterable_v.type.child_type(), c.stack_top };
     c.put_variables_from_pattern(*f.target, target_v.address);
     c.emit_opcode(Opcode::Allocate);
     c.emit_size(target_v.type.size());
@@ -1242,7 +1197,7 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
         c.stack_top += value_types::Int.size();
     }
     
-    Variable end_v = { false, range->rhs->type, static_cast<Address>(c.stack_top) };
+    Variable end_v = { false, range->rhs->type, c.stack_top };
     range->rhs->compile(c);
 
     size_t loop_start = c.function->bytecode.size();
@@ -1300,6 +1255,82 @@ void Typed_AST_For::compile(Compiler &c) {
     c.end_scope();
 }
 
+void Typed_AST_Match::compile(Compiler &c) {
+    Address stack_top = c.stack_top;
+    
+    //
+    // @TODO:
+    //      This assumes the very simple match statement without pattern matching.
+    //
+    
+    Variable cond_v = { false, cond->type, stack_top };
+    cond->compile(c);
+    c.stack_top = stack_top + cond_v.type.size();
+    
+    std::vector<size_t> in_jumps;
+    in_jumps.reserve(arms->nodes.size());
+    
+    std::vector<size_t> out_jumps;
+    out_jumps.reserve(arms->nodes.size());
+    
+    // arms conditions
+    for (auto arm : arms->nodes) {
+        auto a = arm.cast<Typed_AST_Binary>();
+        internal_verify(a, "Failed to cast arm to Typed_AST_Binary in Typed_AST_Match::compile().");
+        
+        // valuate equality
+        c.emit_opcode(Opcode::Push_Value);
+        c.emit_size(cond_v.type.size());
+        c.emit_address(cond_v.address);
+        
+        auto arm_cond = a->lhs.cast<Typed_AST_Match_Pattern>();
+        
+        if (arm_cond->is_simple_value_pattern()) {
+            for (auto b : arm_cond->bindings) {
+                b->compile(c);
+            }
+            
+            if (cond_v.type.kind == Value_Type_Kind::Str) {
+                c.emit_opcode(Opcode::Str_Equal);
+            } else {
+                c.emit_opcode(Opcode::Equal);
+                c.emit_size(cond_v.type.size());
+            }
+        } else {
+            todo("Implement non-trivial match statement arm conditions.");
+        }
+        
+        in_jumps.emplace_back(c.emit_jump(Opcode::Jump_True));
+    }
+    
+    if (default_arm) {
+        default_arm->compile(c);
+    }
+    out_jumps.emplace_back(c.emit_jump(Opcode::Jump));
+    
+    for (size_t i = 0; i < arms->nodes.size(); i++) {
+        auto arm = arms->nodes[i].cast<Typed_AST_Binary>();
+        
+        size_t in_jump = in_jumps[i];
+        c.patch_jump(in_jump);
+        
+        arm->rhs->compile(c);
+        
+        if (i < arms->nodes.size() - 1) {
+            out_jumps.emplace_back(c.emit_jump(Opcode::Jump));
+        }
+    }
+    
+    for (size_t out_jump : out_jumps) {
+        c.patch_jump(out_jump);
+    }
+  
+    c.emit_opcode(Opcode::Flush);
+    c.emit_address(cond_v.address);
+    
+    c.stack_top = stack_top;
+}
+
 void Typed_AST_Let::compile(Compiler &c) {
     if (is_const) {
         c.declare_constant(*this);
@@ -1340,32 +1371,6 @@ void Typed_AST_Field_Access::compile(Compiler &c) {
         case Find_Static_Address_Result::Not_Found:
             bool success = emit_dynamic_address_code(c, *this);
             verify(success, "Cannot access field of this expression.");
-            c.emit_opcode(Opcode::Load);
-            c.emit_size(type.size());
-            break;
-    }
-    
-    c.stack_top = stack_top + type.size();
-}
-
-void Typed_AST_Field_Access_Tuple::compile(Compiler &c) {
-    Address stack_top = c.stack_top;
-    
-    auto [status, address] = find_static_address(c, *this);
-    switch (status) {
-        case Find_Static_Address_Result::Found:
-            c.emit_opcode(Opcode::Push_Value);
-            c.emit_size(type.size());
-            c.emit_address(address);
-            break;
-        case Find_Static_Address_Result::Found_Global:
-            c.emit_opcode(Opcode::Push_Global_Value);
-            c.emit_size(type.size());
-            c.emit_address(address);
-            break;
-        case Find_Static_Address_Result::Not_Found:
-            bool success = emit_dynamic_address_code(c, *this);
-            verify(success, "Cannot access this value.");
             c.emit_opcode(Opcode::Load);
             c.emit_size(type.size());
             break;

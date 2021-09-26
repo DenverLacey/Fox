@@ -54,6 +54,7 @@ enum class Typed_AST_Kind {
     Range,
     Inclusive_Range,
     Invocation,
+    Match_Arm,
     
     // ternary
     
@@ -70,10 +71,11 @@ enum class Typed_AST_Kind {
     If,
     For,
     For_Range,
+    Match,
     Type_Signature,
     Field_Access,
-    Field_Access_Tuple,
     Processed_Pattern,
+    Match_Pattern,
 };
 
 struct Compiler;
@@ -230,6 +232,21 @@ struct Typed_AST_Processed_Pattern : public Typed_AST {
     bool is_constant(Compiler &c) override;
 };
 
+struct Typed_AST_Match_Pattern : public Typed_AST {
+    //
+    // @NOTE:
+    //      We using 'nullptr' to represent an underscore binding which may or
+    //      may not be problematic in the future.
+    //
+    std::vector<Ref<Typed_AST>> bindings;
+    
+    Typed_AST_Match_Pattern();
+    void add_binding(Ref<Typed_AST> binding);
+    bool is_simple_value_pattern();
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
 struct Typed_AST_For : public Typed_AST {
     Ref<Typed_AST_Processed_Pattern> target;
     String counter;
@@ -238,6 +255,16 @@ struct Typed_AST_For : public Typed_AST {
     
     Typed_AST_For(Typed_AST_Kind kind, Ref<Typed_AST_Processed_Pattern> target, String counter, Ref<Typed_AST> iterable, Ref<Typed_AST_Multiary> body);
     ~Typed_AST_For();
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Match : public Typed_AST {
+    Ref<Typed_AST> cond;
+    Ref<Typed_AST> default_arm;
+    Ref<Typed_AST_Multiary> arms;
+    
+    Typed_AST_Match(Ref<Typed_AST> cond, Ref<Typed_AST> default_arm, Ref<Typed_AST_Multiary> arms);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -259,14 +286,6 @@ struct Typed_AST_Field_Access : public Typed_AST {
     Size field_offset;
     
     Typed_AST_Field_Access(Value_Type type, bool deref, Ref<Typed_AST> instance, Size field_offset);
-    void compile(Compiler &c) override;
-    bool is_constant(Compiler &c) override;
-};
-
-struct Typed_AST_Field_Access_Tuple : public Typed_AST_Binary {
-    bool deref;
-    
-    Typed_AST_Field_Access_Tuple(Typed_AST_Kind kind, Value_Type type, bool deref, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
