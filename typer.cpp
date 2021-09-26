@@ -1476,11 +1476,15 @@ Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {
         internal_verify(arm->kind == Untyped_AST_Kind::Match_Arm, "Arm node in match node is not an Untyped_AST_Kind::Match_Arm.");
         auto arm_bin = arm.cast<Untyped_AST_Binary>();
         
+        t.begin_scope();
+        
         auto pat = arm_bin->lhs.cast<Untyped_AST_Pattern>();
         auto match_pat = Mem.make<Typed_AST_Match_Pattern>();
         t.bind_match_pattern(pat, cond->type, match_pat);
         
         auto body = arm_bin->rhs->typecheck(t);
+        
+        t.end_scope();
         
         auto typechecked_arm = Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Match_Arm, value_types::None, match_pat, body);
         arms->add(typechecked_arm);

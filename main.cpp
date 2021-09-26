@@ -12,8 +12,8 @@
 // [ ]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
 // [x]  Merge Typed_AST_Field_Access and Typed_AST_Field_Access_Tuple.
-// [ ]  Implement typechecking for match statements.
-// [ ]  Implement compilation for match statements.
+// [x]  Implement typechecking for match statements.
+// [x]  Implement compilation for match statements.
 //
 
 #include <iostream>

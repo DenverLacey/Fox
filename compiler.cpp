@@ -1273,19 +1273,28 @@ void Typed_AST_Match::compile(Compiler &c) {
     std::vector<size_t> out_jumps;
     out_jumps.reserve(arms->nodes.size());
     
+    //
+    // @HACK:
+    //      Bit of a hack just to get this to work. There's probably a better way
+    //      to achieve the same effect.
+    //
+    std::vector<std::vector<std::pair<String, Variable>>> idents;
+    
     // arms conditions
     for (auto arm : arms->nodes) {
         auto a = arm.cast<Typed_AST_Binary>();
         internal_verify(a, "Failed to cast arm to Typed_AST_Binary in Typed_AST_Match::compile().");
         
-        // valuate equality
-        c.emit_opcode(Opcode::Push_Value);
-        c.emit_size(cond_v.type.size());
-        c.emit_address(cond_v.address);
+        idents.emplace_back();
         
+        // valuate equality
         auto arm_cond = a->lhs.cast<Typed_AST_Match_Pattern>();
         
         if (arm_cond->is_simple_value_pattern()) {
+            c.emit_opcode(Opcode::Push_Value);
+            c.emit_size(cond_v.type.size());
+            c.emit_address(cond_v.address);
+            
             for (auto b : arm_cond->bindings) {
                 b->compile(c);
             }
@@ -1297,7 +1306,53 @@ void Typed_AST_Match::compile(Compiler &c) {
                 c.emit_size(cond_v.type.size());
             }
         } else {
-            todo("Implement non-trivial match statement arm conditions.");
+            switch (cond_v.type.kind) {
+                case Value_Type_Kind::Tuple: {
+                    bool not_first_comparison = false;
+                    for (size_t i = 0; i < arm_cond->bindings.size(); i++) {
+                        auto b = arm_cond->bindings[i];
+                        if (!b) continue;
+                        
+                        Value_Type child_type = cond_v.type.data.tuple.child_types[i];
+                        Size offset = cond_v.type.data.tuple.offset_of_type(i);
+                        
+                        if (b->kind == Typed_AST_Kind::Ident) {
+                            auto id = b.cast<Typed_AST_Ident>()->id;
+                            Variable v = { false, child_type, cond_v.address + offset };
+                            idents.back().push_back({ id, v });
+                        } else {
+                            c.emit_opcode(Opcode::Push_Value);
+                            c.emit_size(child_type.size());
+                            c.emit_address(cond_v.address + offset);
+                            
+                            b->compile(c);
+                            
+                            if (child_type.kind == Value_Type_Kind::Str) {
+                                c.emit_opcode(Opcode::Str_Equal);
+                            } else {
+                                c.emit_opcode(Opcode::Equal);
+                                c.emit_size(child_type.size());
+                            }
+                            
+                            if (not_first_comparison) {
+                                c.emit_opcode(Opcode::And);
+                            } else {
+                                not_first_comparison = true;
+                            }
+                        }
+                    }
+                } break;
+                case Value_Type_Kind::Struct: {
+                    todo("Implement struct types for match patterns in Typed_AST_Match::compile().");
+                } break;
+                case Value_Type_Kind::Enum: {
+                    todo("Implement enum types for match patterns in Typed_AST_Match::compile().");
+                } break;
+                    
+                default:
+                    internal_error("Invalid type for match pattern: %d.", cond_v.type.kind);
+                    break;
+            }
         }
         
         in_jumps.emplace_back(c.emit_jump(Opcode::Jump_True));
@@ -1314,7 +1369,15 @@ void Typed_AST_Match::compile(Compiler &c) {
         size_t in_jump = in_jumps[i];
         c.patch_jump(in_jump);
         
+        c.begin_scope();
+        
+        for (auto [id, v] : idents[i]) {
+            c.put_variable(id, v.type, v.address);
+        }
+        
         arm->rhs->compile(c);
+        
+        c.end_scope();
         
         if (i < arms->nodes.size() - 1) {
             out_jumps.emplace_back(c.emit_jump(Opcode::Jump));
