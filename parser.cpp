@@ -12,7 +12,6 @@
 enum class Precedence {
     None,
     Assignment, // = += -= *= /= &= etc.
-    Comma,      // ,
     Colon,      // :
     Range,      // .. ...
     Or,         // or
@@ -48,7 +47,7 @@ Precedence token_precedence(Token token) {
         // delimeters
         case Token_Kind::Semi: return Precedence::None;
         case Token_Kind::Colon: return Precedence::Colon;
-        case Token_Kind::Comma: return Precedence::Comma;
+        case Token_Kind::Comma: return Precedence::None;
         case Token_Kind::Left_Paren: return Precedence::Call;
         case Token_Kind::Right_Paren: return Precedence::None;
         case Token_Kind::Left_Curly: return Precedence::None;
@@ -639,10 +638,11 @@ struct Parser {
             // delimeters
             case Token_Kind::Left_Paren:
                 a = parse_expression();
-                expect(Token_Kind::Right_Paren, "Expected ')' to terminate parenthesized expression.");
-                if (a->kind == Untyped_AST_Kind::Comma) {
+                if (match(Token_Kind::Comma)) {
+                    a = parse_comma_separated_expressions(a);
                     a->kind = Untyped_AST_Kind::Tuple;
                 }
+                expect(Token_Kind::Right_Paren, "Expected ')' to terminate parenthesized expression.");
                 break;
             case Token_Kind::Left_Bracket:
                 a = parse_array_literal();
@@ -725,7 +725,7 @@ struct Parser {
                 a = parse_binary(Untyped_AST_Kind::Binding, prec, prev);
                 break;
             case Token_Kind::Left_Bracket:
-                a = parse_binary(Untyped_AST_Kind::Subscript, Precedence::Comma + 1, prev);
+                a = parse_binary(Untyped_AST_Kind::Subscript, Precedence::Assignment + 1, prev);
                 expect(Token_Kind::Right_Bracket, "Expected ']' in subscript expression.");
                 break;
                 
@@ -843,7 +843,7 @@ struct Parser {
         if (prev) comma->add(prev);
         do {
             if (check_terminating_delimeter()) break;
-            comma->add(parse_precedence(Precedence::Comma + 1));
+            comma->add(parse_expression());
         } while (match(Token_Kind::Comma) && has_more());
         return comma;
     }

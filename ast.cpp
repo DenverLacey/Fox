@@ -533,6 +533,9 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
             }
             printf(" }");
         } break;
+        case Untyped_AST_Kind::Pattern_Value:
+            print_at_indent(p, 0);
+            break;
             
         default:
             internal_error("Invalid Kind for Pattern: %d.", p->kind);
