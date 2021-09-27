@@ -60,6 +60,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Fat_Right_Arrow: return Precedence::None;
             
         // keywords
+        case Token_Kind::Noinit: return Precedence::Primary;
         case Token_Kind::Let: return Precedence::None;
         case Token_Kind::Mut: return Precedence::None;
         case Token_Kind::Const: return Precedence::None;
@@ -68,6 +69,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::While: return Precedence::None;
         case Token_Kind::For: return Precedence::None;
         case Token_Kind::In: return Precedence::None;
+        case Token_Kind::Match: return Precedence::None;
         case Token_Kind::Fn: return Precedence::None;
         case Token_Kind::Struct: return Precedence::None;
         case Token_Kind::Enum: return Precedence::None;
@@ -376,7 +378,7 @@ struct Parser {
             initializer = parse_expression();
         }
         
-        verify(specified_type || initializer, "Type signiture required in 'let' statement without an initializer.");
+        verify(specified_type || (initializer && initializer->kind != Untyped_AST_Kind::Noinit), "Type signiture required in 'let' statement without an initializer.");
         verify(initializer || target->are_all_variables_mut() || (specified_type ? specified_type->value_type->is_partially_mutable() : false), "'let' statements without an initializer must be marked 'mut'.");
         
         return Mem.make<Untyped_AST_Let>(false, target, specified_type, initializer);
@@ -674,6 +676,11 @@ struct Parser {
                 break;
             case Token_Kind::String:
                 a = Mem.make<Untyped_AST_Str>(token.data.s);
+                break;
+                
+            // keywords
+            case Token_Kind::Noinit:
+                a = Mem.make<Untyped_AST_Nullary>(Untyped_AST_Kind::Noinit);
                 break;
                 
             // operators

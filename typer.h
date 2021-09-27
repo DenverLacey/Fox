@@ -25,6 +25,9 @@ enum class Typed_AST_Kind {
     Array,
     Slice,
     
+    // nullary
+    Allocate,
+    
     // unary
     Negation,
     Not,
@@ -144,6 +147,12 @@ struct Typed_AST_Str : public Typed_AST {
     
     Typed_AST_Str(String value);
     ~Typed_AST_Str() override;
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Nullary : public Typed_AST {
+    Typed_AST_Nullary(Typed_AST_Kind kind, Value_Type type);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

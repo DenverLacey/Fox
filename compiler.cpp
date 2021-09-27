@@ -641,6 +641,23 @@ static bool emit_address_code(Compiler &c, Typed_AST &node) {
     return success;
 }
 
+void Typed_AST_Nullary::compile(Compiler &c) {
+    Address stack_top = c.stack_top;
+    
+    switch (kind) {
+        case Typed_AST_Kind::Allocate:
+            c.emit_opcode(Opcode::Allocate);
+            c.emit_size(type.size());
+            break;
+            
+        default:
+            internal_error("Invalid nullary kind: %d.", kind);
+            break;
+    }
+    
+    c.stack_top = stack_top + type.size();
+}
+
 void Typed_AST_Unary::compile(Compiler &c) {
     Address stack_top = c.stack_top;
     switch (kind) {

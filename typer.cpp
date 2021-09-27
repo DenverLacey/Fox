@@ -96,6 +96,25 @@ bool Typed_AST_Str::is_constant(Compiler &c) {
     return true;
 }
 
+Typed_AST_Nullary::Typed_AST_Nullary(Typed_AST_Kind kind, Value_Type type) {
+    this->kind = kind;
+    this->type = type;
+}
+
+bool Typed_AST_Nullary::is_constant(Compiler &c) {
+    bool constant = true;
+    switch (kind) {
+        case Typed_AST_Kind::Allocate:
+            break;
+            
+        default:
+            internal_error("Invalid nullary kind: %d.", kind);
+            break;
+    }
+ 
+    return constant;
+}
+
 Typed_AST_Unary::Typed_AST_Unary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> sub) {
     this->kind = kind;
     this->type = type;
@@ -283,7 +302,9 @@ Typed_AST_Match::Typed_AST_Match(
 }
 
 bool Typed_AST_Match::is_constant(Compiler &c) {
-    todo("Implement Typed_AST_Match::is_constant().");
+    if (!cond->is_constant(c)) return false;
+    if (default_arm && !default_arm->is_constant(c)) return false;
+    return arms->is_constant(c);
 }
 
 Typed_AST_Let::Typed_AST_Let(
@@ -407,6 +428,10 @@ static void print_sub_at_indent(Interpreter *interp, const char *name, const Ref
     print_at_indent(interp, sub, indent);
 }
 
+static void print_nullary(const char *id, Ref<Typed_AST_Nullary> n) {
+    printf("(%s) %s\n", id, n->type.debug_str());
+}
+
 static void print_unary_at_indent(Interpreter *interp, const char *id, const Ref<Typed_AST_Unary> u, size_t indent) {
     printf("(%s) %s\n", id, u->type.debug_str());
     print_sub_at_indent(interp, "sub", u->sub, indent + 1);
@@ -469,6 +494,9 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         case Typed_AST_Kind::Str: {
             Ref<Typed_AST_Str> lit = node.cast<Typed_AST_Str>();
             printf("\"%.*s\"\n", lit->value.size(), lit->value.c_str());
+        } break;
+        case Typed_AST_Kind::Allocate: {
+            print_nullary("allocate", node.cast<Typed_AST_Nullary>());
         } break;
         case Typed_AST_Kind::Negation: {
             print_unary_at_indent(interp, "-", node.cast<Typed_AST_Unary>(), indent);
@@ -1008,6 +1036,20 @@ Ref<Typed_AST> Untyped_AST_Str::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Str>(value.clone());
 }
 
+Ref<Typed_AST> Untyped_AST_Nullary::typecheck(Typer &t) {
+    switch (kind) {
+        case Untyped_AST_Kind::Noinit:
+            error("'noinit' only allowed as initializer expression of variable declaration.");
+            break;
+            
+        default:
+            internal_error("Invalid nullary kind: %d.", kind);
+            break;
+    }
+    
+    todo("Implement Untyped_AST_Nullary::typecheck().");
+}
+
 Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
     auto sub = this->sub->typecheck(t);
     switch (kind) {
@@ -1499,20 +1541,26 @@ Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
     Value_Type ty = value_types::None;
-    Ref<Typed_AST> init = nullptr;
-    if (initializer) {
-        init = initializer->typecheck(t);
-        ty = init->type;
-    }
     
     Ref<Typed_AST_Type_Signature> sig = nullptr;
     if (specified_type) {
-        if (init) {
-            verify(specified_type->value_type->assignable_from(init->type), "Specified type '%s' does not match given type '%s'.", specified_type->value_type->debug_str(), init->type.debug_str());
-        }
         sig = specified_type->typecheck(t).cast<Typed_AST_Type_Signature>();
         internal_verify(sig, "Failed to cast to Type_Sig in Untyped_AST_Let::typecheck().");
         ty = *sig->value_type;
+    }
+    
+    Ref<Typed_AST> init = nullptr;
+    if (initializer) {
+        if (initializer->kind == Untyped_AST_Kind::Noinit) {
+            init = Mem.make<Typed_AST_Nullary>(Typed_AST_Kind::Allocate, ty);
+        } else {
+            init = initializer->typecheck(t);
+            if (sig) {
+                verify(specified_type->value_type->assignable_from(init->type), "Specified type '%s' does not match given type '%s'.", specified_type->value_type->debug_str(), init->type.debug_str());
+            } else {
+                ty = init->type;
+            }
+        }
     }
 
     auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();

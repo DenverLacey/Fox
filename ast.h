@@ -25,6 +25,9 @@ enum class Untyped_AST_Kind {
     Slice,
     Struct,
     
+    // nullary
+    Noinit,
+    
     // unary
     Negation,
     Not,
@@ -143,6 +146,12 @@ struct Untyped_AST_Str : public Untyped_AST {
     
     Untyped_AST_Str(String value);
     ~Untyped_AST_Str() override;
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Nullary : Untyped_AST {
+    Untyped_AST_Nullary(Untyped_AST_Kind kind);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

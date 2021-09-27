@@ -77,6 +77,9 @@ void Token::print() const {
         case Token_Kind::Underscore:
             printf("Underscore\n");
             break;
+        case Token_Kind::Noinit:
+            printf("Noinit\n");
+            break;
         case Token_Kind::Let:
             printf("Let\n");
             break;
@@ -585,6 +588,8 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::True;
     } else if (word == "false") {
         tok.kind = Token_Kind::False;
+    } else if (word == "noinit") {
+        tok.kind = Token_Kind::Noinit;
     } else if (word == "let") {
         tok.kind = Token_Kind::Let;
     } else if (word == "const") {

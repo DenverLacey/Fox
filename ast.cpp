@@ -72,6 +72,14 @@ Ref<Untyped_AST> Untyped_AST_Str::clone() {
     return Mem.make<Untyped_AST_Str>(value.clone());
 }
 
+Untyped_AST_Nullary::Untyped_AST_Nullary(Untyped_AST_Kind kind) {
+    this->kind = kind;
+}
+
+Ref<Untyped_AST> Untyped_AST_Nullary::clone() {
+    return Mem.make<Untyped_AST_Nullary>(kind);
+}
+
 Untyped_AST_Unary::Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub) {
     this->kind = kind;
     this->sub = sub;
@@ -472,6 +480,10 @@ static void print_sub_at_indent(const char *name, const Ref<Untyped_AST> sub, si
     print_at_indent(sub, indent);
 }
 
+static void print_nullary(const char *id) {
+    printf("(%s)\n", id);
+}
+
 static void print_unary_at_indent(const char *id, const Ref<Untyped_AST_Unary> u, size_t indent) {
     printf("(%s)\n", id);
     print_sub_at_indent("sub", u->sub, indent + 1);
@@ -574,6 +586,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             printf("(struct)\n");
             print_sub_at_indent("struct_id", lit->struct_id, indent + 1);
             print_sub_at_indent("bindings", lit->bindings, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Noinit: {
+            print_nullary("noinit");
         } break;
         case Untyped_AST_Kind::Negation: {
             print_unary_at_indent("-", node.cast<Untyped_AST_Unary>(), indent);
