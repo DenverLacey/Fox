@@ -446,6 +446,30 @@ Ref<Untyped_AST> Untyped_AST_Struct_Declaration::clone() {
     return copy;
 }
 
+Untyped_AST_Enum_Declaration::Untyped_AST_Enum_Declaration(String id) {
+    this->kind = Untyped_AST_Kind::Enum_Decl;
+    this->id = id;
+}
+
+Untyped_AST_Enum_Declaration::~Untyped_AST_Enum_Declaration() {
+    id.free();
+}
+
+void Untyped_AST_Enum_Declaration::add_variant(
+    String id,
+    Ref<Untyped_AST_Multiary> payload)
+{
+    variants.push_back({ id, payload });
+}
+
+Ref<Untyped_AST> Untyped_AST_Enum_Declaration::clone() {
+    auto copy = Mem.make<Untyped_AST_Enum_Declaration>(id.clone());
+    for (auto &v : variants) {
+        copy->add_variant(v.id.clone(), v.payload->clone().cast<Untyped_AST_Multiary>());
+    }
+    return copy;
+}
+
 Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
     String id,
     Ref<Untyped_AST_Multiary> params,
@@ -572,6 +596,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Ident: {
             Ref<Untyped_AST_Ident> id = node.cast<Untyped_AST_Ident>();
             printf("%.*s\n", id->id.size(), id->id.c_str());
+        } break;
+        case Untyped_AST_Kind::Path: {
+            print_binary_at_indent("path", node.cast<Untyped_AST_Binary>(), indent);
         } break;
         case Untyped_AST_Kind::Int: {
             Ref<Untyped_AST_Int> lit = node.cast<Untyped_AST_Int>();
@@ -771,6 +798,19 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             printf("%*sfields:\n", (indent + 1) * INDENT_SIZE, "");
             for (auto &f : decl->fields) {
                 printf("%*s%s: %s\n", (indent + 2) * INDENT_SIZE, "", f.id.c_str(), f.type->value_type->debug_str());
+            }
+        } break;
+        case Untyped_AST_Kind::Enum_Decl: {
+            auto decl = node.cast<Untyped_AST_Enum_Declaration>();
+            printf("(enum-decl)\n");
+            printf("%*sid: %.*s\n", (indent + 1) * INDENT_SIZE, "", decl->id.size(), decl->id.c_str());
+            printf("%*svariants:\n", (indent + 1) * INDENT_SIZE, "");
+            for (auto &v : decl->variants) {
+                if (v.payload) {
+                    print_sub_at_indent(v.id.c_str(), v.payload, indent + 2);
+                } else {
+                    printf("%*s%.*s\n", (indent + 2) * INDENT_SIZE, "", v.id.size(), v.id.c_str());
+                }
             }
         } break;
         case Untyped_AST_Kind::Fn_Decl: {

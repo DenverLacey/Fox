@@ -25,7 +25,7 @@ enum class Precedence {
     Term,       // + -
     Factor,     // * / %
     Unary,      // !
-    Call,       // . () []
+    Call,       // . () [] ::
     Primary,
 };
 
@@ -47,6 +47,7 @@ Precedence token_precedence(Token token) {
         // delimeters
         case Token_Kind::Semi: return Precedence::None;
         case Token_Kind::Colon: return Precedence::Colon;
+        case Token_Kind::Double_Colon: return Precedence::Call;
         case Token_Kind::Comma: return Precedence::None;
         case Token_Kind::Left_Paren: return Precedence::Call;
         case Token_Kind::Right_Paren: return Precedence::None;
@@ -333,7 +334,35 @@ struct Parser {
     }
     
     Ref<Untyped_AST> parse_enum_declaration() {
-        return nullptr;
+        String id = expect(Token_Kind::Ident, "Expected identifier after 'enum' keyword.").data.s.clone();
+        
+        auto decl = Mem.make<Untyped_AST_Enum_Declaration>(id);
+        
+        expect(Token_Kind::Left_Curly, "Expected '{' in enum declaration.");
+        
+        do {
+            if (check_terminating_delimeter()) break;
+            
+            String variant_id = expect(Token_Kind::Ident, "Expected name of enum variant.").data.s.clone();
+            
+            Ref<Untyped_AST_Multiary> payload = nullptr;
+            if (match(Token_Kind::Left_Paren)) {
+                //
+                // @NOTE:
+                //      This diverges from Rust in that now all fields of an enum
+                //      variant must have a name. This might be a good thing as
+                //      it forces the programmer to document what each field is.
+                //
+                payload = parse_parameter_list();
+                expect(Token_Kind::Right_Paren, "Expected ')' to terminate payload of enum variant.");
+            }
+            
+            decl->add_variant(variant_id, payload);
+        } while (match(Token_Kind::Comma) && has_more());
+        
+        expect(Token_Kind::Right_Curly, "Expected '}' to terminate enum declaration.");
+        
+        return decl;
     }
     
     Ref<Untyped_AST> parse_statement() {
@@ -727,6 +756,9 @@ struct Parser {
                 break;
             case Token_Kind::Comma:
                 a = parse_comma_separated_expressions(prev);
+                break;
+            case Token_Kind::Double_Colon:
+                a = parse_binary(Untyped_AST_Kind::Path, prec, prev);
                 break;
             case Token_Kind::Colon:
                 a = parse_binary(Untyped_AST_Kind::Binding, prec, prev);

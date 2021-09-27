@@ -28,6 +28,7 @@ enum class Token_Kind {
     // delimeters
     Semi,           // ;
     Colon,          // :
+    Double_Colon,   // ::
     Comma,          // ,
     Left_Paren,     // (
     Right_Paren,    // )

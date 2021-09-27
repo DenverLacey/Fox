@@ -718,3 +718,12 @@ Struct_Field *Struct_Definition::find_field(String id) {
     }
     return nullptr;
 }
+
+Enum_Variant *Enum_Definition::find_variant(String id) {
+    for (auto &v : variants) {
+        if (v.id == id) {
+            return &v;
+        }
+    }
+    return nullptr;
+}

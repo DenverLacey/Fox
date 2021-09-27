@@ -209,27 +209,24 @@ struct Struct_Definition {
     Struct_Field *find_field(String id);
 };
 
-struct Enum_Definition {
-    UUID id;
-    Module *module;
+struct Enum_Payload_Field {
+    Size offset;
+    Value_Type type;
 };
 
-//struct EnumPayloadMember {
-//    TypeSize offset;
-//    ValueType type;
-//};
+struct Enum_Variant {
+    runtime::Int tag;
+    String id;
+    std::vector<Enum_Payload_Field> payload;
+};
 
-//struct EnumMember {
-//    int len;
-//    const char *ident;
-//    Integer tag;
-//    std::vector<EnumPayloadMember> payload;
-//};
-
-//struct EnumDefinition {
-//    bool is_sumtype;
-//    int len_ident;
-//    const char *ident;
-//    TypeSize size;
-//    std::vector<EnumMember> members;
-//};
+struct Enum_Definition {
+    bool is_sumtype;
+    Size size;
+    UUID id;
+    Module *module;
+    String name;
+    std::vector<Enum_Variant> variants;
+    
+    Enum_Variant *find_variant(String id);
+};

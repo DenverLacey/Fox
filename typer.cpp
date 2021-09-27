@@ -193,6 +193,24 @@ bool Typed_AST_Array::is_constant(Compiler &c) {
     return element_nodes->is_constant(c);
 }
 
+Typed_AST_Enum_Literal::Typed_AST_Enum_Literal(
+    Value_Type enum_type,
+    runtime::Int tag,
+    Ref<Typed_AST_Multiary> payload)
+{
+    this->kind = Typed_AST_Kind::Enum;
+    this->type = enum_type;
+    this->tag = tag;
+    this->payload = payload;
+}
+
+bool Typed_AST_Enum_Literal::is_constant(Compiler &c) {
+    if (payload) {
+        return payload->is_constant(c);
+    }
+    return true;
+}
+
 Typed_AST_If::Typed_AST_If(
     Value_Type type,
     Ref<Typed_AST> cond,
@@ -681,6 +699,14 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
             print_sub_at_indent(interp, "elems", array->element_nodes, indent + 1);
         } break;
+        case Typed_AST_Kind::Enum: {
+            auto enum_ = node.cast<Typed_AST_Enum_Literal>();
+            printf("(enum) %s\n", enum_->type.debug_str());
+            printf("%*stag: %lld\n", (indent + 1) * INDENT_SIZE, "", enum_->tag);
+            if (enum_->payload) {
+                print_sub_at_indent(interp, "payload", enum_->payload, indent + 1);
+            }
+        } break;
         case Typed_AST_Kind::Fn_Decl: {
             auto decl = node.cast<Typed_AST_Fn_Declaration>();
             printf("(fn-decl)\n");
@@ -1008,7 +1034,7 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
                     ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, ty.data.type.type->data.struct_.defn->id, ty);
                     break;
                 case Value_Type_Kind::Enum:
-                    todo("Enum idents not yet implemented.");
+                    ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Enum, ty.data.type.type->data.enum_.defn->id, ty);
                     break;
                 
                 default:
@@ -1170,10 +1196,59 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
     );
 }
 
+Ref<Typed_AST> typecheck_ident_in_enum_namespace(
+    Enum_Definition *defn,
+    Ref<Untyped_AST_Ident> id,
+    Typer &t)
+{
+    String variant_id = id->id;
+    
+    auto variant = defn->find_variant(variant_id);
+    if (!variant) {
+        todo("Implement checking for names other than variants. For when we have impl blocks for structs and enums.");
+    }
+    
+    Ref<Typed_AST_Multiary> payload = nullptr;
+    if (variant->payload.size() != 0) {
+        todo("Implement payload handling in typecheck_ident_in_enum_namespace().");
+    }
+    
+    Value_Type enum_type;
+    enum_type.kind = Value_Type_Kind::Enum;
+    enum_type.data.enum_.defn = defn;
+    
+    return Mem.make<Typed_AST_Enum_Literal>(enum_type, variant->tag, payload);
+}
+
+Ref<Typed_AST> typecheck_path(Untyped_AST_Binary &path, Typer &t) {
+    auto namespace_ = path.lhs->typecheck(t);
+    
+    Ref<Typed_AST> typechecked;
+    switch (namespace_->kind) {
+        case Typed_AST_Kind::Ident_Struct:
+            todo("Implement Ident_Struct handling in typecheck_path().");
+            break;
+        case Typed_AST_Kind::Ident_Enum: {
+            auto uuid = namespace_.cast<Typed_AST_UUID>();
+            auto defn = t.interp->typebook.get_enum_by_uuid(uuid->id);
+            auto id = path.rhs.cast<Untyped_AST_Ident>();
+            typechecked = typecheck_ident_in_enum_namespace(defn, id, t);
+        } break;
+            
+        default:
+            internal_error("Invalid Typed_AST_Kind in typecheck_path().");
+            break;
+    }
+    
+    return typechecked;
+}
+
 Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
     switch (kind) {
         case Untyped_AST_Kind::Invocation:
             return typecheck_invocation(*this, t);
+        case Untyped_AST_Kind::Path:
+            return typecheck_path(*this, t);
             
         default:
             break;
@@ -1595,7 +1670,6 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     auto [_, success] = t.module->structs.insert(new_defn->id);
     internal_verify(success, "Failed to add struct with id #%zu to module set.", new_defn->id);
     
-    String id = this->id.clone();
     Value_Type *struct_type = Mem.make<Value_Type>().as_ptr();
     struct_type->kind = Value_Type_Kind::Struct;
     struct_type->data.struct_.defn = new_defn;
@@ -1604,6 +1678,57 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     type.kind = Value_Type_Kind::Type;
     type.data.type.type = struct_type;
     
+    String id = this->id.clone();
+    t.bind_type(id.c_str(), type);
+    
+    return nullptr;
+}
+
+Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
+    //
+    // @TODO: Do Payloads
+    //
+    
+    Enum_Definition defn;
+    defn.is_sumtype = false;
+    defn.module = t.module;
+    defn.id = t.interp->next_uuid();
+    defn.name = id.clone();
+    defn.size = value_types::Int.size();
+    
+    bool is_sumtype = false;
+    for (size_t i = 0; i < variants.size(); i++) {
+        auto &v = variants[i];
+        Enum_Variant defn_v;
+        defn_v.tag = i;
+        defn_v.id = v.id.clone();
+        
+        if (v.payload) {
+            is_sumtype = true;
+            todo("Implement payloads in Untyped_AST_Enum_Declaration::typecheck().");
+        }
+        
+        defn.variants.push_back(defn_v);
+    }
+    
+    if (is_sumtype) {
+        defn.is_sumtype = true;
+        todo("Implement sum types in Untyped_AST_Enum_Declaration::typecheck().");
+    }
+    
+    auto new_defn = t.interp->typebook.add_enum(defn);
+    auto [_, success] = t.module->enums.insert(new_defn->id);
+    internal_verify(success, "Failed to add enum with id #%zu to module set.", new_defn->id);
+    
+    Value_Type *enum_type = Mem.make<Value_Type>().as_ptr();
+    enum_type->kind = Value_Type_Kind::Enum;
+    enum_type->data.enum_.defn = new_defn;
+    
+    Value_Type type;
+    type.kind = Value_Type_Kind::Type;
+    type.data.type.type = enum_type;
+    
+    String id = this->id.clone();
     t.bind_type(id.c_str(), type);
     
     return nullptr;

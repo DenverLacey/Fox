@@ -1062,6 +1062,25 @@ void Typed_AST_Array::compile(Compiler &c) {
     }
 }
 
+void Typed_AST_Enum_Literal::compile(Compiler &c) {
+    Address stack_top = c.stack_top;
+    
+    if (tag == 0) {
+        c.emit_opcode(Opcode::Lit_0);
+    } else if (tag == 1) {
+        c.emit_opcode(Opcode::Lit_1);
+    } else {
+        c.emit_opcode(Opcode::Lit_Int);
+        c.emit_value<runtime::Int>(tag);
+    }
+    
+    if (payload) {
+        payload->compile(c);
+    }
+    
+    c.stack_top = stack_top + type.size();
+}
+
 void Typed_AST_If::compile(Compiler &c) {
     cond->compile(c);
     size_t else_jump = c.emit_jump(Opcode::Jump_False);

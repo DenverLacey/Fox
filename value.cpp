@@ -52,8 +52,7 @@ Size Value_Type::size() const {
             return data.struct_.defn->size;
             
         case Value_Type_Kind::Enum:
-            todo("Enums not yet implemented.");
-            return 0;
+            return data.enum_.defn->size;
             
         case Value_Type_Kind::Function:
             return sizeof(runtime::Pointer);
@@ -132,9 +131,10 @@ char *Value_Type::debug_str() const {
             auto defn = data.struct_.defn;
             s << defn->name.c_str() << "#" << defn->id;
         } break;
-        case Value_Type_Kind::Enum:
-            todo("Value_Type::Enum::debug_str() not yet implemented.");
-            break;
+        case Value_Type_Kind::Enum: {
+            auto defn = data.enum_.defn;
+            s << defn->name.c_str() << "#" << defn->id;
+        } break;
         case Value_Type_Kind::Function:
             s << "(";
             for (size_t i = 0; i < data.func.arg_types.size(); i++) {

@@ -19,6 +19,7 @@ enum class Untyped_AST_Kind {
     Char,
     Float,
     Ident,
+    Path,
     Int,
     Str,
     Array,
@@ -78,6 +79,7 @@ enum class Untyped_AST_Kind {
     // declarations
     Let,
     Struct_Decl,
+    Enum_Decl,
     Fn_Decl,
     
     // unique
@@ -345,6 +347,22 @@ struct Untyped_AST_Struct_Declaration : public Untyped_AST {
     Untyped_AST_Struct_Declaration(String id);
     ~Untyped_AST_Struct_Declaration() override;
     void add_field(String id, Ref<Untyped_AST_Type_Signature> type);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Enum_Declaration : public Untyped_AST {
+    struct Variant {
+        String id;
+        Ref<Untyped_AST_Multiary> payload;
+    };
+    
+    String id;
+    std::vector<Variant> variants;
+    
+    Untyped_AST_Enum_Declaration(String id);
+    ~Untyped_AST_Enum_Declaration() override;
+    void add_variant(String id, Ref<Untyped_AST_Multiary> payload);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

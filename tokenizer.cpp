@@ -47,6 +47,9 @@ void Token::print() const {
         case Token_Kind::Colon:
             printf("Colon\n");
             break;
+        case Token_Kind::Double_Colon:
+            printf("Double_Colon\n");
+            break;
         case Token_Kind::Comma:
             printf("Comma\n");
             break;
@@ -460,7 +463,13 @@ static Token punctuation(Tokenizer &t) {
     switch (c) {
         // delimeters
         case ';': tok.kind = Token_Kind::Semi; break;
-        case ':': tok.kind = Token_Kind::Colon; break;
+        case ':':
+            if (t.match(':')) {
+                tok.kind = Token_Kind::Double_Colon;
+            } else {
+                tok.kind = Token_Kind::Colon;
+            }
+            break;
         case ',': tok.kind = Token_Kind::Comma; break;
         case '(': tok.kind = Token_Kind::Left_Paren; break;
         case ')': tok.kind = Token_Kind::Right_Paren; break;

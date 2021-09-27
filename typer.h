@@ -19,11 +19,13 @@ enum class Typed_AST_Kind {
     Float,
     Ident,
     Ident_Struct,
+    Ident_Enum,
     Ident_Func,
     Int,
     Str,
     Array,
     Slice,
+    Enum,
     
     // nullary
     Allocate,
@@ -205,6 +207,15 @@ struct Typed_AST_Array : public Typed_AST {
     Ref<Typed_AST_Multiary> element_nodes;
     
     Typed_AST_Array(Value_Type type, Typed_AST_Kind kind, size_t count, Ref<Value_Type> array_type, Ref<Typed_AST_Multiary> element_nodes);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Enum_Literal : public Typed_AST {
+    runtime::Int tag;
+    Ref<Typed_AST_Multiary> payload;
+    
+    Typed_AST_Enum_Literal(Value_Type enum_type, runtime::Int tag, Ref<Typed_AST_Multiary> payload);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

@@ -11,6 +11,9 @@
 //      just to use Ref<Value_Type>.
 // [ ]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
+// [ ]  Implement Paths and sort out how that works with Idents etc.
+// [x]  Implement enums.
+// [ ]  Fully implement enums with payloads.
 //
 
 #include <iostream>
