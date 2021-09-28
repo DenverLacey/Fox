@@ -7,8 +7,6 @@
 //
 
 // @TODOS:
-// [ ]  Maybe get rid of AST_Type_Signiture cause it might be pointless and easier
-//      just to use Ref<Value_Type>.
 // [ ]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
 // [ ]  Implement Paths and sort out how that works with Idents etc.

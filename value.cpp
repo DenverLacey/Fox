@@ -392,7 +392,7 @@ bool Value_Type::assignable_from(const Value_Type &other) {
             match = data.struct_.defn->id == other.data.struct_.defn->id;
             break;
         case Value_Type_Kind::Enum:
-            todo("Value_Type::assignable_from() for Enums not yet implemented.");
+            match = data.enum_.defn->id == other.data.enum_.defn->id;
             break;
     }
     

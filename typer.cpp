@@ -948,9 +948,13 @@ struct Typer {
             case Value_Type_Kind::None:
                 internal_error("Attempted to resolve a None Value_Type.");
                 break;
-            case Value_Type_Kind::Unresolved_Type:
-                todo("Resolving an Unresolved type not yet implemented.");
-                break;
+            case Value_Type_Kind::Unresolved_Type: {
+                String id = type.data.unresolved.id;
+                Value_Type ty;
+                verify(type_of_binding(id.c_str(), ty), "Unresolved identifier '%.*s'.", id.size(), id.c_str());
+                verify(ty.kind == Value_Type_Kind::Type, "Expected identifier of a type but instead found an identnfier to '%s'.", ty.debug_str());
+                resolved = *ty.data.type.type;
+            } break;
                 
             case Value_Type_Kind::Ptr: {
                 auto child_type = Mem.make<Value_Type>();
