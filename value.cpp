@@ -129,11 +129,11 @@ char *Value_Type::debug_str() const {
             break;
         case Value_Type_Kind::Struct: {
             auto defn = data.struct_.defn;
-            s << defn->name.c_str() << "#" << defn->id;
+            s << defn->name.c_str() << "#" << defn->uuid;
         } break;
         case Value_Type_Kind::Enum: {
             auto defn = data.enum_.defn;
-            s << defn->name.c_str() << "#" << defn->id;
+            s << defn->name.c_str() << "#" << defn->uuid;
         } break;
         case Value_Type_Kind::Function:
             s << "(";
@@ -305,7 +305,7 @@ bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
             }
             break;
         case Value_Type_Kind::Struct:
-            match = data.struct_.defn->id == other.data.struct_.defn->id;
+            match = data.struct_.defn->uuid == other.data.struct_.defn->uuid;
             break;
         case Value_Type_Kind::Enum:
             todo("Value_Type::eq_ignoring_mutability() for Enums not yet implemented.");
@@ -389,10 +389,10 @@ bool Value_Type::assignable_from(const Value_Type &other) {
             //      When / if struct inheritance becomes a thing then this would
             //      need to be more sophisticated.
             //
-            match = data.struct_.defn->id == other.data.struct_.defn->id;
+            match = data.struct_.defn->uuid == other.data.struct_.defn->uuid;
             break;
         case Value_Type_Kind::Enum:
-            match = data.enum_.defn->id == other.data.enum_.defn->id;
+            match = data.enum_.defn->uuid == other.data.enum_.defn->uuid;
             break;
     }
     

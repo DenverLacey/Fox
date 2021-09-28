@@ -90,7 +90,7 @@ struct Enum_Type_Data {
 };
 
 struct Function_Type_Data {
-    UUID id;
+    UUID uuid;
     Value_Type *return_type;
     Array<Value_Type> arg_types;
     

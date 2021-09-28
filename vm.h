@@ -120,7 +120,7 @@ enum class Opcode : uint8_t {
 using Chunk = std::vector<Opcode>;
 
 struct Function_Definition {
-    UUID id;
+    UUID uuid;
     Module *module;
     String name;
     Value_Type type;
@@ -199,7 +199,7 @@ struct Struct_Field {
 struct Struct_Definition {
     Size size;
     // Struct_Definition *super;
-    UUID id;
+    UUID uuid;
     Module *module;
     String name;
     std::vector<Struct_Field> fields;
@@ -223,7 +223,7 @@ struct Enum_Variant {
 struct Enum_Definition {
     bool is_sumtype;
     Size size;
-    UUID id;
+    UUID uuid;
     Module *module;
     String name;
     std::vector<Enum_Variant> variants;

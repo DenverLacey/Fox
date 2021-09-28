@@ -62,9 +62,9 @@ bool Typed_AST_Ident::is_constant(Compiler &c) {
     return status == Find_Variable_Result::Found_Constant;
 }
 
-Typed_AST_UUID::Typed_AST_UUID(Typed_AST_Kind kind, UUID id, Value_Type type) {
+Typed_AST_UUID::Typed_AST_UUID(Typed_AST_Kind kind, UUID uuid, Value_Type type) {
     this->kind = kind;
-    this->id = id;
+    this->uuid = uuid;
     this->type = type;
 }
 
@@ -496,14 +496,14 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             printf("%.*s :: %s\n", id->id.size(), id->id.c_str(), id->type.debug_str());
         } break;
         case Typed_AST_Kind::Ident_Struct: {
-            auto id = node.cast<Typed_AST_UUID>();
-            auto defn = id->type.data.type.type->data.struct_.defn;
-            printf("%.*s :: %s\n", defn->name.size(), defn->name.c_str(), id->type.debug_str());
+            auto uuid = node.cast<Typed_AST_UUID>();
+            auto defn = uuid->type.data.type.type->data.struct_.defn;
+            printf("%.*s :: %s\n", defn->name.size(), defn->name.c_str(), uuid->type.debug_str());
         } break;
         case Typed_AST_Kind::Ident_Func: {
-            auto id = node.cast<Typed_AST_UUID>();
-            auto defn = interp->funcbook.get_func_by_uuid(id->id);
-            printf("%.*s#%zu :: %s\n", defn->name.size(), defn->name.c_str(), id->id, defn->type.debug_str());
+            auto uuid = node.cast<Typed_AST_UUID>();
+            auto defn = interp->funcbook.get_func_by_uuid(uuid->uuid);
+            printf("%.*s#%zu :: %s\n", defn->name.size(), defn->name.c_str(), uuid->uuid, defn->type.debug_str());
         } break;
         case Typed_AST_Kind::Int: {
             Ref<Typed_AST_Int> lit = node.cast<Typed_AST_Int>();
@@ -710,7 +710,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         case Typed_AST_Kind::Fn_Decl: {
             auto decl = node.cast<Typed_AST_Fn_Declaration>();
             printf("(fn-decl)\n");
-            printf("%*sfn_id: #%zu\n", (indent + 1) * INDENT_SIZE, "", decl->defn->id);
+            printf("%*sfn_id: #%zu\n", (indent + 1) * INDENT_SIZE, "", decl->defn->uuid);
             printf("%*sfn_type: %s\n", (indent + 1) * INDENT_SIZE, "", decl->defn->type.debug_str());
             print_sub_at_indent(interp, "body", decl->body, indent + 1);
         } break;
@@ -787,17 +787,34 @@ struct Typer {
         scopes.pop_front();
     }
     
-    bool type_of_binding(const std::string &id, Value_Type &out_type) {
+//    bool type_of_binding(const std::string &id, Value_Type &out_type) {
+//        for (auto &s : scopes) {
+//            auto it = s.bindings.find(id);
+//            if (it == s.bindings.end()) continue;
+//            out_type = it->second.value_type;
+//            return true;
+//        }
+//
+//        auto it = global_scope->bindings.find(id);
+//        if (it != global_scope->bindings.end()) {
+//            out_type = it->second.value_type;
+//            return true;
+//        }
+//
+//        return false;
+//    }
+    
+    bool find_binding_by_id(const std::string &id, Typer_Binding &out_binding) {
         for (auto &s : scopes) {
             auto it = s.bindings.find(id);
             if (it == s.bindings.end()) continue;
-            out_type = it->second.value_type;
+            out_binding = it->second;
             return true;
         }
         
         auto it = global_scope->bindings.find(id);
         if (it != global_scope->bindings.end()) {
-            out_type = it->second.value_type;
+            out_binding = it->second;
             return true;
         }
         
@@ -859,7 +876,7 @@ struct Typer {
                 internal_verify(uuid, "Failed to cast to UUID* in Typer::put_pattern().");
                 
                 verify(type.kind == Value_Type_Kind::Struct &&
-                       type.data.struct_.defn->id == uuid->id, "Cannot match %.*s struct pattern with %s.", sp->struct_id->id.size(), sp->struct_id->id.c_str(), type.debug_str());
+                       type.data.struct_.defn->uuid == uuid->uuid, "Cannot match %.*s struct pattern with %s.", sp->struct_id->id.size(), sp->struct_id->id.c_str(), type.debug_str());
                 
                 auto defn = type.data.struct_.defn;
                 verify(defn->fields.size() == sp->sub_patterns.size(), "Incorrect number of sub patterns in struct pattern for struct %s. Expected %zu but was given %zu.", type.debug_str(), defn->fields.size(), sp->sub_patterns.size());
@@ -911,7 +928,7 @@ struct Typer {
                 internal_verify(uuid, "Failed to cast to UUID* in Typer::put_pattern().");
                 
                 verify(type.kind == Value_Type_Kind::Struct &&
-                       type.data.struct_.defn->id == uuid->id, "Cannot match %.*s struct pattern with %s.", sp->struct_id->id.size(), sp->struct_id->id.c_str(), type.debug_str());
+                       type.data.struct_.defn->uuid == uuid->uuid, "Cannot match %.*s struct pattern with %s.", sp->struct_id->id.size(), sp->struct_id->id.c_str(), type.debug_str());
                 
                 auto defn = type.data.struct_.defn;
                 verify(defn->fields.size() == sp->sub_patterns.size(), "Incorrect number of sub patterns in struct pattern for struct %s. Expected %zu but was given %zu.", type.debug_str(), defn->fields.size(), sp->sub_patterns.size());
@@ -950,10 +967,10 @@ struct Typer {
                 break;
             case Value_Type_Kind::Unresolved_Type: {
                 String id = type.data.unresolved.id;
-                Value_Type ty;
-                verify(type_of_binding(id.c_str(), ty), "Unresolved identifier '%.*s'.", id.size(), id.c_str());
-                verify(ty.kind == Value_Type_Kind::Type, "Expected identifier of a type but instead found an identnfier to '%s'.", ty.debug_str());
-                resolved = *ty.data.type.type;
+                Typer_Binding binding;
+                verify(find_binding_by_id(id.c_str(), binding), "Unresolved identifier '%.*s'.", id.size(), id.c_str());
+                verify(binding.kind == Typer_Binding::Type, "Expected identifier of a type but instead found an identnfier to '%s'.", binding.value_type.debug_str());
+                resolved = *binding.value_type.data.type.type;
             } break;
                 
             case Value_Type_Kind::Ptr: {
@@ -1027,18 +1044,18 @@ Ref<Typed_AST> Untyped_AST_Float::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
-    Value_Type ty;
-    verify(t.type_of_binding(id.c_str(), ty), "Unresolved identifier '%s'.", id.c_str());
+    Typer_Binding binding;
+    verify(t.find_binding_by_id(id.c_str(), binding), "Unresolved identifier '%s'.", id.c_str());
     
     Ref<Typed_AST> ident;
-    switch (ty.kind) {
-        case Value_Type_Kind::Type: {
-            switch (ty.data.type.type->kind) {
+    switch (binding.kind) {
+        case Typer_Binding::Type: {
+            switch (binding.value_type.data.type.type->kind) {
                 case Value_Type_Kind::Struct:
-                    ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, ty.data.type.type->data.struct_.defn->id, ty);
+                    ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, binding.value_type.data.type.type->data.struct_.defn->uuid, binding.value_type);
                     break;
                 case Value_Type_Kind::Enum:
-                    ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Enum, ty.data.type.type->data.enum_.defn->id, ty);
+                    ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Enum, binding.value_type.data.type.type->data.enum_.defn->uuid, binding.value_type);
                     break;
                 
                 default:
@@ -1046,12 +1063,12 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
                     break;
             }
         } break;
-        case Value_Type_Kind::Function: {
-            ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, ty.data.func.id, ty);
+        case Typer_Binding::Function: {
+            ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, binding.value_type.data.func.uuid, binding.value_type);
         } break;
             
         default:
-            ident = Mem.make<Typed_AST_Ident>(id.clone(), ty);
+            ident = Mem.make<Typed_AST_Ident>(id.clone(), binding.value_type);
             break;
     }
     
@@ -1140,9 +1157,9 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
     // @TODO: Check for function pointer type of stuff
     verify(func->kind == Typed_AST_Kind::Ident_Func, "First operand of function call must be a function.");
     
-    auto func_id = func.cast<Typed_AST_UUID>();
-    auto defn = t.interp->funcbook.get_func_by_uuid(func_id->id);
-    internal_verify(defn, "Failed to retrieve function with id #%zu.", func_id->id);
+    auto func_uuid = func.cast<Typed_AST_UUID>();
+    auto defn = t.interp->funcbook.get_func_by_uuid(func_uuid->uuid);
+    internal_verify(defn, "Failed to retrieve function with id #%zu.", func_uuid->uuid);
     
     // @TODO: default arguments stuff (if we do default arguments)
     
@@ -1234,7 +1251,7 @@ Ref<Typed_AST> typecheck_path(Untyped_AST_Binary &path, Typer &t) {
             break;
         case Typed_AST_Kind::Ident_Enum: {
             auto uuid = namespace_.cast<Typed_AST_UUID>();
-            auto defn = t.interp->typebook.get_enum_by_uuid(uuid->id);
+            auto defn = t.interp->typebook.get_enum_by_uuid(uuid->uuid);
             auto id = path.rhs.cast<Untyped_AST_Ident>();
             typechecked = typecheck_ident_in_enum_namespace(defn, id, t);
         } break;
@@ -1445,17 +1462,17 @@ Ref<Typed_AST> Untyped_AST_Array::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Struct_Literal::typecheck(Typer &t) {
-    auto struct_id = this->struct_id->typecheck(t).cast<Typed_AST_UUID>();
-    internal_verify(struct_id, "Failed to cast struct_id to UUID* in Struct_Literal::typecheck().");
+    auto struct_uuid = this->struct_id->typecheck(t).cast<Typed_AST_UUID>();
+    internal_verify(struct_uuid, "Failed to cast struct_id to UUID* in Struct_Literal::typecheck().");
     
-    auto defn = t.interp->typebook.get_struct_by_uuid(struct_id->id);
-    internal_verify(defn, "Failed to retrieve struct-defn #%zu from typebook.", struct_id->id);
+    auto defn = t.interp->typebook.get_struct_by_uuid(struct_uuid->uuid);
+    internal_verify(defn, "Failed to retrieve struct-defn #%zu from typebook.", struct_uuid->uuid);
     auto bindings = this->bindings;
     
     verify(defn->fields.size() == bindings->nodes.size(), "Incorrect number of arguments in struct literal. Expected %zu but was given %zu.", defn->fields.size(), bindings->nodes.size());
     
     auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
-    args->type = *struct_id->type.data.type.type;
+    args->type = *struct_uuid->type.data.type.type;
     
     for (size_t i = 0; i < defn->fields.size(); i++) {
         auto &field = defn->fields[i];
@@ -1655,7 +1672,7 @@ Ref<Typed_AST> Untyped_AST_Generic_Specification::typecheck(Typer &t) {
 Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     Struct_Definition defn;
     defn.module = t.module;
-    defn.id = t.interp->next_uuid();
+    defn.uuid = t.interp->next_uuid();
     defn.name = this->id.clone();
     
     Size current_offset = 0;
@@ -1671,8 +1688,8 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     
     defn.size = current_offset;
     auto new_defn = t.interp->typebook.add_struct(defn);
-    auto [_, success] = t.module->structs.insert(new_defn->id);
-    internal_verify(success, "Failed to add struct with id #%zu to module set.", new_defn->id);
+    auto [_, success] = t.module->structs.insert(new_defn->uuid);
+    internal_verify(success, "Failed to add struct with id #%zu to module set.", new_defn->uuid);
     
     Value_Type *struct_type = Mem.make<Value_Type>().as_ptr();
     struct_type->kind = Value_Type_Kind::Struct;
@@ -1696,7 +1713,7 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     Enum_Definition defn;
     defn.is_sumtype = false;
     defn.module = t.module;
-    defn.id = t.interp->next_uuid();
+    defn.uuid = t.interp->next_uuid();
     defn.name = id.clone();
     defn.size = value_types::Int.size();
     
@@ -1721,8 +1738,8 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     }
     
     auto new_defn = t.interp->typebook.add_enum(defn);
-    auto [_, success] = t.module->enums.insert(new_defn->id);
-    internal_verify(success, "Failed to add enum with id #%zu to module set.", new_defn->id);
+    auto [_, success] = t.module->enums.insert(new_defn->uuid);
+    internal_verify(success, "Failed to add enum with id #%zu to module set.", new_defn->uuid);
     
     Value_Type *enum_type = Mem.make<Value_Type>().as_ptr();
     enum_type->kind = Value_Type_Kind::Enum;
@@ -1740,13 +1757,13 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     Function_Definition defn;
-    defn.id = t.interp->next_uuid();
+    defn.uuid = t.interp->next_uuid();
     defn.module = t.module;
     defn.name = id.clone();
     
     Value_Type func_type;
     func_type.kind = Value_Type_Kind::Function;
-    func_type.data.func.id = defn.id;
+    func_type.data.func.uuid = defn.uuid;
     
     Value_Type *return_type = Mem.make<Value_Type>().as_ptr();
     if (this->return_type_signature) {
@@ -1795,8 +1812,8 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     defn.type = func_type;
     
     auto new_defn = t.interp->funcbook.add_func(defn);
-    auto [_, success] = t.module->funcs.insert(new_defn->id);
-    internal_verify(success, "Failed to add function with id #%zu to module set.", new_defn->id);
+    auto [_, success] = t.module->funcs.insert(new_defn->uuid);
+    internal_verify(success, "Failed to add function with id #%zu to module set.", new_defn->uuid);
     
     t.bind_function(id.c_str(), func_type);
     

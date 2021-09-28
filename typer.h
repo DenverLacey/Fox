@@ -129,9 +129,9 @@ struct Typed_AST_Ident : public Typed_AST {
 };
 
 struct Typed_AST_UUID : public Typed_AST {
-    UUID id;
+    UUID uuid;
     
-    Typed_AST_UUID(Typed_AST_Kind kind, UUID id, Value_Type type);
+    Typed_AST_UUID(Typed_AST_Kind kind, UUID uuid, Value_Type type);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

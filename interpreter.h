@@ -17,6 +17,7 @@
 #include <string>
 
 struct Module {
+    UUID uuid;
     String module_path;
     std::unordered_set<UUID> structs;
     std::unordered_set<UUID> enums;
@@ -29,15 +30,15 @@ struct Type_Book {
     
     Struct_Definition *add_struct(const Struct_Definition &defn);
     Enum_Definition *add_enum(const Enum_Definition &defn);
-    Struct_Definition *get_struct_by_uuid(UUID id);
-    Enum_Definition *get_enum_by_uuid(UUID id);
+    Struct_Definition *get_struct_by_uuid(UUID uuid);
+    Enum_Definition *get_enum_by_uuid(UUID uuid);
 };
 
 struct Function_Book {
     std::unordered_map<UUID, Function_Definition> funcs;
     
     Function_Definition *add_func(const Function_Definition &defn);
-    Function_Definition *get_func_by_uuid(UUID id);
+    Function_Definition *get_func_by_uuid(UUID uuid);
 };
 
 struct Interpreter {
