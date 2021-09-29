@@ -410,7 +410,7 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Field_Access_Tuple:
             return Typed_AST_Kind::Field_Access;
         case Untyped_AST_Kind::Subscript:       return Typed_AST_Kind::Subscript;
-        case Untyped_AST_Kind::Invocation:      return Typed_AST_Kind::Invocation;
+        case Untyped_AST_Kind::Invocation:      return Typed_AST_Kind::Function_Call;
         case Untyped_AST_Kind::Match_Arm:       return Typed_AST_Kind::Match_Arm;
         case Untyped_AST_Kind::Block:           return Typed_AST_Kind::Block;
         case Untyped_AST_Kind::Comma:           return Typed_AST_Kind::Comma;
@@ -601,7 +601,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         case Typed_AST_Kind::Inclusive_Range: {
             print_binary_at_indent(interp, "...", node.cast<Typed_AST_Binary>(), indent);
         } break;
-        case Typed_AST_Kind::Invocation: {
+        case Typed_AST_Kind::Function_Call: {
             print_binary_at_indent(interp, "call", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Match_Arm: {
@@ -1146,14 +1146,11 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Return>(sub);
 }
 
-static Ref<Typed_AST_Binary> typecheck_invocation(
-    Untyped_AST_Binary &call,
-    Typer &t)
+static Ref<Typed_AST_Binary> typecheck_function_call(
+    Typer &t,
+    Ref<Typed_AST> func,
+    Ref<Untyped_AST_Multiary> rhs)
 {
-    auto func = call.lhs->typecheck(t);
-    auto rhs = call.rhs.cast<Untyped_AST_Multiary>();
-    internal_verify(rhs, "Failed to cast rhs to Multiary* in typecheck_invocation().");
-    
     // @TODO: Check for function pointer type of stuff
     verify(func->kind == Typed_AST_Kind::Ident_Func, "First operand of function call must be a function.");
     
@@ -1210,17 +1207,55 @@ static Ref<Typed_AST_Binary> typecheck_invocation(
     }
     
     return Mem.make<Typed_AST_Binary>(
-        Typed_AST_Kind::Invocation,
+        Typed_AST_Kind::Function_Call,
         *defn->type.data.func.return_type,
         func,
         args
     );
 }
 
+static Ref<Typed_AST_Enum_Literal> typecheck_enum_literal_with_payload(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Untyped_AST_Multiary> rhs)
+{
+    auto lit = lhs.cast<Typed_AST_Enum_Literal>();
+    internal_verify(lit, "lhs passed to %s() was not an enum literal.", __func__);
+    
+    lit->payload = rhs->typecheck(t).cast<Typed_AST_Multiary>();
+    
+    return lit;
+}
+
+static Ref<Typed_AST> typecheck_invocation(
+    Typer &t,
+    Untyped_AST_Binary &call)
+{
+    auto lhs = call.lhs->typecheck(t);
+    auto rhs = call.rhs.cast<Untyped_AST_Multiary>();
+    internal_verify(rhs, "Failed to cast rhs to Multiary* in typecheck_invocation().");
+    
+    Ref<Typed_AST> typechecked;
+    switch (lhs->type.kind) {
+        case Value_Type_Kind::Function:
+            typechecked = typecheck_function_call(t, lhs, rhs);
+            break;
+        case Value_Type_Kind::Enum:
+            typechecked = typecheck_enum_literal_with_payload(t, lhs, rhs);
+            break;
+            
+        default:
+            error("Type '%s' isn't invocable.", lhs->type.debug_str());
+            break;
+    }
+    
+    return typechecked;
+}
+
 Ref<Typed_AST> typecheck_ident_in_enum_namespace(
+    Typer &t,
     Enum_Definition *defn,
-    Ref<Untyped_AST_Ident> id,
-    Typer &t)
+    Ref<Untyped_AST_Ident> id)
 {
     String variant_id = id->id;
     
@@ -1229,19 +1264,14 @@ Ref<Typed_AST> typecheck_ident_in_enum_namespace(
         todo("Implement checking for names other than variants. For when we have impl blocks for structs and enums.");
     }
     
-    Ref<Typed_AST_Multiary> payload = nullptr;
-    if (variant->payload.size() != 0) {
-        todo("Implement payload handling in typecheck_ident_in_enum_namespace().");
-    }
-    
     Value_Type enum_type;
     enum_type.kind = Value_Type_Kind::Enum;
     enum_type.data.enum_.defn = defn;
     
-    return Mem.make<Typed_AST_Enum_Literal>(enum_type, variant->tag, payload);
+    return Mem.make<Typed_AST_Enum_Literal>(enum_type, variant->tag, nullptr);
 }
 
-Ref<Typed_AST> typecheck_path(Untyped_AST_Binary &path, Typer &t) {
+Ref<Typed_AST> typecheck_path(Typer &t, Untyped_AST_Binary &path) {
     auto namespace_ = path.lhs->typecheck(t);
     
     Ref<Typed_AST> typechecked;
@@ -1253,7 +1283,7 @@ Ref<Typed_AST> typecheck_path(Untyped_AST_Binary &path, Typer &t) {
             auto uuid = namespace_.cast<Typed_AST_UUID>();
             auto defn = t.interp->typebook.get_enum_by_uuid(uuid->uuid);
             auto id = path.rhs.cast<Untyped_AST_Ident>();
-            typechecked = typecheck_ident_in_enum_namespace(defn, id, t);
+            typechecked = typecheck_ident_in_enum_namespace(t, defn, id);
         } break;
             
         default:
@@ -1267,9 +1297,9 @@ Ref<Typed_AST> typecheck_path(Untyped_AST_Binary &path, Typer &t) {
 Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
     switch (kind) {
         case Untyped_AST_Kind::Invocation:
-            return typecheck_invocation(*this, t);
+            return typecheck_invocation(t, *this);
         case Untyped_AST_Kind::Path:
-            return typecheck_path(*this, t);
+            return typecheck_path(t, *this);
             
         default:
             break;
@@ -1726,7 +1756,29 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
         
         if (v.payload) {
             is_sumtype = true;
-            todo("Implement payloads in Untyped_AST_Enum_Declaration::typecheck().");
+            
+            Size field_offset = value_types::Int.size();
+            for (auto n : v.payload->nodes) {
+                switch (n->kind) {
+                    case Untyped_AST_Kind::Type_Signature: {
+                        auto sig = n->typecheck(t).cast<Typed_AST_Type_Signature>();
+                        
+                        Enum_Payload_Field pf;
+                        pf.offset = field_offset;
+                        pf.type = *sig->value_type;
+                        defn_v.payload.push_back(pf);
+                        
+                        field_offset += pf.type.size();
+                    } break;
+                    case Untyped_AST_Kind::Binding:
+                        todo("Enum payloads that are bindings.");
+                        break;
+                        
+                    default:
+                        internal_error("Invalid kind in Untyped_AST_Enum_Declaration::typecheck(): %d.", n->kind);
+                        break;
+                }
+            }
         }
         
         defn.variants.push_back(defn_v);
@@ -1734,7 +1786,20 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     
     if (is_sumtype) {
         defn.is_sumtype = true;
-        todo("Implement sum types in Untyped_AST_Enum_Declaration::typecheck().");
+        
+        Size max_payload_size = 0;
+        for (auto &v : defn.variants) {
+            Size payload_size = 0;
+            for (auto &f : v.payload) {
+                payload_size += f.type.size();
+            }
+            
+            if (payload_size > max_payload_size) {
+                max_payload_size = payload_size;
+            }
+        }
+        
+        defn.size += max_payload_size;
     }
     
     auto new_defn = t.interp->typebook.add_enum(defn);

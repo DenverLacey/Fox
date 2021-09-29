@@ -941,7 +941,7 @@ void Typed_AST_Binary::compile(Compiler &c) {
             lhs->compile(c);
             rhs->compile(c);
             return;
-        case Typed_AST_Kind::Invocation:
+        case Typed_AST_Kind::Function_Call:
             compile_invocation(c, *this);
             return;
     }
@@ -1076,6 +1076,9 @@ void Typed_AST_Enum_Literal::compile(Compiler &c) {
     
     if (payload) {
         payload->compile(c);
+    } else if (type.data.enum_.defn->is_sumtype) {
+        c.emit_opcode(Opcode::Clear_Allocate);
+        c.emit_size(type.size() - value_types::Int.size());
     }
     
     c.stack_top = stack_top + type.size();

@@ -347,14 +347,18 @@ struct Parser {
             
             Ref<Untyped_AST_Multiary> payload = nullptr;
             if (match(Token_Kind::Left_Paren)) {
-                //
-                // @NOTE:
-                //      This diverges from Rust in that now all fields of an enum
-                //      variant must have a name. This might be a good thing as
-                //      it forces the programmer to document what each field is.
-                //
-                payload = parse_parameter_list();
+                payload = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
+                
+                do {
+                    if (check(Token_Kind::Right_Paren)) break;
+                    auto value_type = parse_type_signiture();
+                    auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+                    payload->add(sig);
+                } while (match(Token_Kind::Comma) && has_more());
+                
                 expect(Token_Kind::Right_Paren, "Expected ')' to terminate payload of enum variant.");
+            } else if (match(Token_Kind::Left_Curly)) {
+                todo("Implement struct-like enum variant payloads.");
             }
             
             decl->add_variant(variant_id, payload);

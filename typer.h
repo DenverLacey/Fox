@@ -58,7 +58,7 @@ enum class Typed_AST_Kind {
     Negative_Subscript,
     Range,
     Inclusive_Range,
-    Invocation,
+    Function_Call,
     Match_Arm,
     
     // ternary

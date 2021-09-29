@@ -11,7 +11,7 @@
 // [ ]  Maybe handle dereferencing constant pointers.
 // [ ]  Implement Paths and sort out how that works with Idents etc.
 // [x]  Implement enums.
-// [ ]  Fully implement enums with payloads.
+// [x]  Fully implement enums with payloads.
 //
 
 #include <iostream>
