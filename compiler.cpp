@@ -1074,11 +1074,16 @@ void Typed_AST_Enum_Literal::compile(Compiler &c) {
         c.emit_value<runtime::Int>(tag);
     }
     
+    c.stack_top += value_types::Int.size();
+    
     if (payload) {
-        payload->compile(c);
-    } else if (type.data.enum_.defn->is_sumtype) {
+        payload->compile(c);   
+    }
+    
+    if (c.stack_top < stack_top + type.size()) {
+        Size remaining_size = type.size() - static_cast<Size>(c.stack_top - stack_top);
         c.emit_opcode(Opcode::Clear_Allocate);
-        c.emit_size(type.size() - value_types::Int.size());
+        c.emit_size(remaining_size);
     }
     
     c.stack_top = stack_top + type.size();
