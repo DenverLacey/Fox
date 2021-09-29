@@ -1634,9 +1634,14 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
 Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {
     auto cond = this->cond->typecheck(t);
     
+    bool has_return = true;
+    
     Ref<Typed_AST> default_arm = nullptr;
     if (this->default_arm) {
         default_arm = this->default_arm->typecheck(t);
+        
+        has_return = t.has_return;
+        t.has_return = false;
     }
     
     auto arms = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
@@ -1656,7 +1661,12 @@ Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {
         
         auto typechecked_arm = Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Match_Arm, value_types::None, match_pat, body);
         arms->add(typechecked_arm);
+        
+        has_return &= t.has_return;
+        t.has_return = false;
     }
+    
+    t.has_return = has_return && default_arm;
     
     return Mem.make<Typed_AST_Match>(
         cond,
