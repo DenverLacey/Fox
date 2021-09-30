@@ -126,11 +126,24 @@ struct Untyped_AST_Float : public Untyped_AST {
     Ref<Untyped_AST> clone() override;
 };
 
-struct Untyped_AST_Ident : public Untyped_AST {
+struct Untyped_AST_Symbol : public Untyped_AST {
+    const char *debug_str() const;
+};
+
+struct Untyped_AST_Ident : public Untyped_AST_Symbol {
     String id;
     
     Untyped_AST_Ident(String id);
     ~Untyped_AST_Ident() override;
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Path : public Untyped_AST_Symbol {
+    Ref<Untyped_AST_Ident> lhs;
+    Ref<Untyped_AST_Symbol> rhs;
+    
+    Untyped_AST_Path(Ref<Untyped_AST_Ident> lhs, Ref<Untyped_AST_Symbol> rhs);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
@@ -211,10 +224,10 @@ struct Untyped_AST_Array : public Untyped_AST {
 };
 
 struct Untyped_AST_Struct_Literal : public Untyped_AST {
-    Ref<Untyped_AST_Ident> struct_id;
+    Ref<Untyped_AST_Symbol> struct_id;
     Ref<Untyped_AST_Multiary> bindings;
     
-    Untyped_AST_Struct_Literal(Ref<Untyped_AST_Ident> struct_id, Ref<Untyped_AST_Multiary> bindings);
+    Untyped_AST_Struct_Literal(Ref<Untyped_AST_Symbol> struct_id, Ref<Untyped_AST_Multiary> bindings);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
@@ -260,9 +273,9 @@ struct Untyped_AST_Pattern_Tuple : public Untyped_AST_Pattern {
 };
 
 struct Untyped_AST_Pattern_Struct : public Untyped_AST_Pattern_Tuple {
-    Ref<Untyped_AST_Ident> struct_id;
+    Ref<Untyped_AST_Symbol> struct_id;
     
-    Untyped_AST_Pattern_Struct(Ref<Untyped_AST_Ident> struct_id);
+    Untyped_AST_Pattern_Struct(Ref<Untyped_AST_Symbol> struct_id);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
@@ -327,10 +340,10 @@ struct Untyped_AST_Let : public Untyped_AST {
 };
 
 struct Untyped_AST_Generic_Specification : public Untyped_AST {
-    Ref<Untyped_AST_Ident> id;
+    Ref<Untyped_AST_Symbol> id;
     Ref<Untyped_AST_Multiary> type_params;
     
-    Untyped_AST_Generic_Specification(Ref<Untyped_AST_Ident> id, Ref<Untyped_AST_Multiary> type_params);
+    Untyped_AST_Generic_Specification(Ref<Untyped_AST_Symbol> id, Ref<Untyped_AST_Multiary> type_params);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

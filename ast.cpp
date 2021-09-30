@@ -10,6 +10,8 @@
 #include "error.h"
 #include "typer.h"
 
+#include <sstream>
+
 Untyped_AST_Bool::Untyped_AST_Bool(bool value) {
     kind = Untyped_AST_Kind::Bool;
     this->value = value;
@@ -37,6 +39,33 @@ Ref<Untyped_AST> Untyped_AST_Float::clone() {
     return Mem.make<Untyped_AST_Float>(value);
 }
 
+const char *Untyped_AST_Symbol::debug_str() const {
+    const char *str;
+    switch (kind) {
+        case Untyped_AST_Kind::Ident: {
+            auto id = dynamic_cast<const Untyped_AST_Ident *>(this);
+            internal_verify(id, "Failed to cast to Ident* in Untyped_AST_Symbol::debug_str().");
+            
+            str = id->id.c_str();
+        } break;
+        case Untyped_AST_Kind::Path: {
+            auto path = dynamic_cast<const Untyped_AST_Path *>(this);
+            internal_verify(path, "Failed to cast to Path* in Untyped_AST_Symbol::debug_str().");
+            
+            std::ostringstream s;
+            s << path->lhs->debug_str() << "::" << path->rhs->debug_str();
+            
+            str = s.str().c_str();
+        } break;
+            
+        default:
+            internal_error("Invalid symbol kind: %d.", kind);
+            break;
+    }
+    
+    return str;
+}
+
 Untyped_AST_Ident::Untyped_AST_Ident(String id) {
     kind = Untyped_AST_Kind::Ident;
     this->id = id;
@@ -48,6 +77,22 @@ Untyped_AST_Ident::~Untyped_AST_Ident() {
 
 Ref<Untyped_AST> Untyped_AST_Ident::clone() {
     return Mem.make<Untyped_AST_Ident>(id.clone());
+}
+
+Untyped_AST_Path::Untyped_AST_Path(
+    Ref<Untyped_AST_Ident> lhs,
+    Ref<Untyped_AST_Symbol> rhs)
+{
+    this->kind = Untyped_AST_Kind::Path;
+    this->lhs = lhs;
+    this->rhs = rhs;
+}
+
+Ref<Untyped_AST> Untyped_AST_Path::clone() {
+    return Mem.make<Untyped_AST_Path>(
+        lhs->clone().cast<Untyped_AST_Ident>(),
+        rhs->clone().cast<Untyped_AST_Symbol>()
+    );
 }
 
 Untyped_AST_Int::Untyped_AST_Int(int64_t value) {
@@ -175,7 +220,7 @@ Ref<Untyped_AST> Untyped_AST_Array::clone() {
 }
 
 Untyped_AST_Struct_Literal::Untyped_AST_Struct_Literal(
-    Ref<Untyped_AST_Ident> struct_id,
+    Ref<Untyped_AST_Symbol> struct_id,
     Ref<Untyped_AST_Multiary> bindings)
 {
     this->kind = Untyped_AST_Kind::Struct;
@@ -185,7 +230,7 @@ Untyped_AST_Struct_Literal::Untyped_AST_Struct_Literal(
 
 Ref<Untyped_AST> Untyped_AST_Struct_Literal::clone() {
     return Mem.make<Untyped_AST_Struct_Literal>(
-        struct_id->clone().cast<Untyped_AST_Ident>(),
+        struct_id->clone().cast<Untyped_AST_Symbol>(),
         bindings->clone().cast<Untyped_AST_Multiary>()
     );
 }
@@ -302,7 +347,7 @@ void Untyped_AST_Pattern_Tuple::add(Ref<Untyped_AST_Pattern> sub) {
 }
 
 Untyped_AST_Pattern_Struct::Untyped_AST_Pattern_Struct(
-    Ref<Untyped_AST_Ident> struct_id)
+    Ref<Untyped_AST_Symbol> struct_id)
 {
     this->kind = Untyped_AST_Kind::Pattern_Struct;
     this->struct_id = struct_id;
@@ -407,7 +452,7 @@ Ref<Untyped_AST> Untyped_AST_Let::clone() {
 }
 
 Untyped_AST_Generic_Specification::Untyped_AST_Generic_Specification(
-    Ref<Untyped_AST_Ident> id,
+    Ref<Untyped_AST_Symbol> id,
     Ref<Untyped_AST_Multiary> type_params)
 {
     this->kind = Untyped_AST_Kind::Generic_Specification;
@@ -417,7 +462,7 @@ Untyped_AST_Generic_Specification::Untyped_AST_Generic_Specification(
 
 Ref<Untyped_AST> Untyped_AST_Generic_Specification::clone() {
     return Mem.make<Untyped_AST_Generic_Specification>(
-        id->clone().cast<Untyped_AST_Ident>(),
+        id->clone().cast<Untyped_AST_Symbol>(),
         type_params->clone().cast<Untyped_AST_Multiary>()
     );
 }
@@ -560,7 +605,7 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
         } break;
         case Untyped_AST_Kind::Pattern_Struct: {
             auto s = p.cast<Untyped_AST_Pattern_Struct>();
-            printf("%.*s {", s->struct_id->id.size(), s->struct_id->id.c_str());
+            printf("%s {", s->struct_id->debug_str());
             for (size_t i = 0; i < s->sub_patterns.size(); i++) {
                 auto sub = s->sub_patterns[i];
                 printf(" ");
@@ -598,7 +643,10 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             printf("%.*s\n", id->id.size(), id->id.c_str());
         } break;
         case Untyped_AST_Kind::Path: {
-            print_binary_at_indent("path", node.cast<Untyped_AST_Binary>(), indent);
+            auto path = node.cast<Untyped_AST_Path>();
+            printf("(path)\n");
+            print_sub_at_indent("lhs", path->lhs, indent + 1);
+            print_sub_at_indent("rhs", path->rhs, indent + 1);
         } break;
         case Untyped_AST_Kind::Int: {
             Ref<Untyped_AST_Int> lit = node.cast<Untyped_AST_Int>();

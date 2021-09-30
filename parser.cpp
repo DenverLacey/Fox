@@ -761,9 +761,21 @@ struct Parser {
             case Token_Kind::Comma:
                 a = parse_comma_separated_expressions(prev);
                 break;
-            case Token_Kind::Double_Colon:
-                a = parse_binary(Untyped_AST_Kind::Path, prec, prev);
-                break;
+            case Token_Kind::Double_Colon: {
+                auto lhs = prev.cast<Untyped_AST_Ident>();
+                verify(lhs, "Symbol paths can only consist of identifiers.");
+                
+                auto rhs = parse_precedence(prec + 1).cast<Untyped_AST_Symbol>();
+                verify(rhs, "Symbol paths can only consist of identifiers.");
+                
+                a = Mem.make<Untyped_AST_Path>(lhs, rhs);
+                
+                if (check_beginning_of_struct_literal()) {
+                    a = parse_struct_literal(a);
+                } else if (check_beginning_of_generic_specification()) {
+                    a = parse_generic_specification(a);
+                }
+            } break;
             case Token_Kind::Colon:
                 a = parse_binary(Untyped_AST_Kind::Binding, prec, prev);
                 break;

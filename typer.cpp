@@ -876,7 +876,7 @@ struct Typer {
                 internal_verify(uuid, "Failed to cast to UUID* in Typer::put_pattern().");
                 
                 verify(type.kind == Value_Type_Kind::Struct &&
-                       type.data.struct_.defn->uuid == uuid->uuid, "Cannot match %.*s struct pattern with %s.", sp->struct_id->id.size(), sp->struct_id->id.c_str(), type.debug_str());
+                       type.data.struct_.defn->uuid == uuid->uuid, "Cannot match %s struct pattern with %s.", sp->struct_id->debug_str(), type.debug_str());
                 
                 auto defn = type.data.struct_.defn;
                 verify(defn->fields.size() == sp->sub_patterns.size(), "Incorrect number of sub patterns in struct pattern for struct %s. Expected %zu but was given %zu.", type.debug_str(), defn->fields.size(), sp->sub_patterns.size());
@@ -928,7 +928,7 @@ struct Typer {
                 internal_verify(uuid, "Failed to cast to UUID* in Typer::put_pattern().");
                 
                 verify(type.kind == Value_Type_Kind::Struct &&
-                       type.data.struct_.defn->uuid == uuid->uuid, "Cannot match %.*s struct pattern with %s.", sp->struct_id->id.size(), sp->struct_id->id.c_str(), type.debug_str());
+                       type.data.struct_.defn->uuid == uuid->uuid, "Cannot match %s struct pattern with %s.", sp->struct_id->debug_str(), type.debug_str());
                 
                 auto defn = type.data.struct_.defn;
                 verify(defn->fields.size() == sp->sub_patterns.size(), "Incorrect number of sub patterns in struct pattern for struct %s. Expected %zu but was given %zu.", type.debug_str(), defn->fields.size(), sp->sub_patterns.size());
@@ -1073,6 +1073,48 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     }
     
     return ident;
+}
+
+Ref<Typed_AST> typecheck_ident_in_enum_namespace(
+    Typer &t,
+    Enum_Definition *defn,
+    Ref<Untyped_AST_Ident> id)
+{
+    String variant_id = id->id;
+    
+    auto variant = defn->find_variant(variant_id);
+    if (!variant) {
+        todo("Implement checking for names other than variants. For when we have impl blocks for structs and enums.");
+    }
+    
+    Value_Type enum_type;
+    enum_type.kind = Value_Type_Kind::Enum;
+    enum_type.data.enum_.defn = defn;
+    
+    return Mem.make<Typed_AST_Enum_Literal>(enum_type, variant->tag, nullptr);
+}
+
+Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
+    auto namespace_ = lhs->typecheck(t);
+    
+    Ref<Typed_AST> typechecked;
+    switch (namespace_->kind) {
+        case Typed_AST_Kind::Ident_Struct:
+            todo("Implement Ident_Struct handling in typecheck_path().");
+            break;
+        case Typed_AST_Kind::Ident_Enum: {
+            auto uuid = namespace_.cast<Typed_AST_UUID>();
+            auto defn = t.interp->typebook.get_enum_by_uuid(uuid->uuid);
+            auto id = rhs.cast<Untyped_AST_Ident>();
+            typechecked = typecheck_ident_in_enum_namespace(t, defn, id);
+        } break;
+            
+        default:
+            internal_error("Invalid Typed_AST_Kind in typecheck_path().");
+            break;
+    }
+    
+    return typechecked;
 }
 
 Ref<Typed_AST> Untyped_AST_Int::typecheck(Typer &t) {
@@ -1252,54 +1294,10 @@ static Ref<Typed_AST> typecheck_invocation(
     return typechecked;
 }
 
-Ref<Typed_AST> typecheck_ident_in_enum_namespace(
-    Typer &t,
-    Enum_Definition *defn,
-    Ref<Untyped_AST_Ident> id)
-{
-    String variant_id = id->id;
-    
-    auto variant = defn->find_variant(variant_id);
-    if (!variant) {
-        todo("Implement checking for names other than variants. For when we have impl blocks for structs and enums.");
-    }
-    
-    Value_Type enum_type;
-    enum_type.kind = Value_Type_Kind::Enum;
-    enum_type.data.enum_.defn = defn;
-    
-    return Mem.make<Typed_AST_Enum_Literal>(enum_type, variant->tag, nullptr);
-}
-
-Ref<Typed_AST> typecheck_path(Typer &t, Untyped_AST_Binary &path) {
-    auto namespace_ = path.lhs->typecheck(t);
-    
-    Ref<Typed_AST> typechecked;
-    switch (namespace_->kind) {
-        case Typed_AST_Kind::Ident_Struct:
-            todo("Implement Ident_Struct handling in typecheck_path().");
-            break;
-        case Typed_AST_Kind::Ident_Enum: {
-            auto uuid = namespace_.cast<Typed_AST_UUID>();
-            auto defn = t.interp->typebook.get_enum_by_uuid(uuid->uuid);
-            auto id = path.rhs.cast<Untyped_AST_Ident>();
-            typechecked = typecheck_ident_in_enum_namespace(t, defn, id);
-        } break;
-            
-        default:
-            internal_error("Invalid Typed_AST_Kind in typecheck_path().");
-            break;
-    }
-    
-    return typechecked;
-}
-
 Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
     switch (kind) {
         case Untyped_AST_Kind::Invocation:
             return typecheck_invocation(t, *this);
-        case Untyped_AST_Kind::Path:
-            return typecheck_path(t, *this);
             
         default:
             break;

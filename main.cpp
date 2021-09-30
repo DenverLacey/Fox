@@ -9,9 +9,9 @@
 // @TODOS:
 // [ ]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
-// [ ]  Implement Paths and sort out how that works with Idents etc.
-// [x]  Implement enums.
-// [x]  Fully implement enums with payloads.
+// [x]  Implement Paths and sort out how that works with Idents etc.
+// [ ]  Fix bugs in path typechecking because at the momenent I think it wouldn't
+//      handle paths with more than 2 identifiers.
 //
 
 #include <iostream>
