@@ -475,6 +475,13 @@ Size Function_Type_Data::arg_size() const {
 }
 
 namespace value_types {
+Value_Type unresolved(String id) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Unresolved_Type;
+    ty.data.unresolved.id = id;
+    return ty;
+}
+
 Value_Type ptr_to(Value_Type *child_type) {
     auto pty = Ptr;
     pty.data.ptr.child_type = child_type;

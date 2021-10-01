@@ -81,6 +81,7 @@ enum class Untyped_AST_Kind {
     Struct_Decl,
     Enum_Decl,
     Fn_Decl,
+    Method_Decl,
     Impl_Decl,
     
     // unique
@@ -89,6 +90,7 @@ enum class Untyped_AST_Kind {
     Match,
     Type_Signature,
     Generic_Specification,
+    Dot_Call,
 };
 
 struct Typed_AST;
@@ -387,7 +389,7 @@ struct Untyped_AST_Fn_Declaration : public Untyped_AST {
     Ref<Untyped_AST_Type_Signature> return_type_signature;
     Ref<Untyped_AST_Multiary> body;
     
-    Untyped_AST_Fn_Declaration(String id, Ref<Untyped_AST_Multiary> params, Ref<Untyped_AST_Type_Signature> return_type_signature, Ref<Untyped_AST_Multiary> body);
+    Untyped_AST_Fn_Declaration(Untyped_AST_Kind kind, String id, Ref<Untyped_AST_Multiary> params, Ref<Untyped_AST_Type_Signature> return_type_signature, Ref<Untyped_AST_Multiary> body);
     ~Untyped_AST_Fn_Declaration();
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
@@ -399,6 +401,17 @@ struct Untyped_AST_Impl_Declaration : public Untyped_AST {
     Ref<Untyped_AST_Multiary> body;
     
     Untyped_AST_Impl_Declaration(Ref<Untyped_AST_Symbol> target, Ref<Untyped_AST_Symbol> for_, Ref<Untyped_AST_Multiary> body);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Dot_Call : public Untyped_AST {
+    Ref<Untyped_AST> receiver;
+    Ref<Untyped_AST_Multiary> args;
+    String method_id;
+    
+    Untyped_AST_Dot_Call(Ref<Untyped_AST> receiver, String method_id, Ref<Untyped_AST_Multiary> args);
+    ~Untyped_AST_Dot_Call();
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

@@ -252,6 +252,12 @@ struct Parser {
         return is_beginning_of_generic_spec;
     }
     
+    bool check_identifier(const char *id, size_t n = 0) {
+        auto tok = tokens[current + n];
+        if (tok.kind != Token_Kind::Ident) return false;
+        return tok.data.s == id;
+    }
+    
     bool match(Token_Kind kind) {
         if (check(kind)) {
             next();
@@ -284,6 +290,8 @@ struct Parser {
     }
     
     Ref<Untyped_AST> parse_fn_declaration() {
+        Untyped_AST_Kind kind = Untyped_AST_Kind::Fn_Decl;
+        
         String id = expect(Token_Kind::Ident, "Expected identifier after 'fn' keyword").data.s.clone();
         
         if (match(Token_Kind::Left_Angle)) {
@@ -292,7 +300,39 @@ struct Parser {
         }
         
         expect(Token_Kind::Left_Paren, "Expected '(' to begin function parameter list.");
-        auto params = parse_parameter_list();
+        
+        Ref<Untyped_AST_Multiary> params = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
+        
+        if (check_identifier("self") || (
+            check(Token_Kind::Mut) &&
+            check_identifier("self", 1)))
+        {
+            kind = Untyped_AST_Kind::Method_Decl;
+            
+            auto self_type = Mem.make<Value_Type>().as_ptr();
+            *self_type = value_types::unresolved("Self");
+            auto value_type = Mem.make<Value_Type>();
+            *value_type = value_types::ptr_to(self_type);
+            value_type->data.ptr.child_type->is_mut = match(Token_Kind::Mut);
+            auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+            
+            auto id = expect(Token_Kind::Ident, "Expected identifier of parameter.").data.s.clone();
+            auto target = Mem.make<Untyped_AST_Pattern_Ident>(false, id);
+            
+            auto param = Mem.make<Untyped_AST_Binary>(
+                Untyped_AST_Kind::Binding,
+                target,
+                sig
+            );
+            
+            params->add(param);
+            
+            match(Token_Kind::Comma);
+        }
+        
+        auto param_list = parse_parameter_list();
+        params->nodes.insert(params->nodes.end(), param_list->nodes.begin(), param_list->nodes.end());
+        
         expect(Token_Kind::Right_Paren, "Expected ')' to terminate function parameter list.");
         
         Ref<Untyped_AST_Type_Signature> return_type_signature = nullptr;
@@ -304,6 +344,7 @@ struct Parser {
         auto body = parse_block();
         
         return Mem.make<Untyped_AST_Fn_Declaration>(
+            kind,
             id,
             params,
             return_type_signature,
@@ -948,13 +989,22 @@ struct Parser {
             verify(check(Token_Kind::Ident), "Expected an identifier after '.'.");
             auto id_str = next().data.s.clone();
             if (match(Token_Kind::Left_Paren)) {
-                // dot call
-                todo("Parsing dot-calls not yet implemented.");
+                dot = parse_dot_call_operator(lhs, id_str);
             } else {
                 dot = Mem.make<Untyped_AST_Field_Access>(lhs, id_str);
             }
         }
         return dot;
+    }
+    
+    Ref<Untyped_AST> parse_dot_call_operator(
+        Ref<Untyped_AST> receiver,
+        String method_id)
+    {
+        auto args = parse_comma_separated_expressions();
+        expect(Token_Kind::Right_Paren, "Expected ')' to terminate method call.");
+        
+        return Mem.make<Untyped_AST_Dot_Call>(receiver, method_id, args);
     }
     
     Ref<Untyped_AST_Array> parse_array_literal() {

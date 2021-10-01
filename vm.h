@@ -198,6 +198,11 @@ struct Struct_Field {
     Value_Type type;
 };
 
+struct Method {
+    bool is_static;
+    UUID uuid;
+};
+
 struct Struct_Definition {
     Size size;
     // Struct_Definition *super;
@@ -205,13 +210,13 @@ struct Struct_Definition {
     Module *module;
     String name;
     std::vector<Struct_Field> fields;
-    std::unordered_map<std::string, UUID> methods;
+    std::unordered_map<std::string, Method> methods;
     // std::vector<Ref<Typed_AST>> initializer;
     
     bool has_field(String id);
     Struct_Field *find_field(String id);
     bool has_method(String id);
-    bool find_method(String id, UUID &out_uuid);
+    bool find_method(String id, Method &out_method);
 };
 
 struct Enum_Payload_Field {

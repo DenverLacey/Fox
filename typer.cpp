@@ -755,6 +755,7 @@ struct Typer {
     Module *module;
     Typer_Scope *global_scope;
     Function_Definition *function;
+    Typer *parent;
     bool has_return;
     std::forward_list<Typer_Scope> scopes;
     
@@ -762,6 +763,7 @@ struct Typer {
         this->interp = interp;
         this->module = interp->create_module(module_path);
         this->function = nullptr;
+        this->parent = nullptr;
         
         begin_scope(); // global scope
         global_scope = &current_scope();
@@ -773,6 +775,7 @@ struct Typer {
         this->global_scope = t.global_scope;
         this->function = function;
         this->has_return = false;
+        this->parent = const_cast<Typer *>(&t);
     }
     
     Typer_Scope &current_scope() {
@@ -787,23 +790,6 @@ struct Typer {
         scopes.pop_front();
     }
     
-//    bool type_of_binding(const std::string &id, Value_Type &out_type) {
-//        for (auto &s : scopes) {
-//            auto it = s.bindings.find(id);
-//            if (it == s.bindings.end()) continue;
-//            out_type = it->second.value_type;
-//            return true;
-//        }
-//
-//        auto it = global_scope->bindings.find(id);
-//        if (it != global_scope->bindings.end()) {
-//            out_type = it->second.value_type;
-//            return true;
-//        }
-//
-//        return false;
-//    }
-    
     bool find_binding_by_id(const std::string &id, Typer_Binding &out_binding) {
         for (auto &s : scopes) {
             auto it = s.bindings.find(id);
@@ -812,10 +798,35 @@ struct Typer {
             return true;
         }
         
+        if (parent) {
+            if (find_non_variable_binding_by_id_in_parent(id, out_binding)) {
+                return true;
+            }
+        }
+        
         auto it = global_scope->bindings.find(id);
         if (it != global_scope->bindings.end()) {
             out_binding = it->second;
             return true;
+        }
+        
+        return false;
+    }
+    
+    bool find_non_variable_binding_by_id_in_parent(
+        const std::string &id,
+        Typer_Binding &out_binding)
+    {
+        for (auto &s : parent->scopes) {
+            auto it = s.bindings.find(id);
+            if (it == s.bindings.end()) continue;
+            if (it->second.kind == Typer_Binding::Variable) continue;
+            out_binding = it->second;
+            return true;
+        }
+        
+        if (parent->parent) {
+            return parent->find_non_variable_binding_by_id_in_parent(id, out_binding);
         }
         
         return false;
@@ -1012,6 +1023,7 @@ struct Typer {
                 break;
         }
         
+        resolved.is_mut = type.is_mut;
         return resolved;
     }
 };
@@ -1085,15 +1097,15 @@ static Ref<Typed_AST> typecheck_ident_in_struct_namespace(
     //      Handle stuff that aren't methods.
     //
     
-    UUID method_uuid;
-    verify(defn->find_method(id->id, method_uuid), "Struct type '%s' does not have a method called '%s'.", defn->name.c_str(), id->id.c_str());
+    Method method;
+    verify(defn->find_method(id->id, method), "Struct type '%s' does not have a method called '%s'.", defn->name.c_str(), id->id.c_str());
     
-    auto method_defn = t.interp->funcbook.get_func_by_uuid(method_uuid);
-    internal_verify(method_defn, "Failed to retrieve method '%s' from funcbook with id #%zu.", id->id.c_str(), method_uuid);
+    auto method_defn = t.interp->funcbook.get_func_by_uuid(method.uuid);
+    internal_verify(method_defn, "Failed to retrieve method '%s' from funcbook with id #%zu.", id->id.c_str(), method.uuid);
     
     return Mem.make<Typed_AST_UUID>(
         Typed_AST_Kind::Ident_Func,
-        method_uuid,
+        method.uuid,
         method_defn->type
     );
 }
@@ -1214,30 +1226,20 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Return>(sub);
 }
 
-static Ref<Typed_AST_Binary> typecheck_function_call(
+static void typecheck_function_call_arguments(
     Typer &t,
-    Ref<Typed_AST> func,
-    Ref<Untyped_AST_Multiary> rhs)
+    Function_Definition *defn,
+    Ref<Typed_AST_Multiary> args,
+    Ref<Untyped_AST_Multiary> rhs,
+    bool skip_receiver = false)
 {
-    // @TODO: Check for function pointer type of stuff
-    verify(func->kind == Typed_AST_Kind::Ident_Func, "First operand of function call must be a function.");
-    
-    auto func_uuid = func.cast<Typed_AST_UUID>();
-    auto defn = t.interp->funcbook.get_func_by_uuid(func_uuid->uuid);
-    internal_verify(defn, "Failed to retrieve function with id #%zu.", func_uuid->uuid);
-    
-    // @TODO: default arguments stuff (if we do default arguments)
-    
-    verify(rhs->nodes.size() == defn->type.data.func.arg_types.size(), "Incorrect number of arguments for invocation. Expected %zu but was given %zu.", defn->type.data.func.arg_types.size(), rhs->nodes.size());
-    
-    auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
     args->nodes.reserve(defn->type.data.func.arg_types.size());
-    for (size_t i = 0; i < defn->type.data.func.arg_types.size(); i++) {
+    for (size_t i = args->nodes.size(); i < defn->type.data.func.arg_types.size(); i++) {
         args->nodes.push_back(nullptr);
     }
     
     bool began_named_args = false;
-    size_t num_positional_args = 0;
+    size_t num_positional_args = skip_receiver ? 1 : 0;
     for (auto arg_node : rhs->nodes) {
         Ref<Untyped_AST> arg_expr;
         size_t arg_pos;
@@ -1273,6 +1275,27 @@ static Ref<Typed_AST_Binary> typecheck_function_call(
         verify(!arg, "Argument '%.*s' given more than once.", defn->param_names[arg_pos].size(), defn->param_names[arg_pos].c_str());
         arg = typecheck_arg_expr;
     }
+}
+
+static Ref<Typed_AST_Binary> typecheck_function_call(
+    Typer &t,
+    Ref<Typed_AST> func,
+    Ref<Untyped_AST_Multiary> rhs)
+{
+    // @TODO: Check for function pointer type of stuff
+    verify(func->kind == Typed_AST_Kind::Ident_Func, "First operand of function call must be a function.");
+    
+    auto func_uuid = func.cast<Typed_AST_UUID>();
+    auto defn = t.interp->funcbook.get_func_by_uuid(func_uuid->uuid);
+    internal_verify(defn, "Failed to retrieve function with id #%zu.", func_uuid->uuid);
+    
+    // @TODO: default arguments stuff (if we do default arguments)
+    
+    verify(rhs->nodes.size() == defn->type.data.func.arg_types.size(), "Incorrect number of arguments for invocation. Expected %zu but was given %zu.", defn->type.data.func.arg_types.size(), rhs->nodes.size());
+    
+    auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    
+    typecheck_function_call_arguments(t, defn, args, rhs);
     
     return Mem.make<Typed_AST_Binary>(
         Typed_AST_Kind::Function_Call,
@@ -1962,13 +1985,17 @@ static Ref<Typed_AST_Multiary> typecheck_impl_for_struct(
     
     for (auto node : body->nodes) {
         switch (node->kind) {
-            case Untyped_AST_Kind::Fn_Decl: {
+            case Untyped_AST_Kind::Fn_Decl:
+            case Untyped_AST_Kind::Method_Decl: {
                 auto decl = node.cast<Untyped_AST_Fn_Declaration>();
                 auto [fn_defn, fn_decl] = typecheck_fn_decl(t, *decl);
                 verify(!defn->has_method(fn_defn->name), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), defn->name.c_str());
                 
                 auto fn_sid = std::string { fn_defn->name.c_str(), fn_defn->name.size() };
-                defn->methods[fn_sid] = fn_defn->uuid;
+                defn->methods[fn_sid] = {
+                    node->kind == Untyped_AST_Kind::Fn_Decl,
+                    fn_defn->uuid
+                };
                 
                 typed_body->add(fn_decl);
             } break;
@@ -1997,7 +2024,21 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
                     auto defn = t.interp->typebook.get_struct_by_uuid(target->uuid);
                     internal_verify(defn, "Failed to retrieve Struct_Definition from typebook.");
                     
+                    t.begin_scope();
+                    
+                    Value_Type *struct_ty = Mem.make<Value_Type>().as_ptr();
+                    struct_ty->kind = Value_Type_Kind::Struct;
+                    struct_ty->data.struct_.defn = defn;
+                    
+                    Value_Type self_ty;
+                    self_ty.kind = Value_Type_Kind::Type;
+                    self_ty.data.type.type = struct_ty;
+                    
+                    t.bind_type("Self", self_ty);
+                    
                     typechecked = typecheck_impl_for_struct(t, defn, body);
+                    
+                    t.end_scope();
                 } break;
                 case Value_Type_Kind::Enum:
                     todo("Implement impl for enums.");
@@ -2011,6 +2052,72 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
             
         default:
             error("Cannot implement something that isn't a type.");
+            break;
+    }
+    
+    return typechecked;
+}
+
+static Ref<Typed_AST> typecheck_dot_call_for_struct(
+    Typer &t,
+    Ref<Typed_AST> receiver,
+    String method_id,
+    Ref<Untyped_AST_Multiary> args)
+{
+    auto defn = receiver->type.data.struct_.defn;
+    
+    Method method;
+    verify(defn->find_method(method_id, method), "Struct type '%s' does not have a method called '%s'.", defn->name.c_str(), method_id.c_str());
+    verify(!method.is_static, "Cannot call '%s' with dot call since the method does not take a receiver.", method_id.c_str());
+    
+    auto method_defn = t.interp->funcbook.get_func_by_uuid(method.uuid);
+    internal_verify(method_defn, "Failed to retreive method from funcbook.");
+    
+    Value_Type method_type = method_defn->type;
+    
+    auto method_uuid = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, method.uuid, method_type);
+    
+    //
+    // @TODO:
+    //       Handle default arguments (if we do them)
+    //
+    verify(args->nodes.size() == method_type.data.func.arg_types.size() - 1, "Incorrect number of arguments passed to '%s'. Expected %zu but was given %zu.", method_id.c_str(), method_type.data.func.arg_types.size() - 1, args->nodes.size());
+    
+    if (receiver->type.kind != Value_Type_Kind::Ptr) {
+        Value_Type ptr_ty;
+        ptr_ty.kind = Value_Type_Kind::Ptr;
+        ptr_ty.data.ptr.child_type = &receiver->type;
+        receiver = Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of, ptr_ty, receiver);
+    }
+    
+    verify(method_type.data.func.arg_types[0].assignable_from(receiver->type), "Cannot call this method because the receiver's type does not match the parameter's type. Expected '%s' but was given '%s'.", method_type.data.func.arg_types[0].debug_str(), receiver->type.debug_str());
+    
+    auto typechecked_args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    typechecked_args->add(receiver);
+    typecheck_function_call_arguments(t, method_defn, typechecked_args, args, /*skip_receiver*/ true);
+    
+    return Mem.make<Typed_AST_Binary>(
+        Typed_AST_Kind::Function_Call,
+        *method_type.data.func.return_type,
+        method_uuid,
+        typechecked_args
+    );
+}
+
+Ref<Typed_AST> Untyped_AST_Dot_Call::typecheck(Typer &t) {
+    auto receiver = this->receiver->typecheck(t);
+    
+    Ref<Typed_AST> typechecked;
+    switch (receiver->type.kind) {
+        case Value_Type_Kind::Struct:
+            typechecked = typecheck_dot_call_for_struct(t, receiver, method_id, args);
+            break;
+        case Value_Type_Kind::Enum:
+            todo("Implement dot-calls for enums.");
+            break;
+            
+        default:
+            error("Cannot use dot calls with something that isn't a struct or enum type, for now.");
             break;
     }
     

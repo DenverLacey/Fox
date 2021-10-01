@@ -516,12 +516,13 @@ Ref<Untyped_AST> Untyped_AST_Enum_Declaration::clone() {
 }
 
 Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
+    Untyped_AST_Kind kind,
     String id,
     Ref<Untyped_AST_Multiary> params,
     Ref<Untyped_AST_Type_Signature> return_type_signature,
     Ref<Untyped_AST_Multiary> body)
 {
-    this->kind = Untyped_AST_Kind::Fn_Decl;
+    this->kind = kind;
     this->id = id;
     this->params = params;
     this->return_type_signature = return_type_signature;
@@ -534,6 +535,7 @@ Untyped_AST_Fn_Declaration::~Untyped_AST_Fn_Declaration() {
 
 Ref<Untyped_AST> Untyped_AST_Fn_Declaration::clone() {
     return Mem.make<Untyped_AST_Fn_Declaration>(
+        kind,
         id.clone(),
         params->clone().cast<Untyped_AST_Multiary>(),
         return_type_signature->clone().cast<Untyped_AST_Type_Signature>(),
@@ -557,6 +559,29 @@ Ref<Untyped_AST> Untyped_AST_Impl_Declaration::clone() {
         target->clone().cast<Untyped_AST_Symbol>(),
         for_ ? for_->clone().cast<Untyped_AST_Symbol>() : nullptr,
         body->clone().cast<Untyped_AST_Multiary>()
+    );
+}
+
+Untyped_AST_Dot_Call::Untyped_AST_Dot_Call(
+    Ref<Untyped_AST> receiver,
+    String method_id,
+    Ref<Untyped_AST_Multiary> args)
+{
+    this->kind = Untyped_AST_Kind::Dot_Call;
+    this->receiver = receiver;
+    this->method_id = method_id;
+    this->args = args;
+}
+
+Untyped_AST_Dot_Call::~Untyped_AST_Dot_Call() {
+    method_id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Dot_Call::clone() {
+    return Mem.make<Untyped_AST_Dot_Call>(
+        receiver->clone(),
+        method_id.clone(),
+        args->clone().cast<Untyped_AST_Multiary>()
     );
 }
 
@@ -880,6 +905,7 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 }
             }
         } break;
+        case Untyped_AST_Kind::Method_Decl:
         case Untyped_AST_Kind::Fn_Decl: {
             auto decl = node.cast<Untyped_AST_Fn_Declaration>();
             printf("(fn-decl)\n");
@@ -898,6 +924,13 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 print_sub_at_indent("for", decl->for_, indent + 1);
             }
             print_sub_at_indent("body", decl->body, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Dot_Call: {
+            auto dot = node.cast<Untyped_AST_Dot_Call>();
+            printf("(dot-call)\n");
+            print_sub_at_indent("receiver", dot->receiver, indent + 1);
+            printf("%*smethod: %s\n", (indent + 1) * INDENT_SIZE, "", dot->method_id.c_str());
+            print_sub_at_indent("args", dot->args, indent + 1);
         } break;
             
         case Untyped_AST_Kind::Generic_Specification: {

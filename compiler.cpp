@@ -1463,24 +1463,31 @@ void Typed_AST_Let::compile(Compiler &c) {
 void Typed_AST_Field_Access::compile(Compiler &c) {
     Address stack_top = c.stack_top;
     
-    auto [status, address] = find_static_address(c, *instance);
-    switch (status) {
-        case Find_Static_Address_Result::Found:
-            c.emit_opcode(Opcode::Push_Value);
-            c.emit_size(type.size());
-            c.emit_address(address + field_offset);
-            break;
-        case Find_Static_Address_Result::Found_Global:
-            c.emit_opcode(Opcode::Push_Global_Value);
-            c.emit_size(type.size());
-            c.emit_address(address + field_offset);
-            break;
-        case Find_Static_Address_Result::Not_Found:
-            bool success = emit_dynamic_address_code(c, *this);
-            verify(success, "Cannot access field of this expression.");
-            c.emit_opcode(Opcode::Load);
-            c.emit_size(type.size());
-            break;
+    if (deref) {
+        bool success = emit_dynamic_address_code(c, *this);
+        verify(success, "Cannot access field of this expression.");
+        c.emit_opcode(Opcode::Load);
+        c.emit_size(type.size());
+    } else {
+        auto [status, address] = find_static_address(c, *instance);
+        switch (status) {
+            case Find_Static_Address_Result::Found:
+                c.emit_opcode(Opcode::Push_Value);
+                c.emit_size(type.size());
+                c.emit_address(address + field_offset);
+                break;
+            case Find_Static_Address_Result::Found_Global:
+                c.emit_opcode(Opcode::Push_Global_Value);
+                c.emit_size(type.size());
+                c.emit_address(address + field_offset);
+                break;
+            case Find_Static_Address_Result::Not_Found:
+                bool success = emit_dynamic_address_code(c, *this);
+                verify(success, "Cannot access field of this expression.");
+                c.emit_opcode(Opcode::Load);
+                c.emit_size(type.size());
+                break;
+        }
     }
     
     c.stack_top = stack_top + type.size();

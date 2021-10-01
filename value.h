@@ -146,6 +146,7 @@ inline const Value_Type Slice = { Value_Type_Kind::Slice };
 inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
 inline const Value_Type Range = { Value_Type_Kind::Range };
 
+Value_Type unresolved(String id);
 Value_Type ptr_to(Value_Type *child_type);
 Value_Type array_of(size_t count, Value_Type *element_type);
 Value_Type slice_of(Value_Type *element_type);

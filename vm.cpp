@@ -725,11 +725,11 @@ bool Struct_Definition::has_method(String id) {
     return it != methods.end();
 }
 
-bool Struct_Definition::find_method(String id, UUID &out_uuid) {
+bool Struct_Definition::find_method(String id, Method &out_method) {
     auto sid = std::string { id.c_str(), id.size() };
     auto it = methods.find(sid);
     if (it != methods.end()) {
-        out_uuid = it->second;
+        out_method = it->second;
         return true;
     }
     return false;
