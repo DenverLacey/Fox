@@ -237,6 +237,9 @@ struct Enum_Definition {
     Module *module;
     String name;
     std::vector<Enum_Variant> variants;
+    std::unordered_map<std::string, Method> methods;
     
     Enum_Variant *find_variant(String id);
+    bool has_method(String id);
+    bool find_method(String id, Method &out_method);
 };

@@ -308,7 +308,8 @@ bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
             match = data.struct_.defn->uuid == other.data.struct_.defn->uuid;
             break;
         case Value_Type_Kind::Enum:
-            todo("Value_Type::eq_ignoring_mutability() for Enums not yet implemented.");
+            match = data.enum_.defn->uuid == other.data.enum_.defn->uuid;
+            break;
     }
     
     return match;

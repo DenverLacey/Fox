@@ -12,6 +12,7 @@
 // [x]  Implement Paths and sort out how that works with Idents etc.
 // [ ]  Fix bugs in path typechecking because at the momenent I think it wouldn't
 //      handle paths with more than 2 identifiers.
+// [ ]  Adapt patterns to use symbols instead of just identifiers.
 //
 
 #include <iostream>

@@ -743,3 +743,19 @@ Enum_Variant *Enum_Definition::find_variant(String id) {
     }
     return nullptr;
 }
+
+bool Enum_Definition::has_method(String id) {
+    auto sid = std::string { id.c_str(), id.size() };
+    auto it = methods.find(sid);
+    return it != methods.end();
+}
+
+bool Enum_Definition::find_method(String id, Method &out_method) {
+    auto sid = std::string { id.c_str(), id.size() };
+    auto it = methods.find(sid);
+    if (it != methods.end()) {
+        out_method = it->second;
+        return true;
+    }
+    return false;
+}

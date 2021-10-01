@@ -2009,6 +2009,45 @@ static Ref<Typed_AST_Multiary> typecheck_impl_for_struct(
     return typed_body;
 }
 
+static Ref<Typed_AST_Multiary> typecheck_impl_for_enum(
+    Typer &t,
+    Enum_Definition *defn,
+    Ref<Untyped_AST_Multiary> body)
+{
+    //
+    // @HACK:
+    //      Giving this Typed_AST_Kind::Comma might cause problems in the future.
+    //      It was made this way to prevent redundant Flush instructions from being
+    //      emitted.
+    //
+    auto typed_body = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    
+    for (auto node : body->nodes) {
+        switch (node->kind) {
+            case Untyped_AST_Kind::Fn_Decl:
+            case Untyped_AST_Kind::Method_Decl: {
+                auto decl = node.cast<Untyped_AST_Fn_Declaration>();
+                auto [fn_defn, fn_decl] = typecheck_fn_decl(t, *decl);
+                verify(!defn->has_method(fn_defn->name), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), defn->name.c_str());
+                
+                auto fn_sid = std::string { fn_defn->name.c_str(), fn_defn->name.size() };
+                defn->methods[fn_sid] = {
+                    node->kind == Untyped_AST_Kind::Fn_Decl,
+                    fn_defn->uuid
+                };
+                
+                typed_body->add(fn_decl);
+            } break;
+                
+            default:
+                error("Impl declaration bodies can only canotain function declarations, for now.");
+                break;
+        }
+    }
+    
+    return typed_body;
+}
+
 Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
     internal_verify(!for_, "trait impl decls not yet implemented.");
     
@@ -2026,23 +2065,30 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
                     
                     t.begin_scope();
                     
-                    Value_Type *struct_ty = Mem.make<Value_Type>().as_ptr();
-                    struct_ty->kind = Value_Type_Kind::Struct;
-                    struct_ty->data.struct_.defn = defn;
-                    
-                    Value_Type self_ty;
-                    self_ty.kind = Value_Type_Kind::Type;
-                    self_ty.data.type.type = struct_ty;
-                    
-                    t.bind_type("Self", self_ty);
+//                    Value_Type *struct_ty = Mem.make<Value_Type>().as_ptr();
+//                    struct_ty->kind = Value_Type_Kind::Struct;
+//                    struct_ty->data.struct_.defn = defn;
+//
+//                    Value_Type self_ty;
+//                    self_ty.kind = Value_Type_Kind::Type;
+//                    self_ty.data.type.type = struct_ty;
+//
+//                    t.bind_type("Self", self_ty);
+                    t.bind_type("Self", target->type);
                     
                     typechecked = typecheck_impl_for_struct(t, defn, body);
                     
                     t.end_scope();
                 } break;
-                case Value_Type_Kind::Enum:
-                    todo("Implement impl for enums.");
-                    break;
+                case Value_Type_Kind::Enum: {
+                    auto defn = t.interp->typebook.get_enum_by_uuid(target->uuid);
+                    internal_verify(defn, "Failed to retrieve Enum_Definition from typebook.");
+                    
+                    t.begin_scope();
+                    t.bind_type("Self", target->type);
+                    typechecked = typecheck_impl_for_enum(t, defn, body);
+                    t.end_scope();
+                } break;
                     
                 default:
                     internal_error("Invalid Value_Type_Kind: %d.", target->type.data.type.type->kind);
@@ -2104,6 +2150,52 @@ static Ref<Typed_AST> typecheck_dot_call_for_struct(
     );
 }
 
+static Ref<Typed_AST> typecheck_dot_call_for_enum(
+    Typer &t,
+    Ref<Typed_AST> receiver,
+    String method_id,
+    Ref<Untyped_AST_Multiary> args)
+{
+    auto defn = receiver->type.data.struct_.defn;
+    
+    Method method;
+    verify(defn->find_method(method_id, method), "Enum type '%s' does not have a method called '%s'.", defn->name.c_str(), method_id.c_str());
+    verify(!method.is_static, "Cannot call '%s' with dot call since the method does not take a receiver.", method_id.c_str());
+    
+    auto method_defn = t.interp->funcbook.get_func_by_uuid(method.uuid);
+    internal_verify(method_defn, "Failed to retreive method from funcbook.");
+    
+    Value_Type method_type = method_defn->type;
+    
+    auto method_uuid = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, method.uuid, method_type);
+    
+    //
+    // @TODO:
+    //       Handle default arguments (if we do them)
+    //
+    verify(args->nodes.size() == method_type.data.func.arg_types.size() - 1, "Incorrect number of arguments passed to '%s'. Expected %zu but was given %zu.", method_id.c_str(), method_type.data.func.arg_types.size() - 1, args->nodes.size());
+    
+    if (receiver->type.kind != Value_Type_Kind::Ptr) {
+        Value_Type ptr_ty;
+        ptr_ty.kind = Value_Type_Kind::Ptr;
+        ptr_ty.data.ptr.child_type = &receiver->type;
+        receiver = Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Address_Of, ptr_ty, receiver);
+    }
+    
+    verify(method_type.data.func.arg_types[0].assignable_from(receiver->type), "Cannot call this method because the receiver's type does not match the parameter's type. Expected '%s' but was given '%s'.", method_type.data.func.arg_types[0].debug_str(), receiver->type.debug_str());
+    
+    auto typechecked_args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    typechecked_args->add(receiver);
+    typecheck_function_call_arguments(t, method_defn, typechecked_args, args, /*skip_receiver*/ true);
+    
+    return Mem.make<Typed_AST_Binary>(
+        Typed_AST_Kind::Function_Call,
+        *method_type.data.func.return_type,
+        method_uuid,
+        typechecked_args
+    );
+}
+
 Ref<Typed_AST> Untyped_AST_Dot_Call::typecheck(Typer &t) {
     auto receiver = this->receiver->typecheck(t);
     
@@ -2113,7 +2205,7 @@ Ref<Typed_AST> Untyped_AST_Dot_Call::typecheck(Typer &t) {
             typechecked = typecheck_dot_call_for_struct(t, receiver, method_id, args);
             break;
         case Value_Type_Kind::Enum:
-            todo("Implement dot-calls for enums.");
+            typechecked = typecheck_dot_call_for_enum(t, receiver, method_id, args);
             break;
             
         default:
