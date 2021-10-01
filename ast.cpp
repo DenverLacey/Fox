@@ -541,6 +541,25 @@ Ref<Untyped_AST> Untyped_AST_Fn_Declaration::clone() {
     );
 }
 
+Untyped_AST_Impl_Declaration::Untyped_AST_Impl_Declaration(
+    Ref<Untyped_AST_Symbol> target,
+    Ref<Untyped_AST_Symbol> for_,
+    Ref<Untyped_AST_Multiary> body)
+{
+    this->kind = Untyped_AST_Kind::Impl_Decl;
+    this->target = target;
+    this->for_ = for_;
+    this->body = body;
+}
+
+Ref<Untyped_AST> Untyped_AST_Impl_Declaration::clone() {
+    return Mem.make<Untyped_AST_Impl_Declaration>(
+        target->clone().cast<Untyped_AST_Symbol>(),
+        for_ ? for_->clone().cast<Untyped_AST_Symbol>() : nullptr,
+        body->clone().cast<Untyped_AST_Multiary>()
+    );
+}
+
 constexpr size_t INDENT_SIZE = 2;
 static void print_at_indent(const Ref<Untyped_AST> node, size_t indent);
 
@@ -868,6 +887,15 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             print_sub_at_indent("params", decl->params, indent + 1);
             if (decl->return_type_signature) {
                 print_sub_at_indent("return", decl->return_type_signature, indent + 1);
+            }
+            print_sub_at_indent("body", decl->body, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Impl_Decl: {
+            auto decl = node.cast<Untyped_AST_Impl_Declaration>();
+            printf("(impl)\n");
+            print_sub_at_indent("target", decl->target, indent + 1);
+            if (decl->for_) {
+                print_sub_at_indent("for", decl->for_, indent + 1);
             }
             print_sub_at_indent("body", decl->body, indent + 1);
         } break;

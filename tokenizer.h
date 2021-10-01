@@ -55,6 +55,7 @@ enum class Token_Kind {
     Fn,
     Struct,
     Enum,
+    Impl,
     And,
     Or,
     In,

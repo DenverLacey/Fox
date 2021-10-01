@@ -1075,7 +1075,30 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     return ident;
 }
 
-Ref<Typed_AST> typecheck_ident_in_enum_namespace(
+static Ref<Typed_AST> typecheck_ident_in_struct_namespace(
+    Typer &t,
+    Struct_Definition *defn,
+    Ref<Untyped_AST_Ident> id)
+{
+    //
+    // @TODO:
+    //      Handle stuff that aren't methods.
+    //
+    
+    UUID method_uuid;
+    verify(defn->find_method(id->id, method_uuid), "Struct type '%s' does not have a method called '%s'.", defn->name.c_str(), id->id.c_str());
+    
+    auto method_defn = t.interp->funcbook.get_func_by_uuid(method_uuid);
+    internal_verify(method_defn, "Failed to retrieve method '%s' from funcbook with id #%zu.", id->id.c_str(), method_uuid);
+    
+    return Mem.make<Typed_AST_UUID>(
+        Typed_AST_Kind::Ident_Func,
+        method_uuid,
+        method_defn->type
+    );
+}
+
+static Ref<Typed_AST> typecheck_ident_in_enum_namespace(
     Typer &t,
     Enum_Definition *defn,
     Ref<Untyped_AST_Ident> id)
@@ -1099,9 +1122,12 @@ Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
     
     Ref<Typed_AST> typechecked;
     switch (namespace_->kind) {
-        case Typed_AST_Kind::Ident_Struct:
-            todo("Implement Ident_Struct handling in typecheck_path().");
-            break;
+        case Typed_AST_Kind::Ident_Struct: {
+            auto uuid = namespace_.cast<Typed_AST_UUID>();
+            auto defn = t.interp->typebook.get_struct_by_uuid(uuid->uuid);
+            auto id = rhs.cast<Untyped_AST_Ident>();
+            typechecked = typecheck_ident_in_struct_namespace(t, defn, id);
+        } break;
         case Typed_AST_Kind::Ident_Enum: {
             auto uuid = namespace_.cast<Typed_AST_UUID>();
             auto defn = t.interp->typebook.get_enum_by_uuid(uuid->uuid);
@@ -1828,35 +1854,43 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     return nullptr;
 }
 
-Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
+struct Typecheck_Fn_Decl_Result {
+    Function_Definition *defn;
+    Ref<Typed_AST_Fn_Declaration> typed_decl;
+};
+
+static Typecheck_Fn_Decl_Result typecheck_fn_decl(
+    Typer &t,
+    Untyped_AST_Fn_Declaration &decl)
+{
     Function_Definition defn;
     defn.uuid = t.interp->next_uuid();
     defn.module = t.module;
-    defn.name = id.clone();
-    
+    defn.name = decl.id.clone();
+
     Value_Type func_type;
     func_type.kind = Value_Type_Kind::Function;
     func_type.data.func.uuid = defn.uuid;
-    
+
     Value_Type *return_type = Mem.make<Value_Type>().as_ptr();
-    if (this->return_type_signature) {
-        *return_type = this->return_type_signature->typecheck(t)
+    if (decl.return_type_signature) {
+        *return_type = decl.return_type_signature->typecheck(t)
             .cast<Typed_AST_Type_Signature>()->value_type->clone();
     } else {
         *return_type = value_types::Void;
     }
-    
+
     func_type.data.func.return_type = return_type;
-    
-    auto param_types = Array<Value_Type>::with_size(params->nodes.size());
+
+    auto param_types = Array<Value_Type>::with_size(decl.params->nodes.size());
     for (size_t i = 0; i < param_types.size(); i++) {
-        auto param = params->nodes[i];
-        
+        auto param = decl.params->nodes[i];
+
         //
         // @TODO: [ ]
         //      Sort out default arguments. (If we do default arguments)
         //
-        
+
         String param_name;
         Value_Type param_type;
         switch (param->kind) {
@@ -1871,42 +1905,114 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
                     .cast<Typed_AST_Type_Signature>()->value_type;
                 param_type.is_mut = id->is_mut;
             } break;
-                
+
             default:
                 error("Expected a parameter.");
                 break;
         }
-        
+
         param_types[i] = param_type;
         defn.param_names.push_back(param_name);
     }
-    
+
     func_type.data.func.arg_types = param_types;
     defn.type = func_type;
-    
+
     auto new_defn = t.interp->funcbook.add_func(defn);
     auto [_, success] = t.module->funcs.insert(new_defn->uuid);
     internal_verify(success, "Failed to add function with id #%zu to module set.", new_defn->uuid);
-    
-    t.bind_function(id.c_str(), func_type);
-    
+
     // actually typecheck the function
     auto new_t = Typer { t, new_defn };
-    
+
     new_t.begin_scope();
     for (size_t i = 0; i < new_defn->param_names.size(); i++) {
         String param_name = new_defn->param_names[i];
         Value_Type param_type = new_defn->type.data.func.arg_types[i];
         new_t.bind_variable(param_name.c_str(), param_type, param_type.is_mut);
     }
-    
-    auto body = this->body->typecheck(new_t);
-    
+
+    auto body = decl.body->typecheck(new_t).cast<Typed_AST_Multiary>();
+
     verify(new_defn->type.data.func.return_type->kind == Value_Type_Kind::Void ||
            new_t.has_return, "Not all paths return a value in non-void function '%.*s'.", new_defn->name.size(), new_defn->name.c_str());
     
-    return Mem.make<Typed_AST_Fn_Declaration>(
-        new_defn,
-        body.cast<Typed_AST_Multiary>()
-    );
+    auto typed_decl = Mem.make<Typed_AST_Fn_Declaration>(new_defn, body);
+    return { new_defn, typed_decl };
+}
+
+Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
+    auto [defn, typed_decl] = typecheck_fn_decl(t, *this);
+    t.bind_function(id.c_str(), defn->type);
+    return typed_decl;
+}
+
+static Ref<Typed_AST_Multiary> typecheck_impl_for_struct(
+    Typer &t,
+    Struct_Definition *defn,
+    Ref<Untyped_AST_Multiary> body)
+{
+    //
+    // @HACK:
+    //      Giving this Typed_AST_Kind::Comma might cause problems in the future.
+    //      It was made this way to prevent redundant Flush instructions from being
+    //      emitted.
+    //
+    auto typed_body = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+    
+    for (auto node : body->nodes) {
+        switch (node->kind) {
+            case Untyped_AST_Kind::Fn_Decl: {
+                auto decl = node.cast<Untyped_AST_Fn_Declaration>();
+                auto [fn_defn, fn_decl] = typecheck_fn_decl(t, *decl);
+                verify(!defn->has_method(fn_defn->name), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), defn->name.c_str());
+                
+                auto fn_sid = std::string { fn_defn->name.c_str(), fn_defn->name.size() };
+                defn->methods[fn_sid] = fn_defn->uuid;
+                
+                typed_body->add(fn_decl);
+            } break;
+                
+            default:
+                error("Impl declaration bodies can only canotain function declarations, for now.");
+                break;
+        }
+    }
+    
+    return typed_body;
+}
+
+Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
+    internal_verify(!for_, "trait impl decls not yet implemented.");
+    
+    auto target = this->target->typecheck(t).cast<Typed_AST_UUID>();
+    internal_verify(target, "Failed to cast target to UUID* in Untyped_AST_Impl_Declaration::typecheck().");
+    
+    Ref<Typed_AST> typechecked = nullptr;
+    
+    switch (target->type.kind) {
+        case Value_Type_Kind::Type:
+            switch (target->type.data.type.type->kind) {
+                case Value_Type_Kind::Struct: {
+                    auto defn = t.interp->typebook.get_struct_by_uuid(target->uuid);
+                    internal_verify(defn, "Failed to retrieve Struct_Definition from typebook.");
+                    
+                    typechecked = typecheck_impl_for_struct(t, defn, body);
+                } break;
+                case Value_Type_Kind::Enum:
+                    todo("Implement impl for enums.");
+                    break;
+                    
+                default:
+                    internal_error("Invalid Value_Type_Kind: %d.", target->type.data.type.type->kind);
+                    break;
+            }
+            break;
+            
+        default:
+            error("Cannot implement something that isn't a type.");
+            break;
+    }
+    
+    return typechecked;
 }

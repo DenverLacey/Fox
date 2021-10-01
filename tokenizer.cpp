@@ -116,6 +116,9 @@ void Token::print() const {
         case Token_Kind::Enum:
             printf("Enum\n");
             break;
+        case Token_Kind::Impl:
+            printf("Impl\n");
+            break;
         case Token_Kind::And:
             printf("And\n");
             break;
@@ -621,6 +624,8 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::Struct;
     } else if (word == "enum") {
         tok.kind = Token_Kind::Enum;
+    } else if (word == "impl") {
+        tok.kind = Token_Kind::Impl;
     } else if (word == "and") {
         tok.kind = Token_Kind::And;
     } else if (word == "or") {

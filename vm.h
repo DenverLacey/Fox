@@ -10,6 +10,8 @@
 
 #include <stack>
 #include <vector>
+#include <unordered_map>
+#include <string>
 
 #include "String.h"
 #include "mem.h"
@@ -203,10 +205,13 @@ struct Struct_Definition {
     Module *module;
     String name;
     std::vector<Struct_Field> fields;
+    std::unordered_map<std::string, UUID> methods;
     // std::vector<Ref<Typed_AST>> initializer;
     
     bool has_field(String id);
     Struct_Field *find_field(String id);
+    bool has_method(String id);
+    bool find_method(String id, UUID &out_uuid);
 };
 
 struct Enum_Payload_Field {

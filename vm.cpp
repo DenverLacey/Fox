@@ -719,6 +719,22 @@ Struct_Field *Struct_Definition::find_field(String id) {
     return nullptr;
 }
 
+bool Struct_Definition::has_method(String id) {
+    auto sid = std::string { id.c_str(), id.size() };
+    auto it = methods.find(sid);
+    return it != methods.end();
+}
+
+bool Struct_Definition::find_method(String id, UUID &out_uuid) {
+    auto sid = std::string { id.c_str(), id.size() };
+    auto it = methods.find(sid);
+    if (it != methods.end()) {
+        out_uuid = it->second;
+        return true;
+    }
+    return false;
+}
+
 Enum_Variant *Enum_Definition::find_variant(String id) {
     for (auto &v : variants) {
         if (v.id == id) {

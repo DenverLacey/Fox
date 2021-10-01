@@ -81,6 +81,7 @@ enum class Untyped_AST_Kind {
     Struct_Decl,
     Enum_Decl,
     Fn_Decl,
+    Impl_Decl,
     
     // unique
     If,
@@ -388,6 +389,16 @@ struct Untyped_AST_Fn_Declaration : public Untyped_AST {
     
     Untyped_AST_Fn_Declaration(String id, Ref<Untyped_AST_Multiary> params, Ref<Untyped_AST_Type_Signature> return_type_signature, Ref<Untyped_AST_Multiary> body);
     ~Untyped_AST_Fn_Declaration();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Impl_Declaration : public Untyped_AST {
+    Ref<Untyped_AST_Symbol> target;
+    Ref<Untyped_AST_Symbol> for_;
+    Ref<Untyped_AST_Multiary> body;
+    
+    Untyped_AST_Impl_Declaration(Ref<Untyped_AST_Symbol> target, Ref<Untyped_AST_Symbol> for_, Ref<Untyped_AST_Multiary> body);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

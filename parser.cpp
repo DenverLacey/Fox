@@ -74,6 +74,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Fn: return Precedence::None;
         case Token_Kind::Struct: return Precedence::None;
         case Token_Kind::Enum: return Precedence::None;
+        case Token_Kind::Impl: return Precedence::None;
         case Token_Kind::And: return Precedence::And;
         case Token_Kind::Or: return Precedence::Or;
         case Token_Kind::Underscore: return Precedence::None;
@@ -275,6 +276,8 @@ struct Parser {
             return parse_struct_declaration();
         } else if (match(Token_Kind::Enum)) {
             return parse_enum_declaration();
+        } else if (match(Token_Kind::Impl)) {
+            return parse_impl_declaration();
         } else {
             return parse_statement();
         }
@@ -367,6 +370,21 @@ struct Parser {
         expect(Token_Kind::Right_Curly, "Expected '}' to terminate enum declaration.");
         
         return decl;
+    }
+    
+    Ref<Untyped_AST_Impl_Declaration> parse_impl_declaration() {
+        auto target_expr = parse_expression();
+        verify(target_expr->kind == Untyped_AST_Kind::Ident || target_expr->kind == Untyped_AST_Kind::Path, "Expected a type name after 'impl' keyword.");
+        auto target = target_expr.cast<Untyped_AST_Symbol>();
+        
+        Ref<Untyped_AST_Symbol> for_ = nullptr;
+        if (match(Token_Kind::For)) {
+            todo("Implement trait impl decls.");
+        }
+        
+        auto body = parse_block();
+        
+        return Mem.make<Untyped_AST_Impl_Declaration>(target, for_, body);
     }
     
     Ref<Untyped_AST> parse_statement() {

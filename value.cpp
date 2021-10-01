@@ -79,7 +79,7 @@ char *Value_Type::debug_str() const {
             s << "<NONE>";
             break;
         case Value_Type_Kind::Unresolved_Type:
-            s << "<?>";
+            s << '\'' << data.unresolved.id.c_str() << '\'';
             break;
         case Value_Type_Kind::Void:
             s << "void";
