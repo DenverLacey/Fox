@@ -1970,9 +1970,10 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     return typed_decl;
 }
 
-static Ref<Typed_AST_Multiary> typecheck_impl_for_struct(
+static Ref<Typed_AST_Multiary> typecheck_impl_declaration(
     Typer &t,
-    Struct_Definition *defn,
+    const char *type_name,
+    std::unordered_map<std::string, Method> &methods,
     Ref<Untyped_AST_Multiary> body)
 {
     //
@@ -1989,49 +1990,10 @@ static Ref<Typed_AST_Multiary> typecheck_impl_for_struct(
             case Untyped_AST_Kind::Method_Decl: {
                 auto decl = node.cast<Untyped_AST_Fn_Declaration>();
                 auto [fn_defn, fn_decl] = typecheck_fn_decl(t, *decl);
-                verify(!defn->has_method(fn_defn->name), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), defn->name.c_str());
+                verify(methods.find(fn_defn->name.c_str()) == methods.end(), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), type_name);
                 
                 auto fn_sid = std::string { fn_defn->name.c_str(), fn_defn->name.size() };
-                defn->methods[fn_sid] = {
-                    node->kind == Untyped_AST_Kind::Fn_Decl,
-                    fn_defn->uuid
-                };
-                
-                typed_body->add(fn_decl);
-            } break;
-                
-            default:
-                error("Impl declaration bodies can only canotain function declarations, for now.");
-                break;
-        }
-    }
-    
-    return typed_body;
-}
-
-static Ref<Typed_AST_Multiary> typecheck_impl_for_enum(
-    Typer &t,
-    Enum_Definition *defn,
-    Ref<Untyped_AST_Multiary> body)
-{
-    //
-    // @HACK:
-    //      Giving this Typed_AST_Kind::Comma might cause problems in the future.
-    //      It was made this way to prevent redundant Flush instructions from being
-    //      emitted.
-    //
-    auto typed_body = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
-    
-    for (auto node : body->nodes) {
-        switch (node->kind) {
-            case Untyped_AST_Kind::Fn_Decl:
-            case Untyped_AST_Kind::Method_Decl: {
-                auto decl = node.cast<Untyped_AST_Fn_Declaration>();
-                auto [fn_defn, fn_decl] = typecheck_fn_decl(t, *decl);
-                verify(!defn->has_method(fn_defn->name), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), defn->name.c_str());
-                
-                auto fn_sid = std::string { fn_defn->name.c_str(), fn_defn->name.size() };
-                defn->methods[fn_sid] = {
+                methods[fn_sid] = {
                     node->kind == Untyped_AST_Kind::Fn_Decl,
                     fn_defn->uuid
                 };
@@ -2064,20 +2026,8 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
                     internal_verify(defn, "Failed to retrieve Struct_Definition from typebook.");
                     
                     t.begin_scope();
-                    
-//                    Value_Type *struct_ty = Mem.make<Value_Type>().as_ptr();
-//                    struct_ty->kind = Value_Type_Kind::Struct;
-//                    struct_ty->data.struct_.defn = defn;
-//
-//                    Value_Type self_ty;
-//                    self_ty.kind = Value_Type_Kind::Type;
-//                    self_ty.data.type.type = struct_ty;
-//
-//                    t.bind_type("Self", self_ty);
                     t.bind_type("Self", target->type);
-                    
-                    typechecked = typecheck_impl_for_struct(t, defn, body);
-                    
+                    typechecked = typecheck_impl_declaration(t, defn->name.c_str(), defn->methods, body);
                     t.end_scope();
                 } break;
                 case Value_Type_Kind::Enum: {
@@ -2086,7 +2036,7 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
                     
                     t.begin_scope();
                     t.bind_type("Self", target->type);
-                    typechecked = typecheck_impl_for_enum(t, defn, body);
+                    typechecked = typecheck_impl_declaration(t, defn->name.c_str(), defn->methods, body);
                     t.end_scope();
                 } break;
                     
