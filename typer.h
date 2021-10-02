@@ -255,7 +255,7 @@ struct Typed_AST_Processed_Pattern : public Typed_AST {
 struct Typed_AST_Match_Pattern : public Typed_AST {
     //
     // @NOTE:
-    //      We using 'nullptr' to represent an underscore binding which may or
+    //      We use 'nullptr' to represent an underscore binding which may or
     //      may not be problematic in the future.
     //
     std::vector<Ref<Typed_AST>> bindings;

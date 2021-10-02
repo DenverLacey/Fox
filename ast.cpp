@@ -361,6 +361,19 @@ Ref<Untyped_AST> Untyped_AST_Pattern_Struct::clone() {
     return copy;
 }
 
+Untyped_AST_Pattern_Enum::Untyped_AST_Pattern_Enum(Ref<Untyped_AST_Symbol> enum_id) {
+    this->kind = Untyped_AST_Kind::Pattern_Enum;
+    this->enum_id = enum_id;
+}
+
+Ref<Untyped_AST> Untyped_AST_Pattern_Enum::clone() {
+    auto copy = Mem.make<Untyped_AST_Pattern_Enum>(enum_id->clone().cast<Untyped_AST_Ident>());
+    for (auto s : sub_patterns) {
+        copy->add(s->clone().cast<Untyped_AST_Pattern>());
+    }
+    return copy;
+}
+
 Untyped_AST_Pattern_Value::Untyped_AST_Pattern_Value(Ref<Untyped_AST> value) {
     this->kind = Untyped_AST_Kind::Pattern_Value;
     this->value = value;
@@ -658,6 +671,16 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
             }
             printf(" }");
         } break;
+        case Untyped_AST_Kind::Pattern_Enum: {
+            auto e = p.cast<Untyped_AST_Pattern_Enum>();
+            printf("%s(", e->enum_id->debug_str());
+            for (size_t i = 0; i < e->sub_patterns.size(); i++) {
+                auto sub = e->sub_patterns[i];
+                print_pattern(sub);
+                if (i + 1 < e->sub_patterns.size()) printf(", ");
+            }
+            printf(")");
+        } break;
         case Untyped_AST_Kind::Pattern_Value:
             print_at_indent(p, 0);
             break;
@@ -808,7 +831,8 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
         case Untyped_AST_Kind::Pattern_Tuple:
-        case Untyped_AST_Kind::Pattern_Struct: {
+        case Untyped_AST_Kind::Pattern_Struct:
+        case Untyped_AST_Kind::Pattern_Enum: {
             auto p = node.cast<Untyped_AST_Pattern>();
             print_pattern(p);
             printf("\n");

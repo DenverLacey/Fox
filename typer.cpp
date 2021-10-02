@@ -936,7 +936,7 @@ struct Typer {
             case Untyped_AST_Kind::Pattern_Struct: {
                 auto sp = pattern.cast<Untyped_AST_Pattern_Struct>();
                 auto uuid = sp->struct_id->typecheck(*this).cast<Typed_AST_UUID>();
-                internal_verify(uuid, "Failed to cast to UUID* in Typer::put_pattern().");
+                internal_verify(uuid, "Failed to cast to UUID* in Typer::bind_match_pattern().");
                 
                 verify(type.kind == Value_Type_Kind::Struct &&
                        type.data.struct_.defn->uuid == uuid->uuid, "Cannot match %s struct pattern with %s.", sp->struct_id->debug_str(), type.debug_str());
@@ -947,6 +947,25 @@ struct Typer {
                 for (size_t i = 0; i < sp->sub_patterns.size(); i++) {
                     auto sub_pattern = sp->sub_patterns[i];
                     auto field_type  = defn->fields[i].type;
+                    bind_match_pattern(sub_pattern, field_type, out_mp);
+                }
+            } break;
+            case Untyped_AST_Kind::Pattern_Enum: {
+                auto ep = pattern.cast<Untyped_AST_Pattern_Enum>();
+                auto lit = ep->enum_id->typecheck(*this).cast<Typed_AST_Enum_Literal>();
+                verify(lit, "Failed to cast to Enum_Literal* in Typer::bind_match_pattern().");
+                
+                auto defn = lit->type.data.enum_.defn;
+                auto &variant = defn->variants[lit->tag];
+                
+                verify(variant.payload.size() == ep->sub_patterns.size(), "Incorrect number of sub patterns in enum pattern for enum %s. Expected %zu but was given %zu.", type.debug_str(), variant.payload.size(), ep->sub_patterns.size());
+                
+                auto tag = Mem.make<Typed_AST_Int>(lit->tag);
+                out_mp->add_binding(tag);
+                
+                for (size_t i = 0; i < ep->sub_patterns.size(); i++) {
+                    auto sub_pattern = ep->sub_patterns[i];
+                    auto field_type = variant.payload[i].type;
                     bind_match_pattern(sub_pattern, field_type, out_mp);
                 }
             } break;
@@ -1614,6 +1633,10 @@ Ref<Typed_AST> Untyped_AST_Pattern_Tuple::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Pattern_Struct::typecheck(Typer &t) {
     internal_error("Call to Untyped_AST_Pattern_Struct::typecheck() is disallowed.");
+}
+
+Ref<Typed_AST> Untyped_AST_Pattern_Enum::typecheck(Typer &t) {
+    internal_error("Call to Untyped_AST_Pattern_Enum::typecheck() is disallowed.");
 }
 
 Ref<Typed_AST> Untyped_AST_Pattern_Value::typecheck(Typer &t) {

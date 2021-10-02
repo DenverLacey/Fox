@@ -507,20 +507,43 @@ struct Parser {
                 p = Mem.make<Untyped_AST_Pattern_Underscore>();
             } break;
             case Token_Kind::Ident: {
-                auto id = n.data.s.clone();
-                if (match(Token_Kind::Left_Curly)) {
-                    auto struct_id = Mem.make<Untyped_AST_Ident>(id);
-                    auto sp = Mem.make<Untyped_AST_Pattern_Struct>(struct_id);
-                    do {
-                        if (check(Token_Kind::Right_Curly)) break;
-                        sp->add(parse_pattern(allow_value_pattern));
-                    } while (match(Token_Kind::Comma) && has_more());
-                    expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct pattern.");
-                    p = sp;
-                } else if (match(Token_Kind::Left_Paren)) {
-                    todo("Enum Patterns not yet implemented.");
+                auto id_str = n.data.s.clone();
+                
+                if (!(check(Token_Kind::Left_Curly) ||
+                      check(Token_Kind::Left_Paren) ||
+                      check(Token_Kind::Double_Colon)))
+                {
+                    p = Mem.make<Untyped_AST_Pattern_Ident>(false, id_str);
                 } else {
-                    p = Mem.make<Untyped_AST_Pattern_Ident>(false, id);
+                    auto id = Mem.make<Untyped_AST_Ident>(id_str);
+                    
+                    Ref<Untyped_AST_Symbol> sym;
+                    if (check(Token_Kind::Double_Colon)) {
+                        sym = parse_symbol(id);
+                    } else {
+                        sym = id;
+                    }
+                    
+                    if (match(Token_Kind::Left_Curly)) {
+                        auto sp = Mem.make<Untyped_AST_Pattern_Struct>(sym);
+                        do {
+                            if (check(Token_Kind::Right_Curly)) break;
+                            sp->add(parse_pattern(allow_value_pattern));
+                        } while (match(Token_Kind::Comma) && has_more());
+                        expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct pattern.");
+                        p = sp;
+                    } else if (match(Token_Kind::Left_Paren)) {
+                        auto ep = Mem.make<Untyped_AST_Pattern_Enum>(sym);
+                        do {
+                            if (check(Token_Kind::Right_Paren)) break;
+                            ep->add(parse_pattern(allow_value_pattern));
+                        } while (match(Token_Kind::Comma) && has_more());
+                        expect(Token_Kind::Right_Paren, "Expected ')' to terminate enum pattern.");
+                        p = ep;
+                    } else {
+                        verify(allow_value_pattern, "Invalid pattern.");
+                        p = Mem.make<Untyped_AST_Pattern_Value>(sym);
+                    }
                 }
             } break;
             case Token_Kind::Mut: {
@@ -554,6 +577,34 @@ struct Parser {
         }
         
         return p;
+    }
+    
+    Ref<Untyped_AST_Symbol> parse_symbol(Ref<Untyped_AST_Ident> prev = nullptr) {
+        Ref<Untyped_AST_Ident> lhs;
+        Ref<Untyped_AST_Symbol> rhs = nullptr;
+        
+        if (prev) {
+            lhs = prev;
+        } else {
+            String id_str = expect(Token_Kind::Ident, "Expected identifier to begin symbol.").data.s.clone();
+            lhs = Mem.make<Untyped_AST_Ident>(id_str);
+        }
+        
+        if (match(Token_Kind::Double_Colon)) {
+            rhs = parse_symbol();
+        } else if (check(Token_Kind::Ident)) {
+            String id_str = expect(Token_Kind::Ident, "Expected identifier to end symbol.").data.s.clone();
+            rhs = Mem.make<Untyped_AST_Ident>(id_str);
+        }
+        
+        Ref<Untyped_AST_Symbol> sym;
+        if (rhs) {
+            sym = Mem.make<Untyped_AST_Path>(lhs, rhs);
+        } else {
+            sym = lhs;
+        }
+        
+        return sym;
     }
     
     Ref<Value_Type> parse_type_signiture() {

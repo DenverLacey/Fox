@@ -74,6 +74,7 @@ enum class Untyped_AST_Kind {
     Pattern_Ident,
     Pattern_Tuple,
     Pattern_Struct,
+    Pattern_Enum,
     Pattern_Value,
     
     // declarations
@@ -279,6 +280,14 @@ struct Untyped_AST_Pattern_Struct : public Untyped_AST_Pattern_Tuple {
     Ref<Untyped_AST_Symbol> struct_id;
     
     Untyped_AST_Pattern_Struct(Ref<Untyped_AST_Symbol> struct_id);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Pattern_Enum : public Untyped_AST_Pattern_Tuple {
+    Ref<Untyped_AST_Symbol> enum_id;
+    
+    Untyped_AST_Pattern_Enum(Ref<Untyped_AST_Symbol> enum_id);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

@@ -1390,7 +1390,53 @@ void Typed_AST_Match::compile(Compiler &c) {
                     todo("Implement struct types for match patterns in Typed_AST_Match::compile().");
                 } break;
                 case Value_Type_Kind::Enum: {
-                    todo("Implement enum types for match patterns in Typed_AST_Match::compile().");
+                    auto defn = cond_v.type.data.enum_.defn;
+                    
+                    auto tag = arm_cond->bindings[0].cast<Typed_AST_Int>();
+                    internal_verify(tag, "Failed to retrieve tag in match pattern.");
+                    
+                    // cond_v.tag == tag
+                    c.emit_opcode(Opcode::Push_Value);
+                    c.emit_size(value_types::Int.size());
+                    c.emit_address(cond_v.address);
+                    
+                    tag->compile(c);
+                    
+                    c.emit_opcode(Opcode::Equal);
+                    c.emit_size(value_types::Int.size());
+                    
+                    auto &variant = defn->variants[tag->value];
+                    
+                    for (size_t i = 1; i < arm_cond->bindings.size(); i++) {
+                        auto b = arm_cond->bindings[i];
+                        if (!b) continue;
+                        
+                        auto p = variant.payload[i - 1];
+                        
+                        Value_Type field_type = p.type;
+                        Size offset = p.offset;
+                        
+                        if (b->kind == Typed_AST_Kind::Ident) {
+                            auto id = b.cast<Typed_AST_Ident>()->id;
+                            Variable v = { false, field_type, cond_v.address + offset };
+                            idents.back().push_back({ id, v });
+                        } else {
+                            c.emit_opcode(Opcode::Push_Value);
+                            c.emit_size(field_type.size());
+                            c.emit_address(cond_v.address + offset);
+                            
+                            b->compile(c);
+                            
+                            if (field_type.kind == Value_Type_Kind::Str) {
+                                c.emit_opcode(Opcode::Str_Equal);
+                            } else {
+                                c.emit_opcode(Opcode::Equal);
+                                c.emit_size(field_type.size());
+                            }
+                            
+                            c.emit_opcode(Opcode::And);
+                        }
+                    }
                 } break;
                     
                 default:
