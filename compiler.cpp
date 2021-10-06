@@ -147,6 +147,8 @@ Find_Variable_Result Compiler::find_variable(String id) {
 }
 
 void Compiler::declare_constant(Typed_AST_Let &let) {
+    Address old_top = stack_top;
+    
     internal_verify(let.target->bindings.size() == 1, "'const' only works with single identifiers, for now.");
     auto id = let.target->bindings[0].id;
     
@@ -223,6 +225,8 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
     
     std::string sid { id.c_str(), id.size() };
     current_scope().variables[sid] = constant;
+    
+    stack_top = old_top;
 }
 
 void Compiler::compile_constant(Variable constant) {
@@ -790,10 +794,41 @@ static void compile_range_subscript_operator(Compiler &c, Typed_AST_Binary &sub)
     c.stack_top = stack_top + sub.type.size();
 }
 
+static void compile_subscript_operator_for_constant(
+    Compiler &c,
+    Variable *v,
+    Ref<Typed_AST> index)
+{
+    Address stack_top = c.stack_top;
+    
+    Size child_size = v->type.child_type()->size();
+    
+    if (!index->is_constant(c)) {
+        todo("Non-constant index to subscript of constant array.");
+    } else {
+        runtime::Int idx;
+        c.evaluate_unchecked(index, idx);
+        
+        c.emit_opcode(Opcode::Load_Const);
+        c.emit_size(child_size);
+        c.emit_address(v->address + idx * child_size);
+    }
+    
+    c.stack_top = stack_top + child_size;
+}
+
 static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
     if (sub.rhs->type.kind == Value_Type_Kind::Range) {
         compile_range_subscript_operator(c, sub);
         return;
+    } else if (sub.lhs->kind == Typed_AST_Kind::Ident) {
+        String id = sub.lhs.cast<Typed_AST_Ident>()->id;
+        auto [result, v] = c.find_variable(id);
+        
+        if (result == Find_Variable_Result::Found_Constant) {
+            compile_subscript_operator_for_constant(c, v, sub.rhs);
+            return;
+        }
     }
     
     Address stack_top = c.stack_top;

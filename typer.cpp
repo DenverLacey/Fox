@@ -1811,6 +1811,10 @@ Ref<Typed_AST> Untyped_AST_Let::typecheck(Typer &t) {
             }
         }
     }
+    
+    if (is_const) {
+        verify(!(ty.is_mut || ty.is_partially_mutable()), "Constants must be completely immutable.");
+    }
 
     auto processed_target = Mem.make<Typed_AST_Processed_Pattern>();
     t.bind_pattern(target, ty, processed_target);
