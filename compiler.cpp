@@ -1339,8 +1339,8 @@ void Typed_AST_Match::compile(Compiler &c) {
             c.emit_size(cond_v.type.size());
             c.emit_address(cond_v.address);
             
-            for (auto b : arm_cond->bindings) {
-                b->compile(c);
+            for (auto &b : arm_cond->bindings) {
+                b.value_node->compile(c);
             }
             
             if (cond_v.type.kind == Value_Type_Kind::Str) {
@@ -1355,21 +1355,24 @@ void Typed_AST_Match::compile(Compiler &c) {
                     bool not_first_comparison = false;
                     for (size_t i = 0; i < arm_cond->bindings.size(); i++) {
                         auto b = arm_cond->bindings[i];
-                        if (!b) continue;
+                        if (b.is_none()) continue;
                         
                         Value_Type child_type = cond_v.type.data.tuple.child_types[i];
                         Size offset = cond_v.type.data.tuple.offset_of_type(i);
                         
-                        if (b->kind == Typed_AST_Kind::Ident) {
-                            auto id = b.cast<Typed_AST_Ident>()->id;
-                            Variable v = { false, child_type, cond_v.address + offset };
-                            idents.back().push_back({ id, v });
+                        if (b.kind == Typed_AST_Match_Pattern::Binding_Kind::Variable) {
+                            Variable v = {
+                                false,
+                                b.variable_info.type,
+                                cond_v.address + b.offset
+                            };
+                            idents.back().push_back({ b.variable_info.id, v });
                         } else {
                             c.emit_opcode(Opcode::Push_Value);
                             c.emit_size(child_type.size());
                             c.emit_address(cond_v.address + offset);
                             
-                            b->compile(c);
+                            b.value_node->compile(c);
                             
                             if (child_type.kind == Value_Type_Kind::Str) {
                                 c.emit_opcode(Opcode::Str_Equal);
@@ -1392,7 +1395,7 @@ void Typed_AST_Match::compile(Compiler &c) {
                 case Value_Type_Kind::Enum: {
                     auto defn = cond_v.type.data.enum_.defn;
                     
-                    auto tag = arm_cond->bindings[0].cast<Typed_AST_Int>();
+                    auto tag = arm_cond->bindings[0].value_node.cast<Typed_AST_Int>();
                     internal_verify(tag, "Failed to retrieve tag in match pattern.");
                     
                     // cond_v.tag == tag
@@ -1405,27 +1408,26 @@ void Typed_AST_Match::compile(Compiler &c) {
                     c.emit_opcode(Opcode::Equal);
                     c.emit_size(value_types::Int.size());
                     
-                    auto &variant = defn->variants[tag->value];
-                    
                     for (size_t i = 1; i < arm_cond->bindings.size(); i++) {
                         auto b = arm_cond->bindings[i];
-                        if (!b) continue;
+                        if (b.is_none()) continue;
                         
-                        auto p = variant.payload[i - 1];
-                        
-                        Value_Type field_type = p.type;
-                        Size offset = p.offset;
-                        
-                        if (b->kind == Typed_AST_Kind::Ident) {
-                            auto id = b.cast<Typed_AST_Ident>()->id;
-                            Variable v = { false, field_type, cond_v.address + offset };
-                            idents.back().push_back({ id, v });
+                        if (b.kind == Typed_AST_Match_Pattern::Binding_Kind::Variable) {
+                            Variable v = {
+                                false,
+                                b.variable_info.type,
+                                cond_v.address + b.offset
+                            };
+                            idents.back().push_back({ b.variable_info.id, v });
                         } else {
+                            Value_Type field_type = b.value_node->type;
+                            Size offset = b.offset;
+                            
                             c.emit_opcode(Opcode::Push_Value);
                             c.emit_size(field_type.size());
                             c.emit_address(cond_v.address + offset);
                             
-                            b->compile(c);
+                            b.value_node->compile(c);
                             
                             if (field_type.kind == Value_Type_Kind::Str) {
                                 c.emit_opcode(Opcode::Str_Equal);

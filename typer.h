@@ -253,15 +253,33 @@ struct Typed_AST_Processed_Pattern : public Typed_AST {
 };
 
 struct Typed_AST_Match_Pattern : public Typed_AST {
-    //
-    // @NOTE:
-    //      We use 'nullptr' to represent an underscore binding which may or
-    //      may not be problematic in the future.
-    //
-    std::vector<Ref<Typed_AST>> bindings;
+    enum Binding_Kind : uint8_t {
+        None,
+        Value,
+        Variable,
+    };
+    
+    struct Binding {
+        Binding_Kind kind;
+        Size offset;
+        union {
+            Ref<Typed_AST> value_node;
+            struct {
+                String id;
+                Value_Type type;
+            } variable_info;
+        };
+        
+        Binding();
+        bool is_none() const;
+    };
+    
+    std::vector<Binding> bindings;
     
     Typed_AST_Match_Pattern();
-    void add_binding(Ref<Typed_AST> binding);
+    void add_none_binding();
+    void add_value_binding(Ref<Typed_AST> binding, Size offset);
+    void add_variable_binding(String id, Value_Type type, Size offset);
     bool is_simple_value_pattern();
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;

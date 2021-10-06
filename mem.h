@@ -23,7 +23,7 @@ class Ref {
 public:
     Ref() : ptr(nullptr) {}
     Ref(std::nullptr_t) : ptr(nullptr) {}
-    Ref(const Ref<T> &other) : ptr(other.ptr) {}
+    Ref(const Ref<T> &other) = default;
     Ref(Ref<T> &&other) : ptr(std::exchange(other.ptr, nullptr)) {}
     
     template<typename Derived>

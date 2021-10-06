@@ -55,7 +55,8 @@ const char *Untyped_AST_Symbol::debug_str() const {
             std::ostringstream s;
             s << path->lhs->debug_str() << "::" << path->rhs->debug_str();
             
-            str = s.str().c_str();
+            std::string cpp_str = s.str();
+            str = SMem.duplicate(cpp_str.c_str(), cpp_str.size());
         } break;
             
         default:

@@ -423,7 +423,15 @@ bool Value_Type::is_resolved() const {
             }
             break;
         case Value_Type_Kind::Enum:
-            todo("Cannot check if an enum type is resolved yet.");
+            if (!data.enum_.defn->is_sumtype) {
+                for (auto &v : data.enum_.defn->variants) {
+                    for (auto &f : v.payload) {
+                        if (!f.type.is_resolved()) {
+                            return false;
+                        }
+                    }
+                }
+            }
             break;
             
         case Value_Type_Kind::Function:

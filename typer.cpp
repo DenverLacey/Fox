@@ -264,13 +264,44 @@ Typed_AST_Match_Pattern::Typed_AST_Match_Pattern() {
     this->kind = Typed_AST_Kind::Match_Pattern;
 }
 
-void Typed_AST_Match_Pattern::add_binding(Ref<Typed_AST> binding) {
-    bindings.push_back(binding);
+Typed_AST_Match_Pattern::Binding::Binding() {
+    kind = Binding_Kind::None;
+    offset = 0;
+}
+
+bool Typed_AST_Match_Pattern::Binding::is_none() const {
+    return kind == Binding_Kind::None;
+}
+
+void Typed_AST_Match_Pattern::add_none_binding() {
+    bindings.emplace_back();
+}
+
+void Typed_AST_Match_Pattern::add_value_binding(Ref<Typed_AST> binding, Size offest) {
+    Binding b;
+    b.kind = Binding_Kind::Value;
+    b.offset = offest;
+    b.value_node = binding;
+    bindings.push_back(b);
+}
+
+void Typed_AST_Match_Pattern::add_variable_binding(
+    String id,
+    Value_Type type,
+    Size offset)
+{
+    Binding b;
+    b.kind = Binding_Kind::Variable;
+    b.offset = offset;
+    b.variable_info = { id, type };
+    bindings.push_back(b);
 }
 
 bool Typed_AST_Match_Pattern::is_simple_value_pattern() {
     for (auto b : bindings) {
-        if (!b || b->kind == Typed_AST_Kind::Ident) {
+        if (b.kind == Binding_Kind::None ||
+            b.kind == Binding_Kind::Variable)
+        {
             return false;
         }
     }
@@ -279,7 +310,9 @@ bool Typed_AST_Match_Pattern::is_simple_value_pattern() {
 
 bool Typed_AST_Match_Pattern::is_constant(Compiler &c) {
     for (auto b : bindings) {
-        if (!b->is_constant(c)) {
+        if (b.kind == Binding_Kind::Value &&
+            !b.value_node->is_constant(c))
+        {
             return false;
         }
     }
@@ -680,10 +713,20 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             for (size_t i = 0; i < mp->bindings.size(); i++) {
                 auto b = mp->bindings[i];
                 printf("%*s%zu: ", (indent + 1) * INDENT_SIZE, "", i);
-                if (b) {
-                    print_at_indent(interp, b, indent + 1);
-                } else {
-                    printf("_\n");
+                switch (b.kind) {
+                    case Typed_AST_Match_Pattern::Binding_Kind::None:
+                        printf("_\n");
+                        break;
+                    case Typed_AST_Match_Pattern::Binding_Kind::Value:
+                        print_at_indent(interp, b.value_node, indent + 1);
+                        break;
+                    case Typed_AST_Match_Pattern::Binding_Kind::Variable:
+                        printf("[%s, %u, %s]\n", b.variable_info.id.c_str(), b.offset, b.variable_info.type.debug_str());
+                        break;
+                        
+                    default:
+                        internal_error("Invalid Binding_Kind: %d.", b.kind);
+                        break;
                 }
             }
         } break;
@@ -769,13 +812,13 @@ struct Typer {
         global_scope = &current_scope();
     }
     
-    Typer(const Typer &t, Function_Definition *function) {
+    Typer(Typer &t, Function_Definition *function) {
         this->interp = t.interp;
         this->module = t.module;
         this->global_scope = t.global_scope;
         this->function = function;
         this->has_return = false;
-        this->parent = const_cast<Typer *>(&t);
+        this->parent = &t;
     }
     
     Typer_Scope &current_scope() {
@@ -908,29 +951,31 @@ struct Typer {
     void bind_match_pattern(
         Ref<Untyped_AST_Pattern> pattern,
         const Value_Type &type,
-        Ref<Typed_AST_Match_Pattern> out_mp)
+        Ref<Typed_AST_Match_Pattern> out_mp,
+        Size offset)
     {
         switch (pattern->kind) {
             case Untyped_AST_Kind::Pattern_Underscore:
-                out_mp->add_binding(nullptr);
+                out_mp->add_none_binding();
                 break;
             case Untyped_AST_Kind::Pattern_Ident: {
                 auto ip = pattern.cast<Untyped_AST_Pattern_Ident>();
                 Value_Type id_type = type;
                 id_type.is_mut = ip->is_mut;
-                auto id = Mem.make<Typed_AST_Ident>(ip->id, id_type);
-                out_mp->add_binding(id);
-                bind_variable(ip->id.c_str(), type, ip->is_mut);
+                out_mp->add_variable_binding(ip->id, id_type, offset);
+                bind_variable(ip->id.c_str(), id_type, ip->is_mut);
             } break;
             case Untyped_AST_Kind::Pattern_Tuple: {
                 auto tp = pattern.cast<Untyped_AST_Pattern_Tuple>();
                 verify(type.kind == Value_Type_Kind::Tuple &&
                        tp->sub_patterns.size() == type.data.tuple.child_types.size(),
                        "Cannot match tuple pattern with %s.", type.debug_str());
+                Size new_offset = offset;
                 for (size_t i = 0; i < tp->sub_patterns.size(); i++) {
                     auto sub_pattern = tp->sub_patterns[i];
                     auto sub_type    = type.data.tuple.child_types[i];
-                    bind_match_pattern(sub_pattern, sub_type, out_mp);
+                    bind_match_pattern(sub_pattern, sub_type, out_mp, new_offset);
+                    new_offset += sub_type.size();
                 }
             } break;
             case Untyped_AST_Kind::Pattern_Struct: {
@@ -944,10 +989,12 @@ struct Typer {
                 auto defn = type.data.struct_.defn;
                 verify(defn->fields.size() == sp->sub_patterns.size(), "Incorrect number of sub patterns in struct pattern for struct %s. Expected %zu but was given %zu.", type.debug_str(), defn->fields.size(), sp->sub_patterns.size());
                 
+                Size new_offset = offset;
                 for (size_t i = 0; i < sp->sub_patterns.size(); i++) {
                     auto sub_pattern = sp->sub_patterns[i];
                     auto field_type  = defn->fields[i].type;
-                    bind_match_pattern(sub_pattern, field_type, out_mp);
+                    bind_match_pattern(sub_pattern, field_type, out_mp, new_offset);
+                    new_offset += field_type.size();
                 }
             } break;
             case Untyped_AST_Kind::Pattern_Enum: {
@@ -961,12 +1008,14 @@ struct Typer {
                 verify(variant.payload.size() == ep->sub_patterns.size(), "Incorrect number of sub patterns in enum pattern for enum %s. Expected %zu but was given %zu.", type.debug_str(), variant.payload.size(), ep->sub_patterns.size());
                 
                 auto tag = Mem.make<Typed_AST_Int>(lit->tag);
-                out_mp->add_binding(tag);
+                out_mp->add_value_binding(tag, offset);
                 
+                Size new_offset = offset + value_types::Int.size();
                 for (size_t i = 0; i < ep->sub_patterns.size(); i++) {
                     auto sub_pattern = ep->sub_patterns[i];
                     auto field_type = variant.payload[i].type;
-                    bind_match_pattern(sub_pattern, field_type, out_mp);
+                    bind_match_pattern(sub_pattern, field_type, out_mp, new_offset);
+                    new_offset += field_type.size();
                 }
             } break;
             case Untyped_AST_Kind::Pattern_Value: {
@@ -975,7 +1024,7 @@ struct Typer {
                 
                 verify(value->type.eq_ignoring_mutability(type), "Type mismatch in pattern. Expected '%s' but was given '%s'.", type.debug_str(), value->type.debug_str());
                 
-                out_mp->add_binding(value);
+                out_mp->add_value_binding(value, offset);
             } break;
                 
             default:
@@ -1030,15 +1079,9 @@ struct Typer {
                 resolved.kind = Value_Type_Kind::Tuple;
                 resolved.data.tuple.child_types = child_types;
             } break;
-
-            case Value_Type_Kind::Struct:
-                todo("Canont resolve struct types yet.");
-                break;
-            case Value_Type_Kind::Enum:
-                todo("Cannot resolve enum types yet.");
-                break;
                 
             default:
+                internal_error("Type's of kind %d shouldn't need resolution.", type.kind);
                 break;
         }
         
@@ -1113,7 +1156,7 @@ static Ref<Typed_AST> typecheck_ident_in_struct_namespace(
 {
     //
     // @TODO:
-    //      Handle stuff that aren't methods.
+    //      Handle things that aren't methods.
     //
     
     Method method;
@@ -1723,7 +1766,7 @@ Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {
         
         auto pat = arm_bin->lhs.cast<Untyped_AST_Pattern>();
         auto match_pat = Mem.make<Typed_AST_Match_Pattern>();
-        t.bind_match_pattern(pat, cond->type, match_pat);
+        t.bind_match_pattern(pat, cond->type, match_pat, 0);
         
         auto body = arm_bin->rhs->typecheck(t);
         
