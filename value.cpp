@@ -217,6 +217,9 @@ Value_Type Value_Type::clone() const {
         case Value_Type_Kind::Struct:
             ty.data.struct_.defn = data.struct_.defn;
             break;
+        case Value_Type_Kind::Enum:
+            ty.data.enum_.defn = data.enum_.defn;
+            break;
             
         case Value_Type_Kind::Function: {
             auto return_type = Mem.make<Value_Type>().as_ptr();
@@ -230,10 +233,6 @@ Value_Type Value_Type::clone() const {
             *type = *data.type.type;
             ty.data.type.type = type;
         } break;
-            
-        case Value_Type_Kind::Enum:
-            todo("Enum can't be cloned yet.");
-            break;
             
         default:
             internal_error("Unknown Value_Type_Kind: %d.", kind);

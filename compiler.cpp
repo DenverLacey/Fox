@@ -417,7 +417,7 @@ void Typed_AST_Ident::compile(Compiler &c) {
             break;
     }
     
-    c.stack_top = stack_top = v->type.size();
+    c.stack_top = stack_top + v->type.size();
 }
 
 void Typed_AST_Int::compile(Compiler &c) {
@@ -1336,11 +1336,6 @@ void Typed_AST_For::compile(Compiler &c) {
 
 void Typed_AST_Match::compile(Compiler &c) {
     Address stack_top = c.stack_top;
-    
-    //
-    // @TODO:
-    //      This assumes the very simple match statement without pattern matching.
-    //
     
     Variable cond_v = { false, cond->type, stack_top };
     cond->compile(c);

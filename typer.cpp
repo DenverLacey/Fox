@@ -1177,18 +1177,36 @@ static Ref<Typed_AST> typecheck_ident_in_enum_namespace(
     Enum_Definition *defn,
     Ref<Untyped_AST_Ident> id)
 {
-    String variant_id = id->id;
+    Ref<Typed_AST> typechecked;
     
+    String variant_id = id->id;
     auto variant = defn->find_variant(variant_id);
-    if (!variant) {
-        todo("Implement checking for names other than variants. For when we have impl blocks for structs and enums.");
+    
+    if (variant) {
+        Value_Type enum_type;
+        enum_type.kind = Value_Type_Kind::Enum;
+        enum_type.data.enum_.defn = defn;
+        
+        typechecked = Mem.make<Typed_AST_Enum_Literal>(
+            enum_type,
+            variant->tag,
+            nullptr
+        );
+    } else {
+        Method method;
+        verify(defn->find_method(variant_id, method), "'%s' does not exist within the '%s' enum type's namespace.", variant_id.c_str(), defn->name.c_str());
+        
+        auto method_defn = t.interp->funcbook.get_func_by_uuid(method.uuid);
+        internal_verify(method_defn, "Failed to retrieve method defn from funcbook.");
+        
+        typechecked = Mem.make<Typed_AST_UUID>(
+            Typed_AST_Kind::Ident_Func,
+            method.uuid,
+            method_defn->type
+        );
     }
     
-    Value_Type enum_type;
-    enum_type.kind = Value_Type_Kind::Enum;
-    enum_type.data.enum_.defn = defn;
-    
-    return Mem.make<Typed_AST_Enum_Literal>(enum_type, variant->tag, nullptr);
+    return typechecked;
 }
 
 Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
