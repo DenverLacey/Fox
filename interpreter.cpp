@@ -13,6 +13,7 @@
 #include "tokenizer.h"
 #include "parser.h"
 
+#include <assert.h>
 #include <fstream>
 
 #define PRINT_DEBUG_DIAGNOSTICS 1
@@ -73,7 +74,7 @@ void Interpreter::interpret(const char *path) {
     printf("<MAIN>:\n");
     print_code(program.bytecode, constants, str_constants);
     
-    for (auto &[_, fn] : funcbook.funcs) {
+    for (auto &[_, fn] : functions.funcs) {
         printf("\n%.*s#%zu%s:\n", fn.name.size(), fn.name.c_str(), fn.uuid, fn.type.debug_str());
         print_code(fn.bytecode, constants, str_constants);
     }
@@ -101,46 +102,59 @@ Module *Interpreter::create_module(String module_path) {
     Module mod;
     mod.uuid = next_uuid();
     mod.module_path = module_path;
-    modules.add(mod);
-    return &modules.last();
+    Module *new_mod = modules.add_module(mod);
+    assert(new_mod);
+    return new_mod;
 }
 
 UUID Interpreter::next_uuid() {
     return current_uuid++;
 }
 
-Struct_Definition *Type_Book::add_struct(const Struct_Definition &defn) {
+Struct_Definition *Types::add_struct(const Struct_Definition &defn) {
     internal_verify(structs.find(defn.uuid) == structs.end(), "Struct with duplicate UUID detected: #%zu", defn.uuid);
     structs[defn.uuid] = std::move(defn);
     return &structs[defn.uuid];
 }
 
-Enum_Definition *Type_Book::add_enum(const Enum_Definition &defn) {
+Enum_Definition *Types::add_enum(const Enum_Definition &defn) {
     internal_verify(enums.find(defn.uuid) == enums.end(), "Enum with duplicate UUID detected: #%zu", defn.uuid);
     enums[defn.uuid] = std::move(defn);
     return &enums[defn.uuid];
 }
 
-Struct_Definition *Type_Book::get_struct_by_uuid(UUID uuid) {
+Struct_Definition *Types::get_struct_by_uuid(UUID uuid) {
     auto it = structs.find(uuid);
     if (it == structs.end()) return nullptr;
     return &structs[uuid];
 }
 
-Enum_Definition *Type_Book::get_enum_by_uuid(UUID uuid) {
+Enum_Definition *Types::get_enum_by_uuid(UUID uuid) {
     auto it = enums.find(uuid);
     if (it == enums.end()) return nullptr;
     return &enums[uuid];
 }
 
-Function_Definition *Function_Book::add_func(const Function_Definition &defn) {
+Function_Definition *Functions::add_func(const Function_Definition &defn) {
     internal_verify(funcs.find(defn.uuid) == funcs.end(), "Function with duplicate UUID detected: #%zu", defn.uuid);
     funcs[defn.uuid] = std::move(defn);
     return &funcs[defn.uuid];
 }
 
-Function_Definition *Function_Book::get_func_by_uuid(UUID uuid) {
+Function_Definition *Functions::get_func_by_uuid(UUID uuid) {
     auto it = funcs.find(uuid);
     if (it == funcs.end()) return nullptr;
     return &funcs[uuid];
+}
+
+Module *Modules::add_module(const Module &mod) {
+    internal_verify(modules.find(mod.uuid) == modules.end(), "Module with duplicate UUID detected: #%zu", mod.uuid);
+    modules[mod.uuid] = std::move(mod);
+    return &modules[mod.uuid];
+}
+
+Module *Modules::get_module_by_uuid(UUID uuid) {
+    auto it = modules.find(uuid);
+    if (it == modules.end()) return nullptr;
+    return &modules[uuid];
 }

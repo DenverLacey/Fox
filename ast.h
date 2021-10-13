@@ -131,7 +131,7 @@ struct Untyped_AST_Float : public Untyped_AST {
 };
 
 struct Untyped_AST_Symbol : public Untyped_AST {
-    const char *debug_str() const;
+    const char *display_str() const;
 };
 
 struct Untyped_AST_Ident : public Untyped_AST_Symbol {

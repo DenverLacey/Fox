@@ -1579,7 +1579,7 @@ void Typed_AST_UUID::compile(Compiler &c) {
         
         switch (type.kind) {
             case Value_Type_Kind::Function: {
-                Function_Definition *defn = c.interp->funcbook.get_func_by_uuid(uuid);
+                Function_Definition *defn = c.interp->functions.get_func_by_uuid(uuid);
                 internal_verify(defn, "Failed to retrieve Function_Definition in Typed_AST_UUID::compile().");
                 c.emit_opcode(Opcode::Lit_Pointer);
                 c.emit_value<runtime::Pointer>(defn);
@@ -1595,7 +1595,7 @@ void Typed_AST_UUID::compile(Compiler &c) {
 }
 
 void Typed_AST_Fn_Declaration::compile(Compiler &c) {
-    auto fn = c.interp->funcbook.get_func_by_uuid(defn->uuid);
+    auto fn = c.interp->functions.get_func_by_uuid(defn->uuid);
     auto new_c = Compiler { &c, fn };
     
     new_c.begin_scope();

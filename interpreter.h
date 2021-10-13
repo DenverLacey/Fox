@@ -10,8 +10,6 @@
 
 #include "vm.h"
 
-#include "Bucket_Array.h"
-
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -24,7 +22,7 @@ struct Module {
     std::unordered_set<UUID> funcs;
 };
 
-struct Type_Book {
+struct Types {
     std::unordered_map<UUID, Struct_Definition> structs;
     std::unordered_map<UUID, Enum_Definition> enums;
     
@@ -34,18 +32,25 @@ struct Type_Book {
     Enum_Definition *get_enum_by_uuid(UUID uuid);
 };
 
-struct Function_Book {
+struct Functions {
     std::unordered_map<UUID, Function_Definition> funcs;
     
     Function_Definition *add_func(const Function_Definition &defn);
     Function_Definition *get_func_by_uuid(UUID uuid);
 };
 
+struct Modules {
+    std::unordered_map<UUID, Module> modules;
+    
+    Module *add_module(const Module &mod);
+    Module *get_module_by_uuid(UUID uuid);
+};
+
 struct Interpreter {
     UUID current_uuid = 0;
-    Type_Book typebook;
-    Function_Book funcbook;
-    Bucket_Array<Module> modules;
+    Types types;
+    Functions functions;
+    Modules modules;
     
     Data_Section constants;
     Data_Section str_constants;

@@ -152,6 +152,91 @@ char *Value_Type::debug_str() const {
     return debug_str;
 }
 
+char *Value_Type::display_str() const {
+    std::ostringstream s;
+    
+    if (is_mut) {
+        s << "mut ";
+    }
+    
+    switch (kind) {
+        case Value_Type_Kind::None:
+            internal_error("Value_Type::None::display_str()");
+            break;
+        case Value_Type_Kind::Unresolved_Type:
+            internal_error("Value_Type::Unresolved_Type::display_str()");
+            break;
+        case Value_Type_Kind::Void:
+            s << "void";
+            break;
+        case Value_Type_Kind::Bool:
+            s << "bool";
+            break;
+        case Value_Type_Kind::Char:
+            s << "char";
+            break;
+        case Value_Type_Kind::Int:
+            s << "int";
+            break;
+        case Value_Type_Kind::Float:
+            s << "float";
+            break;
+        case Value_Type_Kind::Str:
+            s << "str";
+            break;
+        case Value_Type_Kind::Ptr:
+            s << "*";
+            s << data.ptr.child_type->display_str();
+            break;
+        case Value_Type_Kind::Array:
+            s << "[" << data.array.count << "]";
+            s << data.array.element_type->display_str();
+            break;
+        case Value_Type_Kind::Slice:
+            s << "[]";
+            s << data.slice.element_type->display_str();
+            break;
+        case Value_Type_Kind::Tuple:
+            s << "(";
+            for (size_t i = 0; i < data.tuple.child_types.size(); i++) {
+                s << data.tuple.child_types[i].display_str();
+                if (i + 1 < data.tuple.child_types.size()) s << ", ";
+            }
+            s << ")";
+            break;
+        case Value_Type_Kind::Range:
+            if (data.range.inclusive) {
+                s << "RangeInclusive<";
+            } else {
+                s << "Range<";
+            }
+            s << data.range.child_type->display_str() << ">";
+            break;
+        case Value_Type_Kind::Struct: {
+            auto defn = data.struct_.defn;
+            s << defn->name.c_str();
+        } break;
+        case Value_Type_Kind::Enum: {
+            auto defn = data.enum_.defn;
+            s << defn->name.c_str();
+        } break;
+        case Value_Type_Kind::Function:
+            s << "(";
+            for (size_t i = 0; i < data.func.arg_types.size(); i++) {
+                s << data.func.arg_types[i].display_str();
+                if (i + 1 < data.func.arg_types.size()) s << ", ";
+            }
+            s << ") -> " << data.func.return_type->display_str();
+            break;
+        case Value_Type_Kind::Type:
+            s << "typeof(" << data.type.type->display_str() << ")";
+            break;
+    }
+    
+    char *debug_str = SMem.duplicate(s.str().c_str(), s.str().size());
+    return debug_str;
+}
+
 Value_Type *Value_Type::child_type() {
     auto me = static_cast<const Value_Type *>(this);
     return const_cast<Value_Type *>(me->child_type());

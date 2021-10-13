@@ -121,6 +121,7 @@ struct Value_Type {
     
     Size size() const;
     char *debug_str() const;
+    char *display_str() const;
     Value_Type *child_type();
     const Value_Type *child_type() const;
     Value_Type clone() const;

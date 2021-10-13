@@ -39,7 +39,7 @@ Ref<Untyped_AST> Untyped_AST_Float::clone() {
     return Mem.make<Untyped_AST_Float>(value);
 }
 
-const char *Untyped_AST_Symbol::debug_str() const {
+const char *Untyped_AST_Symbol::display_str() const {
     const char *str;
     switch (kind) {
         case Untyped_AST_Kind::Ident: {
@@ -53,7 +53,7 @@ const char *Untyped_AST_Symbol::debug_str() const {
             internal_verify(path, "Failed to cast to Path* in Untyped_AST_Symbol::debug_str().");
             
             std::ostringstream s;
-            s << path->lhs->debug_str() << "::" << path->rhs->debug_str();
+            s << path->lhs->display_str() << "::" << path->rhs->display_str();
             
             std::string cpp_str = s.str();
             str = SMem.duplicate(cpp_str.c_str(), cpp_str.size());
@@ -663,7 +663,7 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
         } break;
         case Untyped_AST_Kind::Pattern_Struct: {
             auto s = p.cast<Untyped_AST_Pattern_Struct>();
-            printf("%s {", s->struct_id->debug_str());
+            printf("%s {", s->struct_id->display_str());
             for (size_t i = 0; i < s->sub_patterns.size(); i++) {
                 auto sub = s->sub_patterns[i];
                 printf(" ");
@@ -674,7 +674,7 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
         } break;
         case Untyped_AST_Kind::Pattern_Enum: {
             auto e = p.cast<Untyped_AST_Pattern_Enum>();
-            printf("%s(", e->enum_id->debug_str());
+            printf("%s(", e->enum_id->display_str());
             for (size_t i = 0; i < e->sub_patterns.size(); i++) {
                 auto sub = e->sub_patterns[i];
                 print_pattern(sub);
