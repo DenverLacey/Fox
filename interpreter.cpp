@@ -77,14 +77,15 @@ Module *Interpreter::create_module(String module_path) {
     return new_mod;
 }
 
-Module *Interpreter::get_or_create_module(String module_path) {
-    if (Module *mod = modules.get_module_by_path(module_path)) {
-        return mod;
-    }
-    return create_module(module_path);
+Module *Interpreter::get_module(String module_path) {
+    return modules.get_module_by_path(module_path);
 }
 
 Module *Interpreter::compile_module(String module_path) {
+    if (auto m = get_module(module_path)) {
+        return m;
+    }
+    
     String source = read_entire_file(module_path.c_str());
     auto tokens = tokenize(source);
     
@@ -102,7 +103,7 @@ Module *Interpreter::compile_module(String module_path) {
     ast->print();
 #endif
 
-    Module *module = get_or_create_module(module_path);
+    Module *module = create_module(module_path);
     
 #if TYPECHECK
     auto typed_ast = typecheck(*this, module, ast);

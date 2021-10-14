@@ -71,7 +71,7 @@ struct Interpreter {
     
     void interpret(const char *filepath);
     Module *create_module(String module_path);
-    Module *get_or_create_module(String module_path);
+    Module *get_module(String module_path);
     Module *compile_module(String module_path);
     UUID next_uuid();
 };
