@@ -720,13 +720,13 @@ Struct_Field *Struct_Definition::find_field(String id) {
 }
 
 bool Struct_Definition::has_method(String id) {
-    auto sid = std::string { id.c_str(), id.size() };
+    auto sid = id.str();
     auto it = methods.find(sid);
     return it != methods.end();
 }
 
 bool Struct_Definition::find_method(String id, Method &out_method) {
-    auto sid = std::string { id.c_str(), id.size() };
+    auto sid = id.str();
     auto it = methods.find(sid);
     if (it != methods.end()) {
         out_method = it->second;
@@ -745,13 +745,13 @@ Enum_Variant *Enum_Definition::find_variant(String id) {
 }
 
 bool Enum_Definition::has_method(String id) {
-    auto sid = std::string { id.c_str(), id.size() };
+    auto sid = id.str();
     auto it = methods.find(sid);
     return it != methods.end();
 }
 
 bool Enum_Definition::find_method(String id, Method &out_method) {
-    auto sid = std::string { id.c_str(), id.size() };
+    auto sid = id.str();
     auto it = methods.find(sid);
     if (it != methods.end()) {
         out_method = it->second;

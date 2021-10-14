@@ -84,6 +84,7 @@ enum class Untyped_AST_Kind {
     Fn_Decl,
     Method_Decl,
     Impl_Decl,
+    Import_Decl,
     
     // unique
     If,
@@ -421,6 +422,15 @@ struct Untyped_AST_Dot_Call : public Untyped_AST {
     
     Untyped_AST_Dot_Call(Ref<Untyped_AST> receiver, String method_id, Ref<Untyped_AST_Multiary> args);
     ~Untyped_AST_Dot_Call();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Import_Declaration : public Untyped_AST {
+    Ref<Untyped_AST_Symbol> path;
+    Ref<Untyped_AST_Ident> rename_id;
+    
+    Untyped_AST_Import_Declaration(Ref<Untyped_AST_Symbol> path, Ref<Untyped_AST_Ident> rename_id);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

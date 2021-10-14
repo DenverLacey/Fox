@@ -11,15 +11,27 @@
 #include "vm.h"
 
 #include <unordered_map>
-#include <unordered_set>
 #include <string>
 
 struct Module {
+    struct Member {
+        enum : uint8_t {
+            Struct,
+            Enum,
+            Function
+        } kind;
+        UUID uuid;
+    };
+    
     UUID uuid;
+    Function_Definition top_level;
     String module_path;
-    std::unordered_set<UUID> structs;
-    std::unordered_set<UUID> enums;
-    std::unordered_set<UUID> funcs;
+    std::unordered_map<std::string, Member> members;
+    
+    void add_struct_member(Struct_Definition *defn);
+    void add_enum_member(Enum_Definition *defn);
+    void add_func_member(Function_Definition *defn);
+    bool find_member_by_id(const std::string &id, Member &out_member);
 };
 
 struct Types {
@@ -41,9 +53,11 @@ struct Functions {
 
 struct Modules {
     std::unordered_map<UUID, Module> modules;
+    std::unordered_map<std::string, Module *> path_map;
     
     Module *add_module(const Module &mod);
     Module *get_module_by_uuid(UUID uuid);
+    Module *get_module_by_path(String path);
 };
 
 struct Interpreter {
@@ -57,5 +71,7 @@ struct Interpreter {
     
     void interpret(const char *filepath);
     Module *create_module(String module_path);
+    Module *get_or_create_module(String module_path);
+    Module *compile_module(String module_path);
     UUID next_uuid();
 };

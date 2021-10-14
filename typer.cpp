@@ -16,6 +16,7 @@
 #include <forward_list>
 #include <unordered_map>
 #include <string>
+#include <sstream>
 
 Typed_AST_Bool::Typed_AST_Bool(bool value) {
     kind = Typed_AST_Kind::Bool;
@@ -538,6 +539,11 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             auto defn = interp->functions.get_func_by_uuid(uuid->uuid);
             printf("%.*s#%zu :: %s\n", defn->name.size(), defn->name.c_str(), uuid->uuid, defn->type.debug_str());
         } break;
+        case Typed_AST_Kind::Ident_Module: {
+            auto uuid = node.cast<Typed_AST_UUID>();
+            auto module = interp->modules.get_module_by_uuid(uuid->uuid);
+            printf("%s#%llu\n", module->module_path.c_str(), uuid->uuid);
+        } break;
         case Typed_AST_Kind::Int: {
             Ref<Typed_AST_Int> lit = node.cast<Typed_AST_Int>();
             printf("%lld\n", lit->value);
@@ -769,23 +775,46 @@ void Typed_AST::print(Interpreter *interp) const {
 }
 
 struct Typer_Binding {
+    Typer_Binding() {}
+    
     enum {
         Variable,
         Type,
-        Function
+        Function,
+        Module,
     } kind;
-    Value_Type value_type;
+    
+    union {
+        Value_Type value_type;
+        ::Module *mod;
+    };
     
     static Typer_Binding variable(Value_Type value_type) {
-        return Typer_Binding { Variable, value_type };
+        Typer_Binding b;
+        b.kind = Variable;
+        b.value_type = value_type;
+        return b;
     }
     
     static Typer_Binding type(Value_Type type) {
-        return Typer_Binding { Type, type };
+        Typer_Binding b;
+        b.kind = Type;
+        b.value_type = type;
+        return b;
     }
     
     static Typer_Binding function(Value_Type fn_type) {
-        return Typer_Binding { Function, fn_type };
+        Typer_Binding b;
+        b.kind = Function;
+        b.value_type = fn_type;
+        return b;
+    }
+    
+    static Typer_Binding module(::Module *module) {
+        Typer_Binding b;
+        b.kind = Module;
+        b.mod = module;
+        return b;
     }
 };
 
@@ -802,9 +831,9 @@ struct Typer {
     bool has_return;
     std::forward_list<Typer_Scope> scopes;
     
-    Typer(Interpreter *interp, String module_path) {
+    Typer(Interpreter *interp, Module *module) {
         this->interp = interp;
-        this->module = interp->create_module(module_path);
+        this->module = module;
         this->function = nullptr;
         this->parent = nullptr;
         
@@ -879,7 +908,7 @@ struct Typer {
         auto &cs = current_scope();
         
         auto it = cs.bindings.find(id);
-        verify(it == cs.bindings.end() || it->second.kind == Typer_Binding::Variable, "Cannot shadow a type name or name of a function. Reused identifier was '%s'.", id.c_str());
+        verify(it == cs.bindings.end() || it->second.kind == Typer_Binding::Variable, "Cannot shadow something other than a variable. Reused identifier was '%s'.", id.c_str());
         
         cs.bindings[id] = binding;
     }
@@ -899,6 +928,10 @@ struct Typer {
         return put_binding(id, Typer_Binding::function(fn_type));
     }
     
+    void bind_module(const std::string &id, Module *module) {
+        return put_binding(id, Typer_Binding::module(module));
+    }
+    
     void bind_pattern(
         Ref<Untyped_AST_Pattern> pattern,
         const Value_Type &type,
@@ -911,7 +944,7 @@ struct Typer {
             case Untyped_AST_Kind::Pattern_Ident: {
                 auto ip = pattern.cast<Untyped_AST_Pattern_Ident>();
                 out_pp->add_binding(ip->id.clone(), type, ip->is_mut);
-                bind_variable(ip->id.c_str(), type, ip->is_mut);
+                bind_variable(ip->id.str(), type, ip->is_mut);
             } break;
             case Untyped_AST_Kind::Pattern_Tuple: {
                 auto tp = pattern.cast<Untyped_AST_Pattern_Tuple>();
@@ -963,7 +996,7 @@ struct Typer {
                 Value_Type id_type = type;
                 id_type.is_mut = ip->is_mut;
                 out_mp->add_variable_binding(ip->id, id_type, offset);
-                bind_variable(ip->id.c_str(), id_type, ip->is_mut);
+                bind_variable(ip->id.str(), id_type, ip->is_mut);
             } break;
             case Untyped_AST_Kind::Pattern_Tuple: {
                 auto tp = pattern.cast<Untyped_AST_Pattern_Tuple>();
@@ -1047,7 +1080,7 @@ struct Typer {
             case Value_Type_Kind::Unresolved_Type: {
                 String id = type.data.unresolved.id;
                 Typer_Binding binding;
-                verify(find_binding_by_id(id.c_str(), binding), "Unresolved identifier '%.*s'.", id.size(), id.c_str());
+                verify(find_binding_by_id(id.str(), binding), "Unresolved identifier '%.*s'.", id.size(), id.c_str());
                 verify(binding.kind == Typer_Binding::Type, "Expected identifier of a type but instead found an identnfier to '%s'.", binding.value_type.display_str());
                 resolved = *binding.value_type.data.type.type;
             } break;
@@ -1092,9 +1125,10 @@ struct Typer {
 
 Ref<Typed_AST_Multiary> typecheck(
     Interpreter &interp,
+    Module *module,
     Ref<Untyped_AST_Multiary> node)
 {
-    auto t = Typer { &interp, "<@TODO MODULE PATH>" };
+    auto t = Typer { &interp, module };
     
     auto typechecked = Mem.make<Typed_AST_Multiary>(to_typed(node->kind));
     for (auto &n : node->nodes) {
@@ -1119,7 +1153,7 @@ Ref<Typed_AST> Untyped_AST_Float::typecheck(Typer &t) {
 
 Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     Typer_Binding binding;
-    verify(t.find_binding_by_id(id.c_str(), binding), "Unresolved identifier '%s'.", id.c_str());
+    verify(t.find_binding_by_id(id.str(), binding), "Unresolved identifier '%s'.", id.c_str());
     
     Ref<Typed_AST> ident;
     switch (binding.kind) {
@@ -1139,6 +1173,9 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
         } break;
         case Typer_Binding::Function: {
             ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, binding.value_type.data.func.uuid, binding.value_type);
+        } break;
+        case Typer_Binding::Module: {
+            ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Module, binding.mod->uuid, value_types::None);
         } break;
             
         default:
@@ -1209,6 +1246,56 @@ static Ref<Typed_AST> typecheck_ident_in_enum_namespace(
     return typechecked;
 }
 
+Ref<Typed_AST_UUID> typecheck_ident_in_module_namespace(
+    Typer &t,
+    Module *module,
+    Ref<Untyped_AST_Ident> id)
+{
+    Module::Member m;
+    verify(module->find_member_by_id(id->id.str(), m), "'%s' cannot be found in the '%s' module.", module->module_path.c_str());
+    
+    Ref<Typed_AST_UUID> typechecked;
+    switch (m.kind) {
+        case Module::Member::Struct: {
+            auto defn = t.interp->types.get_struct_by_uuid(m.uuid);
+            
+            Value_Type *struct_type = Mem.make<Value_Type>().as_ptr();
+            struct_type->kind = Value_Type_Kind::Struct;
+            struct_type->data.struct_.defn = defn;
+            
+            Value_Type type_type;
+            type_type.kind = Value_Type_Kind::Type;
+            type_type.data.type.type = struct_type;
+            
+            typechecked = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Struct, m.uuid, type_type);
+        } break;
+        case Module::Member::Enum: {
+            auto defn = t.interp->types.get_enum_by_uuid(m.uuid);
+            
+            Value_Type *enum_type = Mem.make<Value_Type>().as_ptr();
+            enum_type->kind = Value_Type_Kind::Enum;
+            enum_type->data.enum_.defn = defn;
+            
+            Value_Type type_type;
+            type_type.kind = Value_Type_Kind::Type;
+            type_type.data.type.type = enum_type;
+            
+            typechecked = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Enum, m.uuid, type_type);
+        } break;
+        case Module::Member::Function: {
+            auto defn = t.interp->functions.get_func_by_uuid(m.uuid);
+            
+            typechecked = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, m.uuid, defn->type);
+        } break;
+            
+        default:
+            internal_error("Invalid Module::Member kind: %d", m.kind);
+            break;
+    }
+    
+    return typechecked;
+}
+
 Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
     auto namespace_ = lhs->typecheck(t);
     
@@ -1225,6 +1312,12 @@ Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
             auto defn = t.interp->types.get_enum_by_uuid(uuid->uuid);
             auto id = rhs.cast<Untyped_AST_Ident>();
             typechecked = typecheck_ident_in_enum_namespace(t, defn, id);
+        } break;
+        case Typed_AST_Kind::Ident_Module: {
+            auto uuid = namespace_.cast<Typed_AST_UUID>();
+            auto module = t.interp->modules.get_module_by_uuid(uuid->uuid);
+            auto id = rhs.cast<Untyped_AST_Ident>();
+            typechecked = typecheck_ident_in_module_namespace(t, module, id);
         } break;
             
         default:
@@ -1742,7 +1835,7 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
     t.bind_pattern(target, *target_type, processed_target);
     
     if (counter != "") {
-        t.bind_variable(counter.c_str(), value_types::Int, false);
+        t.bind_variable(counter.str(), value_types::Int, false);
     }
     
     auto body = this->body->typecheck(t);
@@ -1863,8 +1956,7 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     
     defn.size = current_offset;
     auto new_defn = t.interp->types.add_struct(defn);
-    auto [_, success] = t.module->structs.insert(new_defn->uuid);
-    internal_verify(success, "Failed to add struct with id #%zu to module set.", new_defn->uuid);
+    t.module->add_struct_member(new_defn);
     
     Value_Type *struct_type = Mem.make<Value_Type>().as_ptr();
     struct_type->kind = Value_Type_Kind::Struct;
@@ -1875,7 +1967,7 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
     type.data.type.type = struct_type;
     
     String id = this->id.clone();
-    t.bind_type(id.c_str(), type);
+    t.bind_type(id.str(), type);
     
     return nullptr;
 }
@@ -1948,8 +2040,7 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     }
     
     auto new_defn = t.interp->types.add_enum(defn);
-    auto [_, success] = t.module->enums.insert(new_defn->uuid);
-    internal_verify(success, "Failed to add enum with id #%zu to module set.", new_defn->uuid);
+    t.module->add_enum_member(new_defn);
     
     Value_Type *enum_type = Mem.make<Value_Type>().as_ptr();
     enum_type->kind = Value_Type_Kind::Enum;
@@ -1960,7 +2051,7 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     type.data.type.type = enum_type;
     
     String id = this->id.clone();
-    t.bind_type(id.c_str(), type);
+    t.bind_type(id.str(), type);
     
     return nullptr;
 }
@@ -2030,8 +2121,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
     defn.type = func_type;
 
     auto new_defn = t.interp->functions.add_func(defn);
-    auto [_, success] = t.module->funcs.insert(new_defn->uuid);
-    internal_verify(success, "Failed to add function with id #%zu to module set.", new_defn->uuid);
+    t.module->add_func_member(new_defn);
 
     // actually typecheck the function
     auto new_t = Typer { t, new_defn };
@@ -2040,7 +2130,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
     for (size_t i = 0; i < new_defn->param_names.size(); i++) {
         String param_name = new_defn->param_names[i];
         Value_Type param_type = new_defn->type.data.func.arg_types[i];
-        new_t.bind_variable(param_name.c_str(), param_type, param_type.is_mut);
+        new_t.bind_variable(param_name.str(), param_type, param_type.is_mut);
     }
 
     auto body = decl.body->typecheck(new_t).cast<Typed_AST_Multiary>();
@@ -2054,7 +2144,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
 
 Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     auto [defn, typed_decl] = typecheck_fn_decl(t, *this);
-    t.bind_function(id.c_str(), defn->type);
+    t.bind_function(id.str(), defn->type);
     return typed_decl;
 }
 
@@ -2080,7 +2170,7 @@ static Ref<Typed_AST_Multiary> typecheck_impl_declaration(
                 auto [fn_defn, fn_decl] = typecheck_fn_decl(t, *decl);
                 verify(methods.find(fn_defn->name.c_str()) == methods.end(), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), type_name);
                 
-                auto fn_sid = std::string { fn_defn->name.c_str(), fn_defn->name.size() };
+                auto fn_sid = fn_defn->name.str();
                 methods[fn_sid] = {
                     node->kind == Untyped_AST_Kind::Fn_Decl,
                     fn_defn->uuid
@@ -2140,6 +2230,61 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
     }
     
     return typechecked;
+}
+
+static String generate_module_path_from_symbol(Untyped_AST_Symbol &path) {
+    std::stringstream s;
+    Untyped_AST_Symbol *segment = &path;
+    while (true) {
+        if (segment->kind == Untyped_AST_Kind::Ident) {
+            auto id = dynamic_cast<Untyped_AST_Ident *>(segment);
+            s << id->id.c_str() << ".fox";
+            break;
+        }
+        
+        auto path = dynamic_cast<Untyped_AST_Path *>(segment);
+        s << path->lhs->id.c_str() << "/";
+        
+        segment = path->rhs.as_ptr();
+    }
+    
+    std::string cpp_path_str = s.str();
+    
+    return String {
+        SMem.duplicate(cpp_path_str.c_str(), cpp_path_str.size()),
+        cpp_path_str.size()
+    };
+}
+
+static String module_name_from_module_path(String path) {
+    char *end;
+    for (end = path.end(); end != path.begin(); end--) {
+        if (*end == '.') {
+            break;
+        }
+    }
+    
+    char *start;
+    for (start = end; start != path.begin(); start--) {
+        if (*start == '/') {
+            start++;
+            break;
+        }
+    }
+    
+    size_t len = end - start;
+    return { start, len };
+}
+
+Ref<Typed_AST> Untyped_AST_Import_Declaration::typecheck(Typer &t) {
+    String module_path = generate_module_path_from_symbol(*path);
+    
+    Module *module = t.interp->compile_module(module_path);
+    
+    String module_name = module_name_from_module_path(module_path);
+    t.bind_module(module_name.str(), module);
+    
+    return nullptr;
 }
 
 static Ref<Typed_AST> typecheck_dot_call_for_struct(

@@ -79,6 +79,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Or: return Precedence::Or;
         case Token_Kind::Underscore: return Precedence::None;
         case Token_Kind::Return: return Precedence::None;
+        case Token_Kind::Import: return Precedence::None;
             
         // operators
         case Token_Kind::Plus: return Precedence::Term;
@@ -276,17 +277,22 @@ struct Parser {
     }
     
     Ref<Untyped_AST> parse_declaration() {
+        Ref<Untyped_AST> d;
         if (match(Token_Kind::Fn)) {
-            return parse_fn_declaration();
+            d = parse_fn_declaration();
         } else if (match(Token_Kind::Struct)) {
-            return parse_struct_declaration();
+            d = parse_struct_declaration();
         } else if (match(Token_Kind::Enum)) {
-            return parse_enum_declaration();
+            d = parse_enum_declaration();
         } else if (match(Token_Kind::Impl)) {
-            return parse_impl_declaration();
+            d = parse_impl_declaration();
+        } else if (match(Token_Kind::Import)) {
+            d = parse_import_declaration();
+            expect(Token_Kind::Semi, "Expected ';' after import declaration.");
         } else {
-            return parse_statement();
+            d = parse_statement();
         }
+        return d;
     }
     
     Ref<Untyped_AST> parse_fn_declaration() {
@@ -426,6 +432,18 @@ struct Parser {
         auto body = parse_block();
         
         return Mem.make<Untyped_AST_Impl_Declaration>(target, for_, body);
+    }
+    
+    Ref<Untyped_AST_Import_Declaration> parse_import_declaration() {
+        auto path = parse_precedence(Precedence::Call).cast<Untyped_AST_Symbol>();
+        verify(path, "Expected a path after 'import' keyword.");
+        
+        Ref<Untyped_AST_Ident> rename_id = nullptr;
+        // @TODO:
+        //      Check for 'as' to do rename_id
+        //
+        
+        return Mem.make<Untyped_AST_Import_Declaration>(path, rename_id);
     }
     
     Ref<Untyped_AST> parse_statement() {

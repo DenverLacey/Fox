@@ -21,6 +21,7 @@ enum class Typed_AST_Kind {
     Ident_Struct,
     Ident_Enum,
     Ident_Func,
+    Ident_Module,
     Int,
     Str,
     Array,
@@ -337,4 +338,4 @@ struct Typed_AST_Fn_Declaration : public Typed_AST {
     bool is_constant(Compiler &c) override;
 };
 
-Ref<Typed_AST_Multiary> typecheck(struct Interpreter &interp, Ref<struct Untyped_AST_Multiary> node);
+Ref<Typed_AST_Multiary> typecheck(struct Interpreter &interp, struct Module *module, Ref<struct Untyped_AST_Multiary> node);

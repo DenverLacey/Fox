@@ -60,6 +60,10 @@ const char *String::c_str() const {
     return _data;
 }
 
+std::string String::str() const {
+    return { _data, _size };
+}
+
 size_t String::size() const {
     return _size;
 }

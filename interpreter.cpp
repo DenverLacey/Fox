@@ -28,7 +28,7 @@ static String read_entire_file(const char *path) {
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     
-    auto source = String::with_size(size);
+    String source = { SMem.allocate(size + 1), static_cast<size_t>(size) };
     file.read(source.c_str(), size);
     verify(file.good(), "Could not read from '%s'.", path);
     
@@ -39,7 +39,53 @@ static String read_entire_file(const char *path) {
 }
 
 void Interpreter::interpret(const char *path) {
-    String source = read_entire_file(path);
+    Module *module = compile_module(const_cast<char *>(path));
+    
+#if PRINT_DEBUG_DIAGNOSTICS
+    printf("------\n");
+    printf("<MAIN>:\n");
+    print_code(module->top_level.bytecode, constants, str_constants);
+    
+    for (auto &[_, fn] : functions.funcs) {
+        printf("\n%.*s#%zu%s:\n", fn.name.size(), fn.name.c_str(), fn.uuid, fn.type.debug_str());
+        print_code(fn.bytecode, constants, str_constants);
+    }
+#endif
+    
+    Mem.clear();
+    SMem.clear();
+    
+#if RUN_VIRTUAL_MACHINE
+    auto vm = VM { constants, str_constants };
+    vm.call(&module->top_level, 0);
+    vm.run();
+    
+#if PRINT_DEBUG_DIAGNOSTICS
+    printf("------\n");
+    vm.print_stack();
+#endif
+    
+#endif // RUN_VIRTUAL_MACHINE
+}
+
+Module *Interpreter::create_module(String module_path) {
+    Module mod;
+    mod.uuid = next_uuid();
+    mod.module_path = module_path;
+    Module *new_mod = modules.add_module(mod);
+    internal_verify(new_mod, "Module couldn't be successfully added to registry.");
+    return new_mod;
+}
+
+Module *Interpreter::get_or_create_module(String module_path) {
+    if (Module *mod = modules.get_module_by_path(module_path)) {
+        return mod;
+    }
+    return create_module(module_path);
+}
+
+Module *Interpreter::compile_module(String module_path) {
+    String source = read_entire_file(module_path.c_str());
     auto tokens = tokenize(source);
     
 #if PRINT_DEBUG_DIAGNOSTICS
@@ -56,8 +102,10 @@ void Interpreter::interpret(const char *path) {
     ast->print();
 #endif
 
+    Module *module = get_or_create_module(module_path);
+    
 #if TYPECHECK
-    auto typed_ast = typecheck(*this, ast);
+    auto typed_ast = typecheck(*this, module, ast);
     
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("------\n");
@@ -65,50 +113,45 @@ void Interpreter::interpret(const char *path) {
 #endif
     
 #if COMPILE_AST
-    Function_Definition program;
-    auto global = Compiler { this, constants, str_constants, &program };
+    auto global = Compiler { this, constants, str_constants, &module->top_level };
     global.compile(typed_ast);
-    
-#if PRINT_DEBUG_DIAGNOSTICS
-    printf("------\n");
-    printf("<MAIN>:\n");
-    print_code(program.bytecode, constants, str_constants);
-    
-    for (auto &[_, fn] : functions.funcs) {
-        printf("\n%.*s#%zu%s:\n", fn.name.size(), fn.name.c_str(), fn.uuid, fn.type.debug_str());
-        print_code(fn.bytecode, constants, str_constants);
-    }
-#endif
-    
-    Mem.clear();
-    SMem.clear();
-    
-#if RUN_VIRTUAL_MACHINE
-    auto vm = VM { constants, str_constants };
-    vm.call(&program, 0);
-    vm.run();
-    
-#if PRINT_DEBUG_DIAGNOSTICS
-    printf("------\n");
-    vm.print_stack();
-#endif
-    
-#endif // RUN_VIRTUAL_MACHINE
+
 #endif // COMPILE_AST
 #endif // TYPECHECK
-}
-
-Module *Interpreter::create_module(String module_path) {
-    Module mod;
-    mod.uuid = next_uuid();
-    mod.module_path = module_path;
-    Module *new_mod = modules.add_module(mod);
-    assert(new_mod);
-    return new_mod;
+    
+    return module;
 }
 
 UUID Interpreter::next_uuid() {
     return current_uuid++;
+}
+
+void Module::add_struct_member(Struct_Definition *defn) {
+    std::string sid = defn->name.str();
+    internal_verify(members.find(sid) == members.end(), "Attempted to add struct member with a duplicate name '%s'", sid.c_str());
+    
+    members[sid] = { Member::Struct, defn->uuid };
+}
+
+void Module::add_enum_member(Enum_Definition *defn) {
+    std::string sid = defn->name.str();
+    internal_verify(members.find(sid) == members.end(), "Attempted to add enum member with a duplicate name '%s'", sid.c_str());
+    
+    members[sid] = { Member::Enum, defn->uuid };
+}
+
+void Module::add_func_member(Function_Definition *defn) {
+    std::string sid = defn->name.str();
+    internal_verify(members.find(sid) == members.end(), "Attempted to add function member with a duplicate name '%s'", sid.c_str());
+    
+    members[sid] = { Member::Function, defn->uuid };
+}
+
+bool Module::find_member_by_id(const std::string &id, Member &out_member) {
+    auto it = members.find(id);
+    if (it == members.end()) return false;
+    out_member = it->second;
+    return true;
 }
 
 Struct_Definition *Types::add_struct(const Struct_Definition &defn) {
@@ -149,7 +192,12 @@ Function_Definition *Functions::get_func_by_uuid(UUID uuid) {
 
 Module *Modules::add_module(const Module &mod) {
     internal_verify(modules.find(mod.uuid) == modules.end(), "Module with duplicate UUID detected: #%zu", mod.uuid);
+    
     modules[mod.uuid] = std::move(mod);
+    
+    auto sid = mod.module_path.str();
+    path_map[sid] = &modules[mod.uuid];
+    
     return &modules[mod.uuid];
 }
 
@@ -157,4 +205,11 @@ Module *Modules::get_module_by_uuid(UUID uuid) {
     auto it = modules.find(uuid);
     if (it == modules.end()) return nullptr;
     return &modules[uuid];
+}
+
+Module *Modules::get_module_by_path(String path) {
+    auto sid = path.str();
+    auto it = path_map.find(sid);
+    if (it == path_map.end()) return nullptr;
+    return it->second;
 }

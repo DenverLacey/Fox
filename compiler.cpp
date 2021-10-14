@@ -97,7 +97,7 @@ Variable &Compiler::put_variable(
     Address address,
     bool is_const)
 {
-    std::string sid(id.c_str(), id.size());
+    std::string sid = id.str();
     Compiler_Scope &s = current_scope();
     Variable v = { is_const, type, address };
     s.variables[sid] = v;
@@ -118,7 +118,7 @@ void Compiler::put_variables_from_pattern(
 }
 
 Find_Variable_Result Compiler::find_variable(String id) {
-    std::string sid(id.c_str(), id.size());
+    std::string sid = id.str();
     for (Compiler_Scope *s = &current_scope(); s != nullptr; s = s->parent) {
         auto it = s->variables.find(sid);
         if (it != s->variables.end()) {
@@ -223,7 +223,7 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
             internal_error("Unexpected Value_Type_Kind in Compiler::declare_variable(): %d.", let.initializer->type.kind);
     }
     
-    std::string sid { id.c_str(), id.size() };
+    std::string sid = id.str();
     current_scope().variables[sid] = constant;
     
     stack_top = old_top;
@@ -1158,7 +1158,7 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     c.stack_top += counter_v.type.size();
     
     if (f.counter != "") {
-        c.put_variable(f.counter.c_str(), counter_v.type, counter_v.address);
+        c.put_variable(f.counter, counter_v.type, counter_v.address);
     }
     
     // retrieve reference to or initialize iterable variable
@@ -1265,13 +1265,13 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
     verify(f.target->bindings.size() == 1, "Incorrect pattern in for-loop.");
     
     // initialize target_v
-    Variable &target_v = c.put_variable(f.target->bindings[0].id.c_str(), f.target->bindings[0].type, c.stack_top);
+    Variable &target_v = c.put_variable(f.target->bindings[0].id, f.target->bindings[0].type, c.stack_top);
     range->lhs->compile(c);
     
     // initialize counter_v if f.counter != ""
     Variable *counter_v = nullptr;
     if (f.counter != "") {
-        counter_v = &c.put_variable(f.counter.c_str(), value_types::Int, c.stack_top);
+        counter_v = &c.put_variable(f.counter, value_types::Int, c.stack_top);
         c.emit_opcode(Opcode::Lit_0);
         c.stack_top += value_types::Int.size();
     }

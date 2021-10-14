@@ -9,6 +9,8 @@
 #pragma once
 #include "typedefs.h"
 
+#include <string>
+
 class String {
     char *_data;
     size_t _size;
@@ -30,6 +32,7 @@ public:
     
     char *c_str();
     const char *c_str() const;
+    std::string str() const;
     size_t size() const;
     size_t len() const;
     

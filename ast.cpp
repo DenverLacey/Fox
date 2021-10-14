@@ -599,6 +599,22 @@ Ref<Untyped_AST> Untyped_AST_Dot_Call::clone() {
     );
 }
 
+Untyped_AST_Import_Declaration::Untyped_AST_Import_Declaration(
+    Ref<Untyped_AST_Symbol> path,
+    Ref<Untyped_AST_Ident> rename_id)
+{
+    this->kind = Untyped_AST_Kind::Import_Decl;
+    this->path = path;
+    this->rename_id = rename_id;
+}
+
+Ref<Untyped_AST> Untyped_AST_Import_Declaration::clone() {
+    return Mem.make<Untyped_AST_Import_Declaration>(
+        path->clone().cast<Untyped_AST_Symbol>(),
+        rename_id->clone().cast<Untyped_AST_Ident>()
+    );
+}
+
 constexpr size_t INDENT_SIZE = 2;
 static void print_at_indent(const Ref<Untyped_AST> node, size_t indent);
 
@@ -949,6 +965,14 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 print_sub_at_indent("for", decl->for_, indent + 1);
             }
             print_sub_at_indent("body", decl->body, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Import_Decl: {
+            auto decl = node.cast<Untyped_AST_Import_Declaration>();
+            printf("(import)\n");
+            print_sub_at_indent("path", decl->path, indent + 1);
+            if (decl->rename_id) {
+                print_sub_at_indent("as", decl->rename_id, indent + 1);
+            }
         } break;
         case Untyped_AST_Kind::Dot_Call: {
             auto dot = node.cast<Untyped_AST_Dot_Call>();

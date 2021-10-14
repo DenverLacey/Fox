@@ -60,6 +60,7 @@ enum class Token_Kind {
     Or,
     In,
     Return,
+    Import,
     
     // operators
     Plus,           // +
