@@ -25,7 +25,8 @@ enum class Precedence {
     Term,       // + -
     Factor,     // * / %
     Unary,      // !
-    Call,       // . () [] ::
+    Call,       // . () []
+    Path,       // ::
     Primary,
 };
 
@@ -47,7 +48,7 @@ Precedence token_precedence(Token token) {
         // delimeters
         case Token_Kind::Semi: return Precedence::None;
         case Token_Kind::Colon: return Precedence::Colon;
-        case Token_Kind::Double_Colon: return Precedence::Call;
+        case Token_Kind::Double_Colon: return Precedence::Path;
         case Token_Kind::Comma: return Precedence::None;
         case Token_Kind::Left_Paren: return Precedence::Call;
         case Token_Kind::Right_Paren: return Precedence::None;
@@ -435,7 +436,7 @@ struct Parser {
     }
     
     Ref<Untyped_AST_Import_Declaration> parse_import_declaration() {
-        auto path = parse_precedence(Precedence::Call).cast<Untyped_AST_Symbol>();
+        auto path = parse_precedence(Precedence::Path).cast<Untyped_AST_Symbol>();
         verify(path, "Expected a path after 'import' keyword.");
         
         Ref<Untyped_AST_Ident> rename_id = nullptr;
@@ -893,7 +894,7 @@ struct Parser {
                 auto lhs = prev.cast<Untyped_AST_Ident>();
                 verify(lhs, "Symbol paths can only consist of identifiers.");
                 
-                auto rhs = parse_precedence(prec + 1).cast<Untyped_AST_Symbol>();
+                auto rhs = parse_precedence(Precedence::Path).cast<Untyped_AST_Symbol>();
                 verify(rhs, "Symbol paths can only consist of identifiers.");
                 
                 a = Mem.make<Untyped_AST_Path>(lhs, rhs);
