@@ -9,7 +9,7 @@
 // @TODOS:
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
-// [ ]  Fix bugs in path typechecking because at the momenent I think it wouldn't
+// [x]  Fix bugs in path typechecking because at the momenent I think it wouldn't
 //      handle paths with more than 2 identifiers.
 //
 

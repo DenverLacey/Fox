@@ -1186,7 +1186,11 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
     return ident;
 }
 
-static Ref<Typed_AST> typecheck_ident_in_struct_namespace(
+template<typename Namespace>
+Ref<Typed_AST> typecheck_ident_in_namespace(Typer &t, Namespace *namespace_, Ref<Untyped_AST_Ident> id);
+
+template<>
+Ref<Typed_AST> typecheck_ident_in_namespace<Struct_Definition>(
     Typer &t,
     Struct_Definition *defn,
     Ref<Untyped_AST_Ident> id)
@@ -1209,7 +1213,8 @@ static Ref<Typed_AST> typecheck_ident_in_struct_namespace(
     );
 }
 
-static Ref<Typed_AST> typecheck_ident_in_enum_namespace(
+template<>
+Ref<Typed_AST> typecheck_ident_in_namespace<Enum_Definition>(
     Typer &t,
     Enum_Definition *defn,
     Ref<Untyped_AST_Ident> id)
@@ -1246,7 +1251,8 @@ static Ref<Typed_AST> typecheck_ident_in_enum_namespace(
     return typechecked;
 }
 
-Ref<Typed_AST_UUID> typecheck_ident_in_module_namespace(
+template<>
+Ref<Typed_AST> typecheck_ident_in_namespace<Module>(
     Typer &t,
     Module *module,
     Ref<Untyped_AST_Ident> id)
@@ -1296,6 +1302,49 @@ Ref<Typed_AST_UUID> typecheck_ident_in_module_namespace(
     return typechecked;
 }
 
+template<typename Namespace>
+static Ref<Typed_AST> typecheck_symbol_in_namespace(
+    Typer &t,
+    Namespace *namespace_,
+    Ref<Untyped_AST_Symbol> symbol)
+{
+    if (symbol->kind == Untyped_AST_Kind::Ident) {
+        return typecheck_ident_in_namespace(
+            t,
+            namespace_,
+            symbol.cast<Untyped_AST_Ident>()
+        );
+    }
+    
+    auto path = symbol.cast<Untyped_AST_Path>();
+    Ref<Typed_AST> lhs = typecheck_ident_in_namespace(t, namespace_, path->lhs);
+    
+    Ref<Typed_AST> typechecked;
+    switch (lhs->kind) {
+        case Typed_AST_Kind::Ident_Struct: {
+            auto uuid = lhs.cast<Typed_AST_UUID>();
+            auto defn = t.interp->types.get_struct_by_uuid(uuid->uuid);
+            typechecked = typecheck_symbol_in_namespace(t, defn, path->rhs);
+        } break;
+        case Typed_AST_Kind::Ident_Enum: {
+            auto uuid = lhs.cast<Typed_AST_UUID>();
+            auto defn = t.interp->types.get_enum_by_uuid(uuid->uuid);
+            typechecked = typecheck_symbol_in_namespace(t, defn, path->rhs);
+        } break;
+        case Typed_AST_Kind::Ident_Module: {
+            auto uuid = lhs.cast<Typed_AST_UUID>();
+            auto module = t.interp->modules.get_module_by_uuid(uuid->uuid);
+            typechecked = typecheck_symbol_in_namespace(t, module, path->rhs);
+        } break;
+            
+        default:
+            internal_error("Invalid Typed_AST_Kind: %d.", lhs->kind);
+            break;
+    }
+    
+    return typechecked;
+}
+
 Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
     auto namespace_ = lhs->typecheck(t);
     
@@ -1304,20 +1353,17 @@ Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
         case Typed_AST_Kind::Ident_Struct: {
             auto uuid = namespace_.cast<Typed_AST_UUID>();
             auto defn = t.interp->types.get_struct_by_uuid(uuid->uuid);
-            auto id = rhs.cast<Untyped_AST_Ident>();
-            typechecked = typecheck_ident_in_struct_namespace(t, defn, id);
+            typechecked = typecheck_symbol_in_namespace(t, defn, rhs);
         } break;
         case Typed_AST_Kind::Ident_Enum: {
             auto uuid = namespace_.cast<Typed_AST_UUID>();
             auto defn = t.interp->types.get_enum_by_uuid(uuid->uuid);
-            auto id = rhs.cast<Untyped_AST_Ident>();
-            typechecked = typecheck_ident_in_enum_namespace(t, defn, id);
+            typechecked = typecheck_symbol_in_namespace(t, defn, rhs);
         } break;
         case Typed_AST_Kind::Ident_Module: {
             auto uuid = namespace_.cast<Typed_AST_UUID>();
             auto module = t.interp->modules.get_module_by_uuid(uuid->uuid);
-            auto id = rhs.cast<Untyped_AST_Ident>();
-            typechecked = typecheck_ident_in_module_namespace(t, module, id);
+            typechecked = typecheck_symbol_in_namespace(t, module, rhs);
         } break;
             
         default:
