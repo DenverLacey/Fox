@@ -29,12 +29,9 @@ static String read_entire_file(const char *path) {
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     
-    String source = { SMem.allocate(size + 1), static_cast<size_t>(size) };
+    String source = String::with_null_terminator(size);
     file.read(source.c_str(), size);
     verify(file.good(), "Could not read from '%s'.", path);
-    
-    // guarantee null terminator
-    source.c_str()[size] = 0;
     
     return source;
 }

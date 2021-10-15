@@ -28,6 +28,12 @@ String String::with_size(size_t size) {
     return { SMem.allocate(size), size };
 }
 
+String String::with_null_terminator(size_t size) {
+    auto s = String { SMem.allocate(size + 1), size };
+    s._data[size] = '\0';
+    return s;
+}
+
 String String::copy(const char *data) {
     return { SMem.duplicate(data), strlen(data) };
 }

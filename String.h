@@ -21,6 +21,7 @@ public:
     String(char *data);
     
     static String with_size(size_t size);
+    static String with_null_terminator(size_t size);
     static String copy(const char *data);
     static String copy(const char *data, size_t size);
     void free();
