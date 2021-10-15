@@ -14,6 +14,7 @@
 #include "interpreter.h"
 
 #include <forward_list>
+#include <unistd.h>
 #include <unordered_map>
 #include <string>
 #include <sstream>
@@ -2387,6 +2388,27 @@ static Module_Path generate_module_path_from_symbol(Untyped_AST_Symbol &path) {
 
 Ref<Typed_AST> Untyped_AST_Import_Declaration::typecheck(Typer &t) {
     Module_Path module_path = generate_module_path_from_symbol(*path);
+    
+    int res = access(module_path.filepath.c_str(), R_OK);
+    if (res < 0) {
+        switch (errno) {
+            case EACCES:
+                error("Cannot access module %s. Unable to read '%s'.", path->display_str(), module_path.filepath.c_str());
+                break;
+            case ENOENT:
+                error("Cannot access module %s. Looked for at '%s'.", path->display_str(), module_path.filepath.c_str());
+                break;
+                
+            case EINVAL:
+                internal_error("Access mode passed to access() in valid.");
+                break;
+         
+            default:
+                internal_error("Cannot find source file at '%s'.", module_path.filepath.c_str());
+                break;
+        }
+    }
+    
     Module *module = t.interp->compile_module(module_path.filepath);
     
     if (rename_id) {
