@@ -17,6 +17,7 @@
 #include <fstream>
 
 #define PRINT_DEBUG_DIAGNOSTICS 1
+#define PRINT_STACK 1
 #define TYPECHECK 1
 #define COMPILE_AST 1
 #define RUN_VIRTUAL_MACHINE 1
@@ -60,7 +61,7 @@ void Interpreter::interpret(const char *path) {
     vm.call(&module->top_level, 0);
     vm.run();
     
-#if PRINT_DEBUG_DIAGNOSTICS
+#if PRINT_DEBUG_DIAGNOSTICS || PRINT_STACK
     printf("------\n");
     vm.print_stack();
 #endif
@@ -90,6 +91,7 @@ Module *Interpreter::compile_module(String module_path) {
     auto tokens = tokenize(source);
     
 #if PRINT_DEBUG_DIAGNOSTICS
+    printf("------\n");
     for (size_t i = 0; i < tokens.size(); i++) {
         printf("%04zu: ", i);
         tokens[i].print();

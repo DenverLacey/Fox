@@ -2074,10 +2074,6 @@ Ref<Typed_AST> Untyped_AST_Struct_Declaration::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
-    //
-    // @TODO: Do Payloads
-    //
-    
     Enum_Definition defn;
     defn.is_sumtype = false;
     defn.module = t.module;
@@ -2190,7 +2186,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
         auto param = decl.params->nodes[i];
 
         //
-        // @TODO: [ ]
+        // @TODO:
         //      Sort out default arguments. (If we do default arguments)
         //
 

@@ -437,8 +437,7 @@ struct Parser {
     }
     
     Ref<Untyped_AST_Import_Declaration> parse_import_declaration() {
-        auto path = parse_precedence(Precedence::Path).cast<Untyped_AST_Symbol>();
-        verify(path, "Expected a path after 'import' keyword.");
+        auto path = parse_symbol();
         
         Ref<Untyped_AST_Ident> rename_id = nullptr;
         if (match(Token_Kind::As)) {
@@ -657,12 +656,9 @@ struct Parser {
             } break;
             case Token_Kind::Star: {
                 type->kind = Value_Type_Kind::Ptr;
-                if (match(Token_Kind::Mut)) {
-                    type->data.ptr.child_type = parse_type_signiture().as_ptr();
-                    type->data.ptr.child_type->is_mut = true;
-                } else {
-                    type->data.ptr.child_type = parse_type_signiture().as_ptr();
-                }
+                bool is_mut = match(Token_Kind::Mut);
+                type->data.ptr.child_type = parse_type_signiture().as_ptr();
+                type->data.ptr.child_type->is_mut = is_mut;
             } break;
             case Token_Kind::Left_Paren: {
                 std::vector<Ref<Value_Type>> subtypes;
