@@ -12,7 +12,7 @@
 enum class Precedence {
     None,
     Assignment, // = += -= *= /= &= etc.
-    Colon,      // :
+    Colon,      // : as
     Range,      // .. ...
     Or,         // or
     And,        // and
@@ -81,6 +81,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Underscore: return Precedence::None;
         case Token_Kind::Return: return Precedence::None;
         case Token_Kind::Import: return Precedence::None;
+        case Token_Kind::As: return Precedence::Colon;
             
         // operators
         case Token_Kind::Plus: return Precedence::Term;
@@ -440,9 +441,14 @@ struct Parser {
         verify(path, "Expected a path after 'import' keyword.");
         
         Ref<Untyped_AST_Ident> rename_id = nullptr;
-        // @TODO:
-        //      Check for 'as' to do rename_id
-        //
+        if (match(Token_Kind::As)) {
+            if (match(Token_Kind::Star)) {
+                rename_id = Mem.make<Untyped_AST_Ident>(String {"*"});
+            } else {
+                rename_id = parse_expression().cast<Untyped_AST_Ident>();
+                verify(rename_id, "Expected identifier after 'as' keyword.");
+            }
+        }
         
         return Mem.make<Untyped_AST_Import_Declaration>(path, rename_id);
     }

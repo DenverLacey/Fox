@@ -932,6 +932,57 @@ struct Typer {
         return put_binding(id, Typer_Binding::module(module));
     }
     
+    void bind_module_members(Module *module) {
+        for (auto &[id, member] : module->members) {
+            switch (member.kind) {
+                case Module::Member::Struct: {
+                    auto defn = interp->types.get_struct_by_uuid(member.uuid);
+                    internal_verify(defn, "Failed to retrieve struct#%lld from types.", member.uuid);
+                    
+                    Value_Type *struct_type = Mem.make<Value_Type>().as_ptr();
+                    struct_type->kind = Value_Type_Kind::Struct;
+                    struct_type->data.struct_.defn = defn;
+                    
+                    Value_Type type_type;
+                    type_type.kind = Value_Type_Kind::Type;
+                    type_type.data.type.type = struct_type;
+                    
+                    bind_type(id, type_type);
+                } break;
+                case Module::Member::Enum: {
+                    auto defn = interp->types.get_enum_by_uuid(member.uuid);
+                    internal_verify(defn, "Failed to retrieve enum#%lld from types.", member.uuid);
+                    
+                    Value_Type *enum_type = Mem.make<Value_Type>().as_ptr();
+                    enum_type->kind = Value_Type_Kind::Enum;
+                    enum_type->data.enum_.defn = defn;
+                    
+                    Value_Type type_type;
+                    type_type.kind = Value_Type_Kind::Type;
+                    type_type.data.type.type = enum_type;
+                    
+                    bind_type(id, type_type);
+                } break;
+                case Module::Member::Function: {
+                    auto func = interp->functions.get_func_by_uuid(member.uuid);
+                    internal_verify(func, "Failed to retrieve function with UUID #%lld.", member.uuid);
+                    
+                    bind_function(id, func->type);
+                } break;
+                case Module::Member::Submodule: {
+                    auto sub = interp->modules.get_module_by_uuid(member.uuid);
+                    internal_verify(sub, "Failed to retrieve module#%lld from modules.", member.uuid);
+                    
+                    bind_module(id, sub);
+                } break;
+                    
+                default:
+                    internal_error("Invalid Module::Member kind: %d.", member.kind);
+                    break;
+            }
+        }
+    }
+    
     void bind_pattern(
         Ref<Untyped_AST_Pattern> pattern,
         const Value_Type &type,
@@ -1292,6 +1343,9 @@ Ref<Typed_AST> typecheck_ident_in_namespace<Module>(
             auto defn = t.interp->functions.get_func_by_uuid(m.uuid);
             
             typechecked = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, m.uuid, defn->type);
+        } break;
+        case Module::Member::Submodule: {
+            typechecked = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Module, m.uuid, value_types::None);
         } break;
             
         default:
@@ -2278,7 +2332,16 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
     return typechecked;
 }
 
-static String generate_module_path_from_symbol(Untyped_AST_Symbol &path) {
+struct Module_Path {
+    String filepath;
+    std::vector<String> segments;
+    
+    String name() const {
+        return segments.back();
+    }
+};
+
+static Module_Path generate_module_path_from_symbol(Untyped_AST_Symbol &path) {
     std::stringstream s;
     Untyped_AST_Symbol *segment = &path;
     while (true) {
@@ -2295,40 +2358,57 @@ static String generate_module_path_from_symbol(Untyped_AST_Symbol &path) {
     }
     
     std::string cpp_path_str = s.str();
-    
-    return String {
+    String path_str = String {
         SMem.duplicate(cpp_path_str.c_str(), cpp_path_str.size()),
         cpp_path_str.size()
     };
-}
-
-static String module_name_from_module_path(String path) {
-    char *end;
-    for (end = path.end(); end != path.begin(); end--) {
-        if (*end == '.') {
-            break;
+    
+    std::vector<String> segments;
+    
+    for (size_t i = 0; i < path_str.size(); i++) {
+        char *seg_str = &path_str.c_str()[i];
+        size_t len = 0;
+        for (; i < path_str.size(); i++) {
+            char c = path_str.c_str()[i];
+            if (c == '/') {
+                break;
+            } else if (c == '.') {
+                internal_verify(i == path_str.size() - 4, "Unexpected '.' in module path");
+                i = path_str.size();
+                break;
+            }
+            len++;
         }
+        segments.push_back({ seg_str, len });
     }
     
-    char *start;
-    for (start = end; start != path.begin(); start--) {
-        if (*start == '/') {
-            start++;
-            break;
-        }
-    }
-    
-    size_t len = end - start;
-    return { start, len };
+    return Module_Path { path_str, segments };
 }
 
 Ref<Typed_AST> Untyped_AST_Import_Declaration::typecheck(Typer &t) {
-    String module_path = generate_module_path_from_symbol(*path);
+    Module_Path module_path = generate_module_path_from_symbol(*path);
+    Module *module = t.interp->compile_module(module_path.filepath);
     
-    Module *module = t.interp->compile_module(module_path);
-    
-    String module_name = module_name_from_module_path(module_path);
-    t.bind_module(module_name.str(), module);
+    if (rename_id) {
+        auto module_name = rename_id->id;
+        if (module_name == "*") {
+            t.bind_module_members(module);
+        } else {
+            t.bind_module(module_name.str(), module);
+        }
+    } else if (module_path.segments.size() > 1) {
+        //
+        // @TODO:
+        //      Instead of just adding the inner most submodule,
+        //      actually import all the modules and set up submodules.
+        //
+        
+        // this is here for now just so it actually imports the module in some
+        // capacity
+        t.bind_module(module_path.name().str(), module);
+    } else {
+        t.bind_module(module_path.name().str(), module);
+    }
     
     return nullptr;
 }

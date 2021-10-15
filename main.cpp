@@ -9,8 +9,8 @@
 // @TODOS:
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
-// [x]  Fix bugs in path typechecking because at the momenent I think it wouldn't
-//      handle paths with more than 2 identifiers.
+// [ ]  Change import declarations like 'import foo::bar' such that accessing 'bar'
+//      Happens like 'foo::bar::baz' instead of 'bar::baz'.
 //
 
 #include <iostream>

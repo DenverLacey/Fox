@@ -18,7 +18,8 @@ struct Module {
         enum : uint8_t {
             Struct,
             Enum,
-            Function
+            Function,
+            Submodule
         } kind;
         UUID uuid;
     };
@@ -31,7 +32,9 @@ struct Module {
     void add_struct_member(Struct_Definition *defn);
     void add_enum_member(Enum_Definition *defn);
     void add_func_member(Function_Definition *defn);
+    void add_submodule(const std::string &id, Module *module);
     bool find_member_by_id(const std::string &id, Member &out_member);
+    void merge(Module *other);
 };
 
 struct Types {

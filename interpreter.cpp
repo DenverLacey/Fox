@@ -148,11 +148,24 @@ void Module::add_func_member(Function_Definition *defn) {
     members[sid] = { Member::Function, defn->uuid };
 }
 
+void Module::add_submodule(const std::string &id, Module *module) {
+    internal_verify(members.find(id) == members.end(), "Attempted to add submodule with a duplicate name '%s'", id.c_str());
+    
+    members[id] = { Member::Submodule, module->uuid };
+}
+
 bool Module::find_member_by_id(const std::string &id, Member &out_member) {
     auto it = members.find(id);
     if (it == members.end()) return false;
     out_member = it->second;
     return true;
+}
+
+void Module::merge(Module *other) {
+    for (auto &[id, member] : other->members) {
+        verify(members.find(id) == members.end(), "While merging 2 modules encountered name conflict. '%s'.", id.c_str());
+        members[id] = member;
+    }
 }
 
 Struct_Definition *Types::add_struct(const Struct_Definition &defn) {

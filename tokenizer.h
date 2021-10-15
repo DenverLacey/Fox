@@ -61,6 +61,7 @@ enum class Token_Kind {
     In,
     Return,
     Import,
+    As,
     
     // operators
     Plus,           // +
