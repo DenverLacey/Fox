@@ -257,8 +257,20 @@ struct Tokenizer {
         return utf8::next(it, end);
     }
     
+    bool check(char32_t c) const {
+        return peek() == c;
+    }
+    
+    bool check(char32_t c, size_t n) const {
+        return peek(n) == c;
+    }
+    
+    bool check(const char *s) {
+        return memcmp(cur, s, strlen(s)) == 0;
+    }
+    
     bool match(char32_t c) {
-        if (peek() == c) {
+        if (check(c)) {
             next();
             return true;
         }
@@ -275,14 +287,14 @@ struct Tokenizer {
     }
     
     void skip_whitespace() {
-        while ((isspace(peek()) || peek() == '#') && has_more()) {
-            if (peek() == '#') {
-                while (peek() != '\n' && has_more()) {
+        while ((isspace(peek()) || check("//")) && has_more()) {
+            if (check("//")) {
+                while (!check('\n') && has_more()) {
                     // keep getting next until we've passed the new line
                     next();
                 }
             }
-            if (peek() != '\0') next();
+            if (!check('\0')) next();
         }
     }
 };
@@ -303,8 +315,8 @@ static bool is_beginning_of_number(Tokenizer &t) {
     
     bool result = false;
     if (t.tokens.empty()) {
-        result = t.peek() == '.' && isdigit(t.peek(1));
-    } else if (t.peek() == '.') {
+        result = t.check('.') && isdigit(t.peek(1));
+    } else if (t.check('.')) {
         auto previous = t.tokens.back();
         bool maybe_tuple = might_evaluate_to_a_tuple(previous);
         result = !maybe_tuple && isdigit(t.peek(1));
@@ -326,22 +338,22 @@ static void remove_underscores(char *s, size_t len) {
 
 static Token number(Tokenizer &t) {
     char *word = t.cur;
-    if (t.peek() == '-') t.next();
+    if (t.check('-')) t.next();
     char *word_end = t.cur;
     bool underscores = false;
     
-    while (isdigit(t.peek()) || t.peek() == '_') {
-        if (t.peek() == '_') underscores = true;
+    while (isdigit(t.peek()) || t.check('_')) {
+        if (t.check('_')) underscores = true;
         t.next();
         word_end = t.cur;
     }
     
     bool is_float = false;
-    if (t.peek() == '.' && (isdigit(t.peek(1)) || t.peek(1) == '_')) {
+    if (t.check('.') && (isdigit(t.peek(1)) || t.check('_', 1))) {
         t.next();
         is_float = true;
-        while (isdigit(t.peek()) || t.peek() == '_') {
-            if (t.peek() == '_') underscores = true;
+        while (isdigit(t.peek()) || t.check('_')) {
+            if (t.check('_')) underscores = true;
             t.next();
             word_end = t.cur;
         }
@@ -412,8 +424,8 @@ static Token character(Tokenizer &t) {
     char *word = t.cur;
     char *word_end = t.cur;
     bool escape_sequences = false;
-    while (t.peek() != '\'') {
-        if (t.peek() == '\\') {
+    while (!t.check('\'')) {
+        if (t.check('\\')) {
             escape_sequences = true;
             t.next();
         }
@@ -443,8 +455,8 @@ static Token string(Tokenizer &t) {
     char *word = t.cur;
     char *word_end = t.cur;
     bool escape_sequences = false;
-    while (t.peek() != '"') {
-        if (t.peek() == '\\') {
+    while (!t.check('"')) {
+        if (t.check('\\')) {
             escape_sequences = true;
             t.next();
         }
