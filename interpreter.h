@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "builtins.h"
 #include "vm.h"
 
 #include <unordered_map>
@@ -63,14 +64,24 @@ struct Modules {
     Module *get_module_by_path(String path);
 };
 
+struct Builtins {
+    std::unordered_map<std::string, Builtin_Definition> builtins;
+    
+    void add_builtin(const std::string &id, Builtin_Definition builtin);
+    Builtin_Definition *get_builtin(const std::string &id);
+};
+
 struct Interpreter {
     UUID current_uuid = 0;
     Types types;
     Functions functions;
+    Builtins builtins;
     Modules modules;
     
     Data_Section constants;
     Data_Section str_constants;
+    
+    Interpreter();
     
     void interpret(const char *filepath);
     Module *create_module(String module_path);

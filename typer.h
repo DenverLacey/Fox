@@ -27,6 +27,7 @@ enum class Typed_AST_Kind {
     Array,
     Slice,
     Enum,
+    Builtin,
     
     // nullary
     Allocate,
@@ -60,6 +61,7 @@ enum class Typed_AST_Kind {
     Range,
     Inclusive_Range,
     Function_Call,
+    Builtin_Call,
     Match_Arm,
     
     // ternary
@@ -150,6 +152,15 @@ struct Typed_AST_Str : public Typed_AST {
     
     Typed_AST_Str(String value);
     ~Typed_AST_Str() override;
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Builtin_Definition;
+struct Typed_AST_Builtin : public Typed_AST {
+    Builtin_Definition *defn;
+    
+    Typed_AST_Builtin(Builtin_Definition *defn);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

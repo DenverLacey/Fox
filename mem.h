@@ -105,33 +105,6 @@ public:
     const T *as_ptr() const { return ptr; }
 };
 
-template<typename = void> struct remove_ref;
-template<typename T> struct remove_ref<Ref<T>> { using type = T; };
-template<typename T> struct remove_ref<T*> { using type = T; };
-
-template<typename C>
-auto flatten(const C &container) {
-    using R = typename std::remove_reference<
-                            decltype(std::declval<C>()[size_t{}])
-                        >::type;
-    using T = typename remove_ref<R>::type;
-    T *buffer = new T[container.size()];
-    for (size_t i = 0; i < container.size(); i++) {
-        buffer[i] = *container[i];
-    }
-    return buffer;
-}
-
-template<typename C, typename F>
-auto flatten(const C &container, F producer) {
-    using T = decltype(producer(container, size_t{}));
-    T *buffer = new T[container.size()];
-    for (size_t i = 0; i < container.size(); i++) {
-        buffer[i] = producer(container, i);
-    }
-    return buffer;
-}
-
 class String_Allocator {
     static constexpr size_t Minimum_Chunk_Size = 1024;
     using Chunk = char *;
@@ -208,3 +181,60 @@ private:
 };
 
 inline Mem_Allocator Mem{};
+
+template<typename = void> struct remove_ref;
+template<typename T> struct remove_ref<Ref<T>> { using type = T; };
+template<typename T> struct remove_ref<T*> { using type = T; };
+
+template<typename C>
+auto flatten(const C &container) {
+    using R = typename std::remove_reference<
+                            decltype(std::declval<C>()[size_t{}])
+                        >::type;
+    using T = typename remove_ref<R>::type;
+    T *buffer = new T[container.size()];
+    for (size_t i = 0; i < container.size(); i++) {
+        buffer[i] = *container[i];
+    }
+    return buffer;
+}
+
+template<typename C, typename F>
+auto flatten(const C &container, F producer) {
+    using T = decltype(producer(container, size_t{}));
+    T *buffer = new T[container.size()];
+    for (size_t i = 0; i < container.size(); i++) {
+        buffer[i] = producer(container, i);
+    }
+    return buffer;
+}
+
+template<typename Head, typename ...Tail>
+struct head {
+    using type = Head;
+};
+
+template<typename T>
+void unpack(T *buffer) {}
+
+template<typename T>
+void unpack(T *buffer, T head) {
+    *buffer = head;
+}
+
+template<typename T, typename ...Ts>
+void unpack(T *buffer, T head, Ts ...tail) {
+    *buffer = head;
+    unpack(buffer + 1, tail...);
+}
+
+template<typename ...Ts>
+auto unpack(Ts ...elements) {
+    size_t num_elements = sizeof...(Ts);
+    using T = typename std::remove_reference_t<typename head<Ts...>::type>;
+    
+    T *buffer = Mem.allocate<T>(num_elements).as_ptr();
+    unpack(buffer, elements...);
+    
+    return buffer;
+}

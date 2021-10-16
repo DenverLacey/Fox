@@ -236,6 +236,19 @@ Ref<Untyped_AST> Untyped_AST_Struct_Literal::clone() {
     );
 }
 
+Untyped_AST_Builtin::Untyped_AST_Builtin(String id) {
+    this->kind = Untyped_AST_Kind::Builtin;
+    this->id = id;
+}
+
+Untyped_AST_Builtin::~Untyped_AST_Builtin() {
+    id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Builtin::clone() {
+    return Mem.make<Untyped_AST_Builtin>(id.clone());
+}
+
 Untyped_AST_Field_Access::Untyped_AST_Field_Access(
     Ref<Untyped_AST> instance,
     String field_id)
@@ -745,6 +758,10 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             printf("(struct)\n");
             print_sub_at_indent("struct_id", lit->struct_id, indent + 1);
             print_sub_at_indent("bindings", lit->bindings, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Builtin: {
+            auto builtin = node.cast<Untyped_AST_Builtin>();
+            printf("@%s\n", builtin->id.c_str());
         } break;
         case Untyped_AST_Kind::Noinit: {
             print_nullary("noinit");

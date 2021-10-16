@@ -71,6 +71,9 @@ void Token::print() const {
         case Token_Kind::Right_Bracket:
             printf("Right_Bracket\n");
             break;
+        case Token_Kind::At:
+            printf("At\n");
+            break;
         case Token_Kind::Thin_Right_Arrow:
             printf("Thin_Right_Arrow\n");
             break;
@@ -498,6 +501,7 @@ static Token punctuation(Tokenizer &t) {
         case '}': tok.kind = Token_Kind::Right_Curly; break;
         case '[': tok.kind = Token_Kind::Left_Bracket; break;
         case ']': tok.kind = Token_Kind::Right_Bracket; break;
+        case '@': tok.kind = Token_Kind::At; break;
             
         // keywords
         case '_': tok.kind = Token_Kind::Underscore; break;

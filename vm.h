@@ -116,7 +116,7 @@ enum class Opcode : uint8_t {
     
     // INVOCATION
     Call,   //    BYTE_CALL,
-//    BYTE_CALL_NATIVE,
+    Call_Builtin,   //    BYTE_CALL_NATIVE,
 };
 
 using Chunk = std::vector<Opcode>;

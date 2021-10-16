@@ -22,6 +22,10 @@
 #define COMPILE_AST 1
 #define RUN_VIRTUAL_MACHINE 1
 
+Interpreter::Interpreter() {
+    load_builtins(this);
+}
+
 static String read_entire_file(const char *path) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     verify(file.is_open(), "'%s' could not be opened.", path);
@@ -54,6 +58,10 @@ void Interpreter::interpret(const char *path) {
     SMem.clear();
     
 #if RUN_VIRTUAL_MACHINE
+#if PRINT_DEBUG_DIAGNOSTICS
+    printf("------\n");
+#endif
+    
     auto vm = VM { constants, str_constants };
     vm.call(&module->top_level, 0);
     vm.run();
@@ -232,4 +240,15 @@ Module *Modules::get_module_by_path(String path) {
     auto it = path_map.find(sid);
     if (it == path_map.end()) return nullptr;
     return it->second;
+}
+
+void Builtins::add_builtin(const std::string &id, Builtin_Definition builtin) {
+    internal_verify(builtins.find(id) == builtins.end(), "Attempted to add a builtin with a duplicate name: '%s'.", id.c_str());
+    builtins[id] = builtin;
+}
+
+Builtin_Definition *Builtins::get_builtin(const std::string &id) {
+    auto it = builtins.find(id);
+    if (it == builtins.end()) return nullptr;
+    return &builtins[id];
 }

@@ -9,6 +9,7 @@
 #include "typer.h"
 
 #include "ast.h"
+#include "builtins.h"
 #include "compiler.h"
 #include "error.h"
 #include "interpreter.h"
@@ -95,6 +96,15 @@ Typed_AST_Str::~Typed_AST_Str() {
 }
 
 bool Typed_AST_Str::is_constant(Compiler &c) {
+    return true;
+}
+
+Typed_AST_Builtin::Typed_AST_Builtin(Builtin_Definition *defn) {
+    this->kind = Typed_AST_Kind::Builtin;
+    this->defn = defn;
+}
+
+bool Typed_AST_Builtin::is_constant(Compiler &c) {
     return true;
 }
 
@@ -553,6 +563,10 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             Ref<Typed_AST_Str> lit = node.cast<Typed_AST_Str>();
             printf("\"%.*s\"\n", lit->value.size(), lit->value.c_str());
         } break;
+        case Typed_AST_Kind::Builtin: {
+            auto builtin = node.cast<Typed_AST_Builtin>();
+            printf("@%p :: %s\n", builtin->defn->builtin, builtin->defn->type.debug_str());
+        } break;
         case Typed_AST_Kind::Allocate: {
             print_nullary("allocate", node.cast<Typed_AST_Nullary>());
         } break;
@@ -641,7 +655,8 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         case Typed_AST_Kind::Inclusive_Range: {
             print_binary_at_indent(interp, "...", node.cast<Typed_AST_Binary>(), indent);
         } break;
-        case Typed_AST_Kind::Function_Call: {
+        case Typed_AST_Kind::Function_Call:
+        case Typed_AST_Kind::Builtin_Call: {
             print_binary_at_indent(interp, "call", node.cast<Typed_AST_Binary>(), indent);
         } break;
         case Typed_AST_Kind::Match_Arm: {
@@ -1591,6 +1606,41 @@ static Ref<Typed_AST_Enum_Literal> typecheck_enum_literal_with_payload(
     return lit;
 }
 
+static Ref<Typed_AST_Binary> typecheck_builtin_call(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Untyped_AST_Multiary> rhs)
+{
+    auto builtin = lhs.cast<Typed_AST_Builtin>();
+    internal_verify(builtin, "lhs passed to %s() was not a builtin.", __func__);
+    
+    auto builtin_type = builtin->defn->type.data.func;
+    
+    //
+    // @NOTE:
+    //      When/If builtins start to have type parameters this will
+    //      need to change.
+    //
+    
+    verify(rhs->nodes.size() == builtin_type.arg_types.size(), "Incorrect number of arguments. Expected %zu but was given %zu.", builtin_type.arg_types.size(), rhs->nodes.size());
+    
+    auto args = rhs->typecheck(t).cast<Typed_AST_Multiary>();
+    internal_verify(args, "args didn't come back as a Multiary.");
+    
+    for (size_t i = 0; i < args->nodes.size(); i++) {
+        auto expected = builtin_type.arg_types[i];
+        auto given = args->nodes[i];
+        verify(expected.assignable_from(given->type), "Type mismatch: Argument %zu of builtin call expected to be '%s' but was given '%s'.", expected.display_str(), given->type.display_str());
+    }
+    
+    return Mem.make<Typed_AST_Binary>(
+        Typed_AST_Kind::Builtin_Call,
+        *builtin_type.return_type,
+        builtin,
+        args
+    );
+}
+
 static Ref<Typed_AST> typecheck_invocation(
     Typer &t,
     Untyped_AST_Binary &call)
@@ -1600,17 +1650,24 @@ static Ref<Typed_AST> typecheck_invocation(
     internal_verify(rhs, "Failed to cast rhs to Multiary* in typecheck_invocation().");
     
     Ref<Typed_AST> typechecked;
-    switch (lhs->type.kind) {
-        case Value_Type_Kind::Function:
-            typechecked = typecheck_function_call(t, lhs, rhs);
-            break;
-        case Value_Type_Kind::Enum:
-            typechecked = typecheck_enum_literal_with_payload(t, lhs, rhs);
+    switch (lhs->kind) {
+        case Typed_AST_Kind::Builtin:
+            typechecked = typecheck_builtin_call(t, lhs, rhs);
             break;
             
         default:
-            error("Type '%s' isn't invocable.", lhs->type.display_str());
-            break;
+            switch (lhs->type.kind) {
+                case Value_Type_Kind::Function:
+                    typechecked = typecheck_function_call(t, lhs, rhs);
+                    break;
+                case Value_Type_Kind::Enum:
+                    typechecked = typecheck_enum_literal_with_payload(t, lhs, rhs);
+                    break;
+                    
+                default:
+                    error("Type '%s' isn't invocable.", lhs->type.display_str());
+                    break;
+            }
     }
     
     return typechecked;
@@ -1853,6 +1910,13 @@ Ref<Typed_AST> Untyped_AST_Struct_Literal::typecheck(Typer &t) {
     }
     
     return args;
+}
+
+Ref<Typed_AST> Untyped_AST_Builtin::typecheck(Typer &t) {
+    auto defn = t.interp->builtins.get_builtin(id.str());
+    verify(defn, "'@%s' is not a builtin.");
+    
+    return Mem.make<Typed_AST_Builtin>(defn);
 }
 
 Ref<Typed_AST> Untyped_AST_Field_Access::typecheck(Typer &t) {

@@ -14,6 +14,7 @@
 #include "parser.h"
 #include "tokenizer.h"
 #include "typer.h"
+#include "builtins.h"
 
 void Stack::alloc(size_t size) {
     verify(_top + size <= Stack::Size, "Out of memory!");
@@ -313,6 +314,12 @@ void VM::run() {
                 Function_Definition *defn = stack.pop<Function_Definition *>();
                 call(defn, arg_size);
                 frame = &frames.top();
+            } break;
+            case Opcode::Call_Builtin: {
+                Builtin builtin = READ(Builtin, frame);
+                Size arg_size = READ(Size, frame);
+                Address arg_start = stack._top - arg_size;
+                builtin(stack, arg_start);
             } break;
                 
             case Opcode::Return: {
@@ -686,6 +693,12 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 MARK(i);
                 Size arg_size = READ(Size, i);
                 printf(IDX "Call %ub\n", mark, arg_size * 8);
+            } break;
+            case Opcode::Call_Builtin: {
+                MARK(i);
+                Builtin builtin = READ(Builtin, i);
+                Size arg_size = READ(Size, i);
+                printf(IDX "Call_Builtin %p %ub\n", mark, builtin, arg_size * 8);
             } break;
                 
             default:

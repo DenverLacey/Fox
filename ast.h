@@ -25,6 +25,7 @@ enum class Untyped_AST_Kind {
     Array,
     Slice,
     Struct,
+    Builtin,
     
     // nullary
     Noinit,
@@ -233,6 +234,15 @@ struct Untyped_AST_Struct_Literal : public Untyped_AST {
     Ref<Untyped_AST_Multiary> bindings;
     
     Untyped_AST_Struct_Literal(Ref<Untyped_AST_Symbol> struct_id, Ref<Untyped_AST_Multiary> bindings);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Builtin : public Untyped_AST {
+    String id;
+    
+    Untyped_AST_Builtin(String id);
+    ~Untyped_AST_Builtin();
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

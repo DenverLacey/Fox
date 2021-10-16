@@ -439,6 +439,10 @@ void Typed_AST_Str::compile(Compiler &c) {
     c.stack_top += type.size();
 }
 
+void Typed_AST_Builtin::compile(Compiler &c) {
+    internal_error("Call to Typed_AST_Builtin::compile() is disallowed.");
+}
+
 struct Find_Static_Address_Result {
     enum {
         Not_Found,
@@ -918,13 +922,27 @@ static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &s
     c.stack_top = stack_top + sub.type.size();
 }
 
-static void compile_invocation(Compiler &c, Typed_AST_Binary &call) {
+static void compile_function_call(Compiler &c, Typed_AST_Binary &call) {
     Address stack_top = c.stack_top;
     
     call.rhs->compile(c);
     call.lhs->compile(c);
     c.emit_opcode(Opcode::Call);
     c.emit_size(call.lhs->type.data.func.arg_size());
+    
+    c.stack_top = stack_top + call.type.size();
+}
+
+static void compile_builtin_call(Compiler &c, Typed_AST_Binary &call) {
+    Address stack_top = c.stack_top;
+    
+    auto builtin = call.lhs.cast<Typed_AST_Builtin>();
+    internal_verify(builtin, "Failed to cast builtin to a Builtin*.");
+    
+    call.rhs->compile(c);
+    c.emit_opcode(Opcode::Call_Builtin);
+    c.emit_value<Builtin>(builtin->defn->builtin);
+    c.emit_size(builtin->defn->type.data.func.arg_size());
     
     c.stack_top = stack_top + call.type.size();
 }
@@ -977,7 +995,10 @@ void Typed_AST_Binary::compile(Compiler &c) {
             rhs->compile(c);
             return;
         case Typed_AST_Kind::Function_Call:
-            compile_invocation(c, *this);
+            compile_function_call(c, *this);
+            return;
+        case Typed_AST_Kind::Builtin_Call:
+            compile_builtin_call(c, *this);
             return;
     }
     

@@ -175,4 +175,15 @@ Value_Type tup_of(Ts ...child_types) {
     
     return tup_from(num_types, buffer);
 }
+
+template<typename ...Value_Types>
+Value_Type func(Value_Type return_type, Value_Types ...param_types) {
+    Value_Type *ret = Mem.make<Value_Type>().as_ptr();
+    *ret = return_type;
+    
+    size_t num_params = sizeof...(Value_Types);
+    Value_Type *params = unpack(param_types...);
+    
+    return func(ret, num_params, params);
+}
 } // namespace value_types

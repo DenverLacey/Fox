@@ -36,6 +36,7 @@ enum class Token_Kind {
     Right_Curly,    // }
     Left_Bracket,   // [
     Right_Bracket,  // ]
+    At,             // @
     
     // Arrows
     Thin_Right_Arrow,   // ->

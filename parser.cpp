@@ -56,6 +56,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Right_Curly: return Precedence::None;
         case Token_Kind::Left_Bracket: return Precedence::Call;
         case Token_Kind::Right_Bracket: return Precedence::None;
+        case Token_Kind::At: return Precedence::None;
             
         // arrows
         case Token_Kind::Thin_Right_Arrow: return Precedence::None;
@@ -821,6 +822,9 @@ struct Parser {
             case Token_Kind::Left_Bracket:
                 a = parse_array_literal();
                 break;
+            case Token_Kind::At:
+                a = parse_builtin();
+                break;
                 
             // literals
             case Token_Kind::Ident:
@@ -1144,6 +1148,11 @@ struct Parser {
             array_type,
             element_nodes
         );
+    }
+    
+    Ref<Untyped_AST_Builtin> parse_builtin() {
+        auto id_str = expect(Token_Kind::Ident, "Expected identifier of builtin after '@'.").data.s.clone();
+        return Mem.make<Untyped_AST_Builtin>(id_str);
     }
     
     Ref<Untyped_AST_Struct_Literal> parse_struct_literal(Ref<Untyped_AST> id) {
