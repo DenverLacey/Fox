@@ -650,8 +650,16 @@ struct Parser {
                 } else if (id == "str") {
                     type->kind = Value_Type_Kind::Str;
                 } else {
-                    type->kind = Value_Type_Kind::Unresolved_Type;
-                    type->data.unresolved.id = id.clone();
+                    auto ident = Mem.make<Untyped_AST_Ident>(id.clone());
+                    
+                    Ref<Untyped_AST_Symbol> sym;
+                    if (check(Token_Kind::Double_Colon)) {
+                        sym = parse_symbol(ident);
+                    } else {
+                        sym = ident;
+                    }
+                    
+                    *type = value_types::unresolved(sym.as_ptr());
                 }
             } break;
             case Token_Kind::Star: {
@@ -896,8 +904,7 @@ struct Parser {
                 auto lhs = prev.cast<Untyped_AST_Ident>();
                 verify(lhs, "Symbol paths can only consist of identifiers.");
                 
-                auto rhs = parse_precedence(Precedence::Path).cast<Untyped_AST_Symbol>();
-                verify(rhs, "Symbol paths can only consist of identifiers.");
+                auto rhs = parse_symbol();
                 
                 a = Mem.make<Untyped_AST_Path>(lhs, rhs);
                 
@@ -1144,7 +1151,7 @@ struct Parser {
         auto bindings = parse_comma_separated_expressions();
         expect(Token_Kind::Right_Curly, "Expected '}' to terminate struct literal.");
         return Mem.make<Untyped_AST_Struct_Literal>(
-            id.cast<Untyped_AST_Ident>(),
+            id.cast<Untyped_AST_Symbol>(),
             bindings.cast<Untyped_AST_Multiary>()
         );
     }

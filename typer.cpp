@@ -1130,11 +1130,10 @@ struct Typer {
                 internal_error("Attempted to resolve a None Value_Type.");
                 break;
             case Value_Type_Kind::Unresolved_Type: {
-                String id = type.data.unresolved.id;
-                Typer_Binding binding;
-                verify(find_binding_by_id(id.str(), binding), "Unresolved identifier '%.*s'.", id.size(), id.c_str());
-                verify(binding.kind == Typer_Binding::Type, "Expected identifier of a type but instead found an identnfier to '%s'.", binding.value_type.display_str());
-                resolved = *binding.value_type.data.type.type;
+                auto type_typechecked = type.data.unresolved.symbol->typecheck(*this);
+                verify(type_typechecked->type.kind == Value_Type_Kind::Type, "Expected type name. '%s' is not a type.", type.data.unresolved.symbol->display_str());
+                
+                resolved = *type_typechecked->type.data.type.type;
             } break;
                 
             case Value_Type_Kind::Ptr: {

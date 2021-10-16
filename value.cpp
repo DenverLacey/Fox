@@ -11,6 +11,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "ast.h"
 #include "error.h"
 #include "interpreter.h"
 #include "vm.h"
@@ -79,7 +80,7 @@ char *Value_Type::debug_str() const {
             s << "<NONE>";
             break;
         case Value_Type_Kind::Unresolved_Type:
-            s << '\'' << data.unresolved.id.c_str() << '\'';
+            s << '\'' << data.unresolved.symbol->display_str() << '\'';
             break;
         case Value_Type_Kind::Void:
             s << "void";
@@ -264,7 +265,9 @@ Value_Type Value_Type::clone() const {
     ty.kind = kind;
     switch (kind) {
         case Value_Type_Kind::Unresolved_Type:
-            ty.data.unresolved.id = data.unresolved.id.clone();
+            ty.data.unresolved.symbol = data.unresolved.symbol->clone()
+                .cast<Untyped_AST_Symbol>()
+                .as_ptr();
             break;
         case Value_Type_Kind::Ptr: {
             Value_Type *child = Mem.make<Value_Type>().as_ptr();
@@ -568,11 +571,16 @@ Size Function_Type_Data::arg_size() const {
 }
 
 namespace value_types {
-Value_Type unresolved(String id) {
+Value_Type unresolved(Untyped_AST_Symbol *symbol) {
     Value_Type ty;
     ty.kind = Value_Type_Kind::Unresolved_Type;
-    ty.data.unresolved.id = id;
+    ty.data.unresolved.symbol = symbol;
     return ty;
+}
+
+Value_Type unresolved(String id) {
+    auto id_ndoe = Mem.make<Untyped_AST_Ident>(id);
+    return unresolved(id_ndoe.as_ptr());
 }
 
 Value_Type ptr_to(Value_Type *child_type) {

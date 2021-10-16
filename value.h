@@ -13,6 +13,8 @@
 #include "String.h"
 #include "mem.h"
 
+struct Untyped_AST_Symbol;
+
 enum class Value_Type_Kind : uint8_t {
     None,
     Unresolved_Type,
@@ -54,7 +56,7 @@ struct Slice {
 struct Value_Type;
 
 struct Unresolved_Type_Data {
-    String id;
+    Untyped_AST_Symbol *symbol;
 };
 
 struct Ptr_Type_Data {
@@ -147,6 +149,7 @@ inline const Value_Type Slice = { Value_Type_Kind::Slice };
 inline const Value_Type Tuple = { Value_Type_Kind::Tuple };
 inline const Value_Type Range = { Value_Type_Kind::Range };
 
+Value_Type unresolved(Untyped_AST_Symbol *symbol);
 Value_Type unresolved(String id);
 Value_Type ptr_to(Value_Type *child_type);
 Value_Type array_of(size_t count, Value_Type *element_type);
