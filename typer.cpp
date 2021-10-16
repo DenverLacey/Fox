@@ -2414,15 +2414,45 @@ Ref<Typed_AST> Untyped_AST_Import_Declaration::typecheck(Typer &t) {
             t.bind_module(module_name.str(), module);
         }
     } else if (module_path.segments.size() > 1) {
-        //
-        // @TODO:
-        //      Instead of just adding the inner most submodule,
-        //      actually import all the modules and set up submodules.
-        //
+        char *module_path_start = module_path.segments[0].begin();
+        Module *parent_module = nullptr;
+        Module *previous_module = nullptr;
+        for (size_t i = 0; i < module_path.segments.size() - 1; i++) {
+            String segment = module_path.segments[i];
+            
+            size_t len = segment.size() + segment.begin() - module_path_start;
+            auto segment_path = String { module_path_start, len };
+            
+            Module *segment_module = t.interp->get_or_create_module(segment_path);
+            
+            if (previous_module) {
+                std::string segment_name = segment.str();
+                
+                Module::Member member;
+                if (previous_module->find_member_by_id(segment_name, member)) {
+                    verify(member.kind == Module::Member::Submodule, "'%s' is not a submodule of '%s'.", segment_name.c_str(), previous_module->module_path.c_str());
+                } else {
+                    previous_module->add_submodule(segment_name, segment_module);
+                }
+            } else {
+                parent_module = segment_module;
+            }
+            
+            previous_module = segment_module;
+        }
         
-        // this is here for now just so it actually imports the module in some
-        // capacity
-        t.bind_module(module_path.name().str(), module);
+        internal_verify(previous_module, "'previous_module' is null when it should point to a Module.");
+        
+        std::string module_name = module_path.name().str();
+        Module::Member member;
+        if (previous_module->find_member_by_id(module_name, member)) {
+            verify(member.kind == Module::Member::Submodule, "'%s' is not a submodule of '%s'.", module_name.c_str(), previous_module->module_path.c_str());
+        } else {
+            previous_module->add_submodule(module_name, module);
+        }
+        
+        internal_verify(parent_module, "'parent_module' is null when it shouldn't be.");
+        t.bind_module(module_path.segments[0].str(), parent_module);
     } else {
         t.bind_module(module_path.name().str(), module);
     }

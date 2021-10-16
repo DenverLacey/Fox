@@ -79,6 +79,13 @@ Module *Interpreter::get_module(String module_path) {
     return modules.get_module_by_path(module_path);
 }
 
+Module *Interpreter::get_or_create_module(String module_path) {
+    if (auto module = get_module(module_path)) {
+        return module;
+    }
+    return create_module(module_path);
+}
+
 Module *Interpreter::compile_module(String module_path) {
     if (auto m = get_module(module_path)) {
         return m;
