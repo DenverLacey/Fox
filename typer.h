@@ -75,6 +75,12 @@ enum class Typed_AST_Kind {
     Let,
     Fn_Decl,
     
+    // casts
+    Cast_Bool_Int,
+    Cast_Char_Int,
+    Cast_Int_Float,
+    Cast_Float_Int,
+    
     // unique
     If,
     For,
@@ -345,6 +351,14 @@ struct Typed_AST_Fn_Declaration : public Typed_AST {
     Ref<Typed_AST_Multiary> body;
     
     Typed_AST_Fn_Declaration(Function_Definition *defn, Ref<Typed_AST_Multiary> body);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Cast : public Typed_AST {
+    Ref<Typed_AST> expr;
+    
+    Typed_AST_Cast(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> expr);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

@@ -417,6 +417,20 @@ bool Typed_AST_Fn_Declaration::is_constant(Compiler &c) {
     return true;
 }
 
+Typed_AST_Cast::Typed_AST_Cast(
+    Typed_AST_Kind kind,
+    Value_Type type,
+    Ref<Typed_AST> expr)
+{
+    this->kind = kind;
+    this->type = type;
+    this->expr = expr;
+}
+
+bool Typed_AST_Cast::is_constant(Compiler &c) {
+    return expr->is_constant(c);
+}
+
 static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
     switch (kind) {
         case Untyped_AST_Kind::Bool:            return Typed_AST_Kind::Bool;
@@ -520,6 +534,11 @@ static void print_multiary_at_indent(Interpreter *interp, const char *id, const 
         printf("%*s%zu: ", (indent + 1) * INDENT_SIZE, "", i);
         print_at_indent(interp, node, indent + 1);
     }
+}
+
+static void print_cast_at_indent(Interpreter *interp, const Ref<Typed_AST_Cast> c, size_t indent) {
+    printf("(as) %s\n", c->type.debug_str());
+    print_sub_at_indent(interp, "expr", c->expr, indent + 1);
 }
 
 static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size_t indent) {
@@ -779,6 +798,12 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             printf("%*sfn_type: %s\n", (indent + 1) * INDENT_SIZE, "", decl->defn->type.debug_str());
             print_sub_at_indent(interp, "body", decl->body, indent + 1);
         } break;
+        case Typed_AST_Kind::Cast_Bool_Int:
+        case Typed_AST_Kind::Cast_Char_Int:
+        case Typed_AST_Kind::Cast_Int_Float:
+        case Typed_AST_Kind::Cast_Float_Int:
+            print_cast_at_indent(interp, node.cast<Typed_AST_Cast>(), indent);
+            break;
             
         default:
             internal_error("Invalid Typed_AST_Kind value: %d\n", node->kind);
@@ -1673,6 +1698,131 @@ static Ref<Typed_AST> typecheck_invocation(
     return typechecked;
 }
 
+static Ref<Typed_AST> typecheck_cast_from_bool(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    verify(sig->value_type->kind == Value_Type_Kind::Int, "Cannot cast from type 'bool' to type '%s'.", sig->value_type->display_str());
+    
+    Ref<Typed_AST> typechecked;
+    if (lhs->kind == Typed_AST_Kind::Bool) {
+        auto lit = lhs.cast<Typed_AST_Bool>();
+        typechecked = Mem.make<Typed_AST_Int>(lit->value ? 1 : 0);
+    } else {
+        typechecked = Mem.make<Typed_AST_Cast>(Typed_AST_Kind::Cast_Bool_Int, value_types::Int, lhs);
+    }
+    
+    return typechecked;
+}
+
+static Ref<Typed_AST> typecheck_cast_from_char(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    verify(sig->value_type->kind == Value_Type_Kind::Int, "Cannot cast from type 'char' to type '%s'.", sig->value_type->display_str());
+    
+    return Mem.make<Typed_AST_Cast>(
+        Typed_AST_Kind::Cast_Char_Int,
+        value_types::Int,
+        lhs
+    );
+}
+
+static Ref<Typed_AST> typecheck_cast_from_int(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    Ref<Typed_AST> typechecked;
+    
+    switch (sig->value_type->kind) {
+        case Value_Type_Kind::Float:
+            typechecked = Mem.make<Typed_AST_Cast>(Typed_AST_Kind::Cast_Int_Float, value_types::Float, lhs);
+            break;
+        case Value_Type_Kind::Ptr:
+            internal_verify(value_types::Int.size() == value_types::Ptr.size(), "This code expects sizeof(runtime::Int) == sizeof(runtime::Ptr).");
+            typechecked = lhs;
+            typechecked->type = *sig->value_type;
+            break;
+            
+        default:
+            error("Cannot cast from type 'int' to type '%s'.", sig->value_type->display_str());
+            break;
+    }
+    
+    return typechecked;
+}
+
+static Ref<Typed_AST> typecheck_cast_from_float(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    verify(sig->value_type->kind == Value_Type_Kind::Int, "Cannot cast from type 'float' to type '%s'.", sig->value_type->display_str());
+    
+    return Mem.make<Typed_AST_Cast>(Typed_AST_Kind::Cast_Float_Int, value_types::Int, lhs);
+}
+
+static Ref<Typed_AST> typecheck_cast_from_str(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    todo("Implement %s().", __func__);
+}
+
+static Ref<Typed_AST> typecheck_cast_from_ptr(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    Ref<Typed_AST> typechecked;
+    
+    switch (sig->value_type->kind) {
+        case Value_Type_Kind::Ptr:
+            verify(!sig->value_type->data.ptr.child_type->is_mut || lhs->type.data.ptr.child_type->is_mut, "Cannot cast from type '%s' to type '%s'. Mutability mismatch.", lhs->type.display_str(), sig->value_type->display_str());
+            typechecked = lhs;
+            typechecked->type = *sig->value_type;
+            break;
+        case Value_Type_Kind::Int:
+            internal_verify(value_types::Int.size() == value_types::Ptr.size(), "This code expects sizeof(runtime::Int) == sizeof(runtime::Ptr).");
+            typechecked = lhs;
+            typechecked->type = value_types::Int;
+            break;
+            
+        default:
+            error("Cannot cast from type '%s' to type '%s'.", lhs->type.display_str(), sig->value_type->display_str());
+            break;
+    }
+    
+    return typechecked;
+}
+
+static Ref<Typed_AST> typecheck_cast_from_enum(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    verify(sig->value_type->kind == Value_Type_Kind::Int, "Cannot cast from type '%s' to type '%s'.", lhs->type.display_str(), sig->value_type->display_str());
+    
+    auto defn = lhs->type.data.enum_.defn;
+    verify(!defn->is_sumtype, "Cannot cast from sum-type enum '%s' to 'int'.", lhs->type.display_str());
+    
+    auto typechecked = lhs;
+    typechecked->type = value_types::Int;
+    return typechecked;
+}
+
+static Ref<Typed_AST> typecheck_cast_from_func(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig)
+{
+    todo("Implement %s().", __func__);
+}
+
 Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
     switch (kind) {
         case Untyped_AST_Kind::Invocation:
@@ -1809,6 +1959,44 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(lhs->type.kind == Value_Type_Kind::Bool, "(while) requires condition to be 'bool' but was given '%s'.", lhs->type.display_str());
             t.has_return = false;
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs);
+        case Untyped_AST_Kind::Cast: {
+            Ref<Typed_AST> typechecked;
+            
+            auto sig = rhs.cast<Typed_AST_Type_Signature>();
+            internal_verify(sig, "rhs to 'as' operator was not a type signature.");
+            
+            switch (lhs->type.kind) {
+                case Value_Type_Kind::Bool:
+                    typechecked = typecheck_cast_from_bool(t, lhs, sig);
+                    break;
+                case Value_Type_Kind::Char:
+                    typechecked = typecheck_cast_from_char(t, lhs, sig);
+                    break;
+                case Value_Type_Kind::Int:
+                    typechecked = typecheck_cast_from_int(t, lhs, sig);
+                    break;
+                case Value_Type_Kind::Float:
+                    typechecked = typecheck_cast_from_float(t, lhs, sig);
+                    break;
+                case Value_Type_Kind::Str:
+                    typechecked = typecheck_cast_from_str(t, lhs, sig);
+                    break;
+                case Value_Type_Kind::Ptr:
+                    typechecked = typecheck_cast_from_ptr(t, lhs, sig);
+                    break;
+                case Value_Type_Kind::Enum:
+                    typechecked = typecheck_cast_from_enum(t, lhs, sig);
+                    break;
+                case Value_Type_Kind::Function:
+                    typechecked = typecheck_cast_from_func(t, lhs, sig);
+                    break;
+                    
+                default:
+                    break;
+            }
+            
+            return typechecked;
+        }
             
         default:
             internal_error("Invalid Binary Untyped_AST_Kind value: %d\n", kind);

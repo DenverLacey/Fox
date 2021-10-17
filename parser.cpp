@@ -12,7 +12,8 @@
 enum class Precedence {
     None,
     Assignment, // = += -= *= /= &= etc.
-    Colon,      // : as
+    Colon,      // :
+    Cast,       // as
     Range,      // .. ...
     Or,         // or
     And,        // and
@@ -82,7 +83,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Underscore: return Precedence::None;
         case Token_Kind::Return: return Precedence::None;
         case Token_Kind::Import: return Precedence::None;
-        case Token_Kind::As: return Precedence::Colon;
+        case Token_Kind::As: return Precedence::Cast;
             
         // operators
         case Token_Kind::Plus: return Precedence::Term;
@@ -346,7 +347,7 @@ struct Parser {
         
         Ref<Untyped_AST_Type_Signature> return_type_signature = nullptr;
         if (match(Token_Kind::Thin_Right_Arrow)) {
-            auto type = parse_type_signiture();
+            auto type = parse_type_signature();
             return_type_signature = Mem.make<Untyped_AST_Type_Signature>(type);
         }
         
@@ -374,7 +375,7 @@ struct Parser {
             String field_id = expect(Token_Kind::Ident, "Expected identifier of field in struct declaration.").data.s.clone();
             expect(Token_Kind::Colon, "Expected ':' after field identifier.");
             
-            auto type = parse_type_signiture();
+            auto type = parse_type_signature();
             type->is_mut = force_mut;
             auto sig = Mem.make<Untyped_AST_Type_Signature>(type);
             
@@ -404,7 +405,7 @@ struct Parser {
                 
                 do {
                     if (check(Token_Kind::Right_Paren)) break;
-                    auto value_type = parse_type_signiture();
+                    auto value_type = parse_type_signature();
                     auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
                     payload->add(sig);
                 } while (match(Token_Kind::Comma) && has_more());
@@ -486,7 +487,7 @@ struct Parser {
         
         Ref<Untyped_AST_Type_Signature> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
-            auto type = parse_type_signiture();
+            auto type = parse_type_signature();
             specified_type = Mem.make<Untyped_AST_Type_Signature>(type);
         }
         
@@ -512,7 +513,7 @@ struct Parser {
         
         Ref<Untyped_AST_Type_Signature> specified_type = nullptr;
         if (match(Token_Kind::Colon)) {
-            auto type = parse_type_signiture();
+            auto type = parse_type_signature();
             specified_type = Mem.make<Untyped_AST_Type_Signature>(type);
         }
         
@@ -632,7 +633,7 @@ struct Parser {
         return sym;
     }
     
-    Ref<Value_Type> parse_type_signiture() {
+    Ref<Value_Type> parse_type_signature() {
         Ref<Value_Type> type = Mem.make<Value_Type>();
         auto token = next();
         switch (token.kind) {
@@ -666,20 +667,20 @@ struct Parser {
             case Token_Kind::Star: {
                 type->kind = Value_Type_Kind::Ptr;
                 bool is_mut = match(Token_Kind::Mut);
-                type->data.ptr.child_type = parse_type_signiture().as_ptr();
+                type->data.ptr.child_type = parse_type_signature().as_ptr();
                 type->data.ptr.child_type->is_mut = is_mut;
             } break;
             case Token_Kind::Left_Paren: {
                 std::vector<Ref<Value_Type>> subtypes;
                 do {
                     if (check(Token_Kind::Right_Paren)) break;
-                    subtypes.push_back(parse_type_signiture());
+                    subtypes.push_back(parse_type_signature());
                 } while (match(Token_Kind::Comma) && has_more());
                 
                 expect(Token_Kind::Right_Paren, "Expected ')' in type signiture.");
                 
                 if (match(Token_Kind::Thin_Right_Arrow)) {
-                    auto return_type = parse_type_signiture().as_ptr();
+                    auto return_type = parse_type_signature().as_ptr();
                     *type = value_types::func(return_type, subtypes.size(), flatten(subtypes));
                 } else {
                     *type = value_types::tup_from(subtypes.size(), flatten(subtypes));
@@ -695,7 +696,7 @@ struct Parser {
                 }
                 expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
                 bool is_mut = match(Token_Kind::Mut);
-                type->data.array.element_type = parse_type_signiture().as_ptr();
+                type->data.array.element_type = parse_type_signature().as_ptr();
                 type->data.array.element_type->is_mut = is_mut;
             } break;
             default:
@@ -993,6 +994,9 @@ struct Parser {
             case Token_Kind::Triple_Dot:
                 a = parse_binary(Untyped_AST_Kind::Inclusive_Range, prec, prev);
                 break;
+            case Token_Kind::As:
+                a = parse_cast_operator(prev);
+                break;
                 
             default:
                 break;
@@ -1053,7 +1057,7 @@ struct Parser {
             auto id = expect(Token_Kind::Ident, "Expected parameter name.").data.s.clone();
             auto target = Mem.make<Untyped_AST_Pattern_Ident>(is_mut, id);
             expect(Token_Kind::Colon, "Expected ':' before parameters type.");
-            auto value_type = parse_type_signiture();
+            auto value_type = parse_type_signature();
             auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
             auto binding = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, target, sig);
             params->add(binding);
@@ -1118,11 +1122,11 @@ struct Parser {
                 element_type = Mem.make<Value_Type>();
                 element_type->kind = Value_Type_Kind::None;
             } else {
-                element_type = parse_type_signiture();
+                element_type = parse_type_signature();
             }
             element_type->is_mut = true;
         } else {
-            element_type = parse_type_signiture();
+            element_type = parse_type_signature();
         }
         
         expect(Token_Kind::Left_Curly, "Expected '{' in array literal.");
@@ -1173,7 +1177,7 @@ struct Parser {
         auto type_params = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
         do {
             if (check(Token_Kind::Right_Curly)) break;
-            auto value_type = parse_type_signiture();
+            auto value_type = parse_type_signature();
             auto type_sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
             type_params->add(type_sig);
         } while (match(Token_Kind::Comma) && has_more());
@@ -1184,6 +1188,12 @@ struct Parser {
             id.cast<Untyped_AST_Ident>(),
             type_params
         );
+    }
+    
+    Ref<Untyped_AST_Binary> parse_cast_operator(Ref<Untyped_AST> expr) {
+        auto value_type = parse_type_signature();
+        auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+        return Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Cast, expr, sig);
     }
 };
 

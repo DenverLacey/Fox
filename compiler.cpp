@@ -406,13 +406,11 @@ void Typed_AST_Ident::compile(Compiler &c) {
             break;
         case Find_Variable_Result::Found:
         case Find_Variable_Result::Found_Global:
-            internal_verify(v->type.eq(type), "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
             c.emit_opcode(status == Find_Variable_Result::Found_Global ? Opcode::Push_Global_Value : Opcode::Push_Value);
             c.emit_size(v->type.size());
             c.emit_address(v->address);
             break;
         case Find_Variable_Result::Found_Constant:
-            internal_verify(v->type.eq(type), "In Typed_AST_Ident::compile(), v->type (%s) != type (%s).", v->type.debug_str(), type.debug_str());
             c.compile_constant(*v);
             break;
     }
@@ -1005,29 +1003,29 @@ void Typed_AST_Binary::compile(Compiler &c) {
     Opcode op;
     switch (kind) {
         case Typed_AST_Kind::Addition:
-            if (type.kind == Value_Type_Kind::Int)
+            if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Add;
-            else if (type.kind == Value_Type_Kind::Float)
+            else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Add;
             else if (type.kind == Value_Type_Kind::Str)
                 op = Opcode::Str_Add;
             break;
         case Typed_AST_Kind::Subtraction:
-            if (type.kind == Value_Type_Kind::Int)
+            if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Sub;
-            else if (type.kind == Value_Type_Kind::Float)
+            else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Sub;
             break;
         case Typed_AST_Kind::Multiplication:
-            if (type.kind == Value_Type_Kind::Int)
+            if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Mul;
-            else if (type.kind == Value_Type_Kind::Float)
+            else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Mul;
             break;
         case Typed_AST_Kind::Division:
-            if (type.kind == Value_Type_Kind::Int)
+            if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Div;
-            else if (type.kind == Value_Type_Kind::Float)
+            else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Div;
             break;
         case Typed_AST_Kind::Mod:
@@ -1637,4 +1635,33 @@ void Typed_AST_Fn_Declaration::compile(Compiler &c) {
         new_c.emit_opcode(Opcode::Return);
         new_c.emit_size(0);
     }
+}
+
+void Typed_AST_Cast::compile(Compiler &c) {
+    Address stack_top = c.stack_top;
+    
+    Opcode cast_op;
+    switch (kind) {
+        case Typed_AST_Kind::Cast_Bool_Int:
+            cast_op = Opcode::Cast_Bool_Int;
+            break;
+        case Typed_AST_Kind::Cast_Char_Int:
+            cast_op = Opcode::Cast_Char_Int;
+            break;
+        case Typed_AST_Kind::Cast_Int_Float:
+            cast_op = Opcode::Cast_Int_Float;
+            break;
+        case Typed_AST_Kind::Cast_Float_Int:
+            cast_op = Opcode::Cast_Float_Int;
+            break;
+            
+        default:
+            internal_error("Invalid Cast Kind: %d\n", kind);
+            break;
+    }
+
+    expr->compile(c);
+    c.emit_opcode(cast_op);
+    
+    c.stack_top = stack_top + type.size();
 }

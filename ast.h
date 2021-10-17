@@ -62,6 +62,7 @@ enum class Untyped_AST_Kind {
     Binding,
     Invocation,
     Match_Arm,
+    Cast,
     
     // ternary
     

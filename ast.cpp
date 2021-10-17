@@ -862,6 +862,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Match_Arm: {
             print_binary_at_indent("arm", node.cast<Untyped_AST_Binary>(), indent);
         } break;
+        case Untyped_AST_Kind::Cast: {
+            print_binary_at_indent("as", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
         case Untyped_AST_Kind::Pattern_Underscore:
         case Untyped_AST_Kind::Pattern_Ident:
         case Untyped_AST_Kind::Pattern_Tuple:

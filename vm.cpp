@@ -322,6 +322,24 @@ void VM::run() {
                 builtin(stack, arg_start);
             } break;
                 
+            // Cast
+            case Opcode::Cast_Bool_Int: {
+                runtime::Bool value = stack.pop<runtime::Bool>();
+                stack.push<runtime::Int>(value ? 1 : 0);
+            } break;
+            case Opcode::Cast_Char_Int: {
+                runtime::Char value = stack.pop<runtime::Char>();
+                stack.push(static_cast<runtime::Int>(value));
+            } break;
+            case Opcode::Cast_Int_Float: {
+                runtime::Int value = stack.pop<runtime::Int>();
+                stack.push(static_cast<runtime::Float>(value));
+            } break;
+            case Opcode::Cast_Float_Int: {
+                runtime::Float value = stack.pop<runtime::Float>();
+                stack.push(static_cast<runtime::Int>(value));
+            } break;
+                
             case Opcode::Return: {
                 if (frames.size() - 1 == 0)
                     return;
@@ -700,6 +718,24 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
                 Size arg_size = READ(Size, i);
                 printf(IDX "Call_Builtin %p %ub\n", mark, builtin, arg_size * 8);
             } break;
+                
+            // Cast
+            case Opcode::Cast_Bool_Int:
+                printf(IDX "Cast_Bool_Int\n", i);
+                i++;
+                break;
+            case Opcode::Cast_Char_Int:
+                printf(IDX "Cast_Char_Int\n", i);
+                i++;
+                break;
+            case Opcode::Cast_Int_Float:
+                printf(IDX "Cast_Int_Float\n", i);
+                i++;
+                break;
+            case Opcode::Cast_Float_Int:
+                printf(IDX "Cast_Int_Float\n", i);
+                i++;
+                break;
                 
             default:
                 internal_error("Invalid opcode: %d.", op);
