@@ -50,12 +50,13 @@ Function_Definition *Compiler::compile(Ref<Typed_AST_Multiary> multi) {
 }
 
 void Compiler::emit_byte(uint8_t byte) {
-    static_assert(sizeof(Opcode) == 1, "This function assumess Opcode is 8 bits large.");
-    function->bytecode.push_back(static_cast<Opcode>(byte));
+    
+    function->instructions.push_back(byte);
 }
 
 void Compiler::emit_opcode(Opcode op) {
-    function->bytecode.push_back(op);
+    static_assert(sizeof(Opcode) == sizeof(uint8_t), "This function assumess Opcode is 8 bits large.");
+    emit_byte(static_cast<uint8_t>(op));
 }
 
 void Compiler::emit_size(Size size) {
@@ -68,7 +69,7 @@ void Compiler::emit_address(Address address) {
 
 size_t Compiler::emit_jump(Opcode jump_code, bool update_stack_top) {
     emit_opcode(jump_code);
-    size_t jump = function->bytecode.size();
+    size_t jump = function->instructions.size();
     emit_value<size_t>(-1);
     if (update_stack_top &&
         (jump_code == Opcode::Jump_True ||
@@ -80,14 +81,14 @@ size_t Compiler::emit_jump(Opcode jump_code, bool update_stack_top) {
 }
 
 void Compiler::patch_jump(size_t jump) {
-    size_t to = function->bytecode.size();
-    size_t *jump_size = reinterpret_cast<size_t *>(&function->bytecode[jump]);
+    size_t to = function->instructions.size();
+    size_t *jump_size = reinterpret_cast<size_t *>(&function->instructions[jump]);
     *jump_size = to - jump - sizeof(size_t);
 }
 
 void Compiler::emit_loop(size_t loop_start) {
     emit_opcode(Opcode::Loop);
-    size_t jump = function->bytecode.size() - loop_start + sizeof(size_t);
+    size_t jump = function->instructions.size() - loop_start + sizeof(size_t);
     emit_value<size_t>(jump);
 }
 
@@ -726,7 +727,7 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
 }
 
 static void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
-    size_t loop_start = c.function->bytecode.size();
+    size_t loop_start = c.function->instructions.size();
     Address stack_top = c.stack_top;
     
     b.lhs->compile(c);
@@ -1200,7 +1201,7 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_size(target_v.type.size());
     c.stack_top += target_v.type.size();
     
-    size_t loop_start = c.function->bytecode.size();
+    size_t loop_start = c.function->instructions.size();
     
     // test condition
     c.emit_opcode(Opcode::Push_Value);
@@ -1298,7 +1299,7 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
     Variable end_v = { false, range->rhs->type, c.stack_top };
     range->rhs->compile(c);
 
-    size_t loop_start = c.function->bytecode.size();
+    size_t loop_start = c.function->instructions.size();
 
     // test condition
     c.emit_opcode(Opcode::Push_Value);

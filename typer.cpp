@@ -2469,7 +2469,6 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
     defn.type = func_type;
 
     auto new_defn = t.interp->functions.add_func(defn);
-    t.module->add_func_member(new_defn);
 
     // actually typecheck the function
     auto new_t = Typer { t, new_defn };
@@ -2493,6 +2492,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
 Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     auto [defn, typed_decl] = typecheck_fn_decl(t, *this);
     t.bind_function(id.str(), defn->type);
+    t.module->add_func_member(defn);
     return typed_decl;
 }
 

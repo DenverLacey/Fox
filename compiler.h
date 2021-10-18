@@ -17,6 +17,7 @@
 #include "ast.h"
 #include "typer.h"
 #include "vm.h"
+#include "definitions.h"
 
 struct Variable {
     bool is_const;

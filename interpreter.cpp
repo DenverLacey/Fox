@@ -46,11 +46,11 @@ void Interpreter::interpret(const char *path) {
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("------\n");
     printf("<MAIN>:\n");
-    print_code(module->top_level.bytecode, constants, str_constants);
+    print_code(module->top_level.instructions, constants, str_constants);
     
     for (auto &[_, fn] : functions.funcs) {
         printf("\n%.*s#%zu%s:\n", fn.name.size(), fn.name.c_str(), fn.uuid, fn.type.debug_str());
-        print_code(fn.bytecode, constants, str_constants);
+        print_code(fn.instructions, constants, str_constants);
     }
 #endif
     

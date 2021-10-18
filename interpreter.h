@@ -9,6 +9,7 @@
 #pragma once
 
 #include "builtins.h"
+#include "definitions.h"
 #include "vm.h"
 
 #include <unordered_map>

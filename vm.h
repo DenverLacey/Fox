@@ -17,8 +17,6 @@
 #include "mem.h"
 #include "typer.h"
 
-struct Module;
-
 enum class Opcode : uint8_t {
     None = 0,
     
@@ -125,22 +123,10 @@ enum class Opcode : uint8_t {
     Cast_Float_Int
 };
 
-using Chunk = std::vector<Opcode>;
-
-struct Function_Definition {
-    UUID uuid;
-    Module *module;
-    String name;
-    Value_Type type;
-    std::vector<String> param_names;
-//    CodeLocation location;
-    Chunk bytecode;
-};
-
 struct Call_Frame {
     int pc;
     int stack_bottom;
-    Chunk *bytecode;
+    std::vector<uint8_t> *instructions;
 };
 
 using Data_Section = std::vector<uint8_t>;
@@ -192,60 +178,8 @@ struct VM {
     VM(Data_Section &constants, Data_Section &str_constants);
     
     void run();
-    void call(Function_Definition* fn, int arg_size);
+    void call(Function_Definition *fn, int arg_size);
     void print_stack();
 };
 
-void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constants);
-
-struct Struct_Field {
-    Size offset;
-    String id;
-    Value_Type type;
-};
-
-struct Method {
-    bool is_static;
-    UUID uuid;
-};
-
-struct Struct_Definition {
-    Size size;
-    // Struct_Definition *super;
-    UUID uuid;
-    Module *module;
-    String name;
-    std::vector<Struct_Field> fields;
-    std::unordered_map<std::string, Method> methods;
-    // std::vector<Ref<Typed_AST>> initializer;
-    
-    bool has_field(String id);
-    Struct_Field *find_field(String id);
-    bool has_method(String id);
-    bool find_method(String id, Method &out_method);
-};
-
-struct Enum_Payload_Field {
-    Size offset;
-    Value_Type type;
-};
-
-struct Enum_Variant {
-    runtime::Int tag;
-    String id;
-    std::vector<Enum_Payload_Field> payload;
-};
-
-struct Enum_Definition {
-    bool is_sumtype;
-    Size size;
-    UUID uuid;
-    Module *module;
-    String name;
-    std::vector<Enum_Variant> variants;
-    std::unordered_map<std::string, Method> methods;
-    
-    Enum_Variant *find_variant(String id);
-    bool has_method(String id);
-    bool find_method(String id, Method &out_method);
-};
+void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Section &str_constants);

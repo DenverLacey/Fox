@@ -9,6 +9,8 @@
 // @TODOS:
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
+// [x]  Fix bug where import 'module as *' will pull methods into top-level
+//      namespace.
 //
 
 #include <iostream>

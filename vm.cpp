@@ -15,6 +15,7 @@
 #include "tokenizer.h"
 #include "typer.h"
 #include "builtins.h"
+#include "definitions.h"
 
 void Stack::alloc(size_t size) {
     verify(_top + size <= Stack::Size, "Out of memory!");
@@ -58,7 +59,7 @@ VM::VM(Data_Section &constants, Data_Section &str_constants)
 }
 
 void VM::run() {
-    #define READ(type, frame) *(type *)&(*frame->bytecode)[frame->pc]; frame->pc += sizeof(type)
+    #define READ(type, frame) *(type *)&(*frame->instructions)[frame->pc]; frame->pc += sizeof(type)
     #define UNOP(type, op) { \
         type a = stack.pop<type>(); \
         stack.push(op(a)); \
@@ -76,7 +77,7 @@ void VM::run() {
     } break
     
     Call_Frame *frame = &frames.top();
-    while (frame->pc < frame->bytecode->size()) {
+    while (frame->pc < frame->instructions->size()) {
         Opcode op = READ(Opcode, frame);
         switch (op) {
             // Literals
@@ -369,7 +370,7 @@ void VM::call(Function_Definition *fn, int arg_size) {
     Call_Frame frame;
     frame.pc = 0;
     frame.stack_bottom = stack._top - arg_size;
-    frame.bytecode = &fn->bytecode;
+    frame.instructions = &fn->instructions;
     frames.push(frame);
 }
 
@@ -380,14 +381,14 @@ void VM::print_stack() {
     }
 }
 
-void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constants) {
+void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Section &str_constants) {
     #define IDX "%04zX: "
     #define READ(type, i) *(type *)&code[i]; i += sizeof(type)
     #define MARK(i) size_t mark = i++
     
     size_t i = 0;
     while (i < code.size()) {
-        Opcode op = code[i];
+        Opcode op = static_cast<Opcode>(code[i]);
         switch (op) {
             // Literals
             case Opcode::Lit_True:
@@ -672,37 +673,37 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
             case Opcode::Jump: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
-                size_t dest = mark + jump + 9; // add 9 for bytecode
+                size_t dest = mark + jump + 9; // add 9 for instruction
                 printf(IDX "Jump => %zX\n", mark, dest);
             } break;
             case Opcode::Loop: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
-                size_t dest = mark - jump + 9; // add 9 for bytecode
+                size_t dest = mark - jump + 9; // add 9 for instruction
                 printf(IDX "Loop => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_True: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
-                size_t dest = mark + jump + 9; // add 9 for bytecode
+                size_t dest = mark + jump + 9; // add 9 for instruction
                 printf(IDX "Jump_True => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_False: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
-                size_t dest = mark + jump + 9; // add 9 for bytecode
+                size_t dest = mark + jump + 9; // add 9 for instruction
                 printf(IDX "Jump_False => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_True_No_Pop: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
-                size_t dest = mark + jump + 9; // add 9 for bytecode
+                size_t dest = mark + jump + 9; // add 9 for instruction
                 printf(IDX "Jump_True_No_Pop => %zX\n", mark, dest);
             } break;
             case Opcode::Jump_False_No_Pop: {
                 MARK(i);
                 size_t jump = READ(size_t, i);
-                size_t dest = mark + jump + 9; // add 9 for bytecode
+                size_t dest = mark + jump + 9; // add 9 for instruction
                 printf(IDX "Jump_False_No_Pop => %zX\n", mark, dest);
             } break;
                 
@@ -748,63 +749,4 @@ void print_code(Chunk &code, Data_Section &constants, Data_Section &str_constant
     #undef IDX
     #undef READ
     #undef MARK
-}
-
-bool Struct_Definition::has_field(String id) {
-    for (auto &f : fields) {
-        if (f.id == id) {
-            return true;
-        }
-    }
-    return false;
-}
-
-Struct_Field *Struct_Definition::find_field(String id) {
-    for (auto &f : fields) {
-        if (f.id == id) {
-            return &f;
-        }
-    }
-    return nullptr;
-}
-
-bool Struct_Definition::has_method(String id) {
-    auto sid = id.str();
-    auto it = methods.find(sid);
-    return it != methods.end();
-}
-
-bool Struct_Definition::find_method(String id, Method &out_method) {
-    auto sid = id.str();
-    auto it = methods.find(sid);
-    if (it != methods.end()) {
-        out_method = it->second;
-        return true;
-    }
-    return false;
-}
-
-Enum_Variant *Enum_Definition::find_variant(String id) {
-    for (auto &v : variants) {
-        if (v.id == id) {
-            return &v;
-        }
-    }
-    return nullptr;
-}
-
-bool Enum_Definition::has_method(String id) {
-    auto sid = id.str();
-    auto it = methods.find(sid);
-    return it != methods.end();
-}
-
-bool Enum_Definition::find_method(String id, Method &out_method) {
-    auto sid = id.str();
-    auto it = methods.find(sid);
-    if (it != methods.end()) {
-        out_method = it->second;
-        return true;
-    }
-    return false;
 }
