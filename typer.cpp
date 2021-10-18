@@ -2474,6 +2474,9 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
     auto new_t = Typer { t, new_defn };
 
     new_t.begin_scope();
+    
+    new_t.bind_function(new_defn->name.str(), new_defn->type);
+    
     for (size_t i = 0; i < new_defn->param_names.size(); i++) {
         String param_name = new_defn->param_names[i];
         Value_Type param_type = new_defn->type.data.func.arg_types[i];
