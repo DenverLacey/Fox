@@ -209,10 +209,14 @@ auto flatten(const C &container, F producer) {
     return buffer;
 }
 
+template<typename T, typename ...Ts>
+inline constexpr bool are_all_same = (std::is_same_v<T, Ts> && ...);
+
 template<typename Head, typename ...Tail>
-struct head {
-    using type = Head;
-};
+struct head { using type = Head; };
+
+template<typename ...Ts>
+using head_t = typename head<Ts...>::type;
 
 template<typename T>
 void unpack(T *buffer) {}
@@ -230,8 +234,10 @@ void unpack(T *buffer, T head, Ts ...tail) {
 
 template<typename ...Ts>
 auto unpack(Ts ...elements) {
+    static_assert(are_all_same<Ts...>, "Cannot unpack something of multiple types.");
+    
     size_t num_elements = sizeof...(Ts);
-    using T = typename std::remove_reference_t<typename head<Ts...>::type>;
+    using T = typename std::remove_reference_t<head_t<Ts...>>;
     
     T *buffer = Mem.allocate<T>(num_elements).as_ptr();
     unpack(buffer, elements...);
