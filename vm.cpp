@@ -59,7 +59,7 @@ VM::VM(Data_Section &constants, Data_Section &str_constants)
 }
 
 void VM::run() {
-    #define READ(type, frame) *(type *)&(*frame->instructions)[frame->pc]; frame->pc += sizeof(type)
+    #define READ(type, frame) *reinterpret_cast<type *>(&(*frame->instructions)[frame->pc]); frame->pc += sizeof(type)
     #define UNOP(type, op) { \
         type a = stack.pop<type>(); \
         stack.push(op(a)); \
@@ -119,7 +119,7 @@ void VM::run() {
             } break;
             case Opcode::Load_Const_String: {
                 size_t constant = READ(size_t, frame);
-                size_t len = *(size_t *)&str_constants[constant];
+                size_t len = *reinterpret_cast<size_t *>(&str_constants[constant]);
                 char *s = reinterpret_cast<char *>(&str_constants[constant + sizeof(size_t)]);
                 stack.push<runtime::String>({ s, static_cast<runtime::Int>(len) });
             } break;
@@ -383,7 +383,7 @@ void VM::print_stack() {
 
 void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Section &str_constants) {
     #define IDX "%04zX: "
-    #define READ(type, i) *(type *)&code[i]; i += sizeof(type)
+    #define READ(type, i) *reinterpret_cast<type *>(&code[i]); i += sizeof(type)
     #define MARK(i) size_t mark = i++
     
     size_t i = 0;
@@ -438,7 +438,7 @@ void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Sectio
             case Opcode::Load_Const_String: {
                 MARK(i);
                 size_t constant = READ(size_t, i);
-                size_t len = *(size_t *)&str_constants[constant];
+                size_t len = *reinterpret_cast<size_t *>(&str_constants[constant]);
                 char *s = reinterpret_cast<char *>(&str_constants[constant + sizeof(size_t)]);
                 printf(IDX "Load_Const_String [%zu] \"%.*s\"\n", mark, constant, len, s);
             } break;

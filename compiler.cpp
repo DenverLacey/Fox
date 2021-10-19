@@ -182,7 +182,8 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
         case Value_Type_Kind::Str: {
             runtime::String value;
             evaluate_unchecked(let.initializer, value);
-            constant.address = add_str_constant({ value.s, static_cast<size_t>(value.len) });
+            constant.address = add_slice_constant(value.len, value.s);
+            SMem.deallocate(value.s, value.len);
         } break;
         case Value_Type_Kind::Ptr:
             todo("declaring constants of pointer types not yet implemented.");
@@ -193,9 +194,12 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
             evaluate_unchecked(let.initializer, data);
             constant.address = add_constant(data, size);
         } break;
-        case Value_Type_Kind::Slice:
-            todo("declaring constants of slice types not yet implemented.");
-            break;
+        case Value_Type_Kind::Slice: {
+            runtime::Slice value;
+            evaluate_unchecked(let.initializer, value);
+            constant.address = add_slice_constant(value.count, reinterpret_cast<char *>(value.data));
+            free(value.data);
+        } break;
         case Value_Type_Kind::Tuple: {
             size_t size = let.initializer->type.size();
             void *data = alloca(size);
@@ -324,15 +328,15 @@ size_t Compiler::add_constant(void *data, size_t size) {
     return index;
 }
 
-size_t Compiler::add_str_constant(String source) {
+size_t Compiler::add_slice_constant(size_t size, char *source) {
     // search for identical string
     size_t i = 0;
     while (i < str_constants.size()) {
         size_t index = i;
-        size_t len = *(size_t *)&str_constants[i];
+        size_t len = *reinterpret_cast<size_t *>(&str_constants[i]);
         i += sizeof(size_t);
-        char *str = (char *)&str_constants[i];
-        if (source.size() == len && memcmp(source.c_str(), str, len) == 0) {
+        char *str = reinterpret_cast<char *>(&str_constants[i]);
+        if (size == len && memcmp(source, str, len) == 0) {
             return index;
         }
         i += len;
@@ -340,17 +344,15 @@ size_t Compiler::add_str_constant(String source) {
     
     // no identical so add new string
     size_t index = str_constants.size();
-    size_t len = source.size();
-    char *str = source.c_str();
     
     // write 64 bit length into buffer
     for (int i = 0; i < sizeof(size_t); i++) {
-        str_constants.push_back(*((reinterpret_cast<uint8_t *>(&len)) + i));
+        str_constants.push_back(*((reinterpret_cast<uint8_t *>(&size)) + i));
     }
     
     // write string into buffer
-    for (size_t i = 0; i < len; i++) {
-        str_constants.push_back(str[i]);
+    for (size_t i = 0; i < size; i++) {
+        str_constants.push_back(source[i]);
     }
     
     return index;
@@ -432,7 +434,7 @@ void Typed_AST_Int::compile(Compiler &c) {
 }
 
 void Typed_AST_Str::compile(Compiler &c) {
-    size_t constant = c.add_str_constant(value);
+    size_t constant = c.add_slice_constant(value.size(), value.c_str());
     c.emit_opcode(Opcode::Load_Const_String);
     c.emit_value<size_t>(constant);
     c.stack_top += type.size();

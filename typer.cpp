@@ -812,7 +812,7 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
 }
 
 void Typed_AST::print(Interpreter *interp) const {
-    print_at_indent(interp, Ref<Typed_AST>((Typed_AST *)this), 0);
+    print_at_indent(interp, Ref<Typed_AST>(const_cast<Typed_AST *>(this)), 0);
 }
 
 struct Typer_Binding {

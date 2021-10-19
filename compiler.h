@@ -106,7 +106,7 @@ struct Compiler {
     template<typename T>
     void emit_value(T value) {
         for (int i = 0; i < sizeof(T); i++) {
-            emit_byte(*(((uint8_t *)&value) + i));
+            emit_byte(*(reinterpret_cast<uint8_t *>(&value) + i));
         }
     }
     
@@ -114,7 +114,7 @@ struct Compiler {
     void compile_constant(Variable constant);
     
     size_t add_constant(void *data, size_t size);
-    size_t add_str_constant(String source);
+    size_t add_slice_constant(size_t size, char *source);
     void *get_constant(size_t constant);
     
     template<typename T>
@@ -124,7 +124,7 @@ struct Compiler {
     
     template<typename T>
     T get_constant(size_t constant) {
-        return *(T *)get_constant(constant);
+        return *reinterpret_cast<T *>(get_constant(constant));
     }
     
     Compiler_Scope &current_scope();
@@ -156,7 +156,7 @@ struct Compiler {
             void *result = vm.stack.get(0);
             memcpy(out_result, result, expression->type.size());
         } else {
-            out_result = *(T *)vm.stack.get(0);
+            out_result = *reinterpret_cast<T *>(vm.stack.get(0));
         }
     }
 };

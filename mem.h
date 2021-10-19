@@ -153,7 +153,7 @@ public:
     
     template<typename T>
     Ref<T> allocate(size_t n) {
-        return Ref<T>((T *)allocate(n * sizeof(T)));
+        return Ref<T>(reinterpret_cast<T *>(allocate(n * sizeof(T))));
     }
     
     template<typename T, typename ...Args>
@@ -165,7 +165,7 @@ public:
     
     template<typename T>
     Ref<T> reallocate(Ref<T> ref, size_t new_n) {
-        return Ref<T>((T *)reallocate(ref.as_ptr(), new_n * sizeof(T)));
+        return Ref<T>(reinterpret_cast<T *>(reallocate(ref.as_ptr()), new_n * sizeof(T)));
     }
     
     template<typename T>
