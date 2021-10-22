@@ -6,9 +6,17 @@
 //  Copyright © 2021 Denver Lacey. All rights reserved.
 //
 
+//
+// Rust Language Reference:
+//      https://doc.rust-lang.org/stable/reference/introduction.html
+// Zig Language Reference:
+//      https://ziglang.org/documentation/master/
+//
+
 // @TODOS:
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
+// [ ]  Handle dot calls through pointers and handle all the deref stuff too.
 //
 
 #include <iostream>

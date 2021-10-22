@@ -759,10 +759,6 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             print_sub_at_indent("struct_id", lit->struct_id, indent + 1);
             print_sub_at_indent("bindings", lit->bindings, indent + 1);
         } break;
-        case Untyped_AST_Kind::Builtin: {
-            auto builtin = node.cast<Untyped_AST_Builtin>();
-            printf("@%s\n", builtin->id.c_str());
-        } break;
         case Untyped_AST_Kind::Noinit: {
             print_nullary("noinit");
         } break;
@@ -993,6 +989,18 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             if (decl->rename_id) {
                 print_sub_at_indent("as", decl->rename_id, indent + 1);
             }
+        } break;
+        case Untyped_AST_Kind::Builtin: {
+            auto builtin = node.cast<Untyped_AST_Builtin>();
+            printf("@%s\n", builtin->id.c_str());
+        } break;
+        case Untyped_AST_Kind::Builtin_Sizeof: {
+            auto unary = node.cast<Untyped_AST_Unary>();
+            auto type = unary->sub.cast<Untyped_AST_Type_Signature>();
+            printf("@size_of(%s)\n", type->value_type->debug_str());
+        } break;
+        case Untyped_AST_Kind::Builtin_Alloc: {
+            print_binary_at_indent("@alloc", node.cast<Untyped_AST_Binary>(), indent);
         } break;
         case Untyped_AST_Kind::Dot_Call: {
             auto dot = node.cast<Untyped_AST_Dot_Call>();

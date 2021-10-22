@@ -503,9 +503,6 @@ static Token punctuation(Tokenizer &t) {
         case ']': tok.kind = Token_Kind::Right_Bracket; break;
         case '@': tok.kind = Token_Kind::At; break;
             
-        // keywords
-        case '_': tok.kind = Token_Kind::Underscore; break;
-            
         // operators
         case '+':
             if (t.match('=')) {
@@ -603,14 +600,19 @@ static Token punctuation(Tokenizer &t) {
     return tok;
 }
 
-static bool is_ident_char(char32_t c) {
+static bool is_ident_continue(char32_t c) {
     return c == '_' || !(ispunct(c) || isspace(c) || isblank(c) || iscntrl(c));
 }
 
+static bool is_ident_begin(char32_t c) {
+    return !isdigit(c) && is_ident_continue(c);
+}
+
 static Token identifier_or_keyword(Tokenizer &t) {
+    bool raw = t.match("r#");
     char *_word = t.cur;
     char *_word_end = t.cur;
-    while (is_ident_char(t.peek())) {
+    while (is_ident_continue(t.peek())) {
         t.next();
         _word_end = t.cur;
     }
@@ -618,7 +620,12 @@ static Token identifier_or_keyword(Tokenizer &t) {
     
     Token tok;
     
-    if (word == "true") {
+    if (raw) {
+        tok.kind = Token_Kind::Ident;
+        tok.data.s = word;
+    } else if (word == "_") {
+        tok.kind = Token_Kind::Underscore;
+    } else if (word == "true") {
         tok.kind = Token_Kind::True;
     } else if (word == "false") {
         tok.kind = Token_Kind::False;
@@ -677,10 +684,10 @@ static Token next_token(Tokenizer &t) {
         tok = character(t);
     } else if (c == '"') {
         tok = string(t);
-    } else if (ispunct(c)) {
-        tok = punctuation(t);
-    } else {
+    } else if (is_ident_begin(c)) {
         tok = identifier_or_keyword(t);
+    } else {
+        tok = punctuation(t);
     }
     return tok;
 }

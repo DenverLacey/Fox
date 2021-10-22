@@ -269,6 +269,11 @@ void VM::run() {
                 stack.calloc(size);
             } break;
             case Opcode::Heap_Allocate: {
+                runtime::Int size = stack.pop<runtime::Int>();
+                runtime::Pointer p = malloc(size);
+                stack.push<runtime::Pointer>(p);
+            } break;
+            case Opcode::Heap_Allocate_Inline: {
                 Size size = READ(Size, frame);
                 runtime::Pointer p = malloc(size);
                 stack.push<runtime::Pointer>(p);
@@ -655,8 +660,12 @@ void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Sectio
             } break;
             case Opcode::Heap_Allocate: {
                 MARK(i);
+                printf(IDX "Heap_Allocate\n", mark);
+            } break;
+            case Opcode::Heap_Allocate_Inline: {
+                MARK(i);
                 Size size = READ(Size, i);
-                printf(IDX "Heap_Allocate %ub\n", mark, size * 8);
+                printf(IDX "Heap_Allocate_Inline %ub\n", mark, size * 8);
             } break;
             case Opcode::Flush: {
                 MARK(i);

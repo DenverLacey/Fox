@@ -53,9 +53,6 @@ struct Find_Variable_Result {
 //    size_t jump;
 //};
 
-//using PolyTable = std::unordered_map<std::string, ValueType>;
-
-struct Function_Definition;
 struct Compiler {
     Address stack_top;
     
@@ -72,20 +69,10 @@ struct Compiler {
     Data_Section &constants;
     Data_Section &str_constants;
 //    int wb_top;
-//    Compiler *child  = nullptr;
-//    bool has_return;
-    // Compiler_Scope global_scope;
-    // Compiler_Scope *current_scope;
 //    AST *ret_statement = nullptr;
 //    std::vector<Loop> loops;
 //    std::vector<LoopJump> breaks;
 //    std::vector<LoopJump> continues;
-//    std::list<StructDefinition> struct_defns; // see above
-//    std::list<EnumDefinition> enum_defns; // see above
-//    std::vector<FunctionDefinition *> fn_defns;
-//    std::vector<FnDeclaration *> poly_fn_decls;
-//    std::vector<PolyTable> poly_params;
-//    std::list<FunctionDefinition> *fn_buffer; // see above
     
     Compiler(Interpreter *interp, Data_Section &constants, Data_Section &str_constants, Function_Definition *function);
     Compiler(Compiler *parent, Function_Definition *function);

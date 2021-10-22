@@ -55,7 +55,7 @@ void String_Allocator::clear() {
 void String_Allocator::allocate_chunk(size_t size) {
     size_t alloc_size = Minimum_Chunk_Size;
     if (alloc_size < size) alloc_size = size;
-    Chunk chunk = (Chunk)malloc(alloc_size);
+    Chunk chunk = reinterpret_cast<Chunk>(malloc(alloc_size));
     blocks.push_front(chunk);
     current = alloc_size;
 }

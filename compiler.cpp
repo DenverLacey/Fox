@@ -691,6 +691,10 @@ void Typed_AST_Unary::compile(Compiler &c) {
             c.emit_opcode(Opcode::Load);
             c.emit_size(size);
         } break;
+        case Typed_AST_Kind::Heap_Allocate: {
+            sub->compile(c);
+            c.emit_opcode(Opcode::Heap_Allocate);
+        } break;
             
         default:
             internal_error("Kind is not a valid unary operation: %d.", kind);
@@ -1103,7 +1107,7 @@ void Typed_AST_Array::compile(Compiler &c) {
             element_nodes->compile(c);
             
             // data ptr = result of heap allocate
-            c.emit_opcode(Opcode::Heap_Allocate);
+            c.emit_opcode(Opcode::Heap_Allocate_Inline);
             c.emit_size(alloc_size);
             
             // slice.data = move slice data to data ptr

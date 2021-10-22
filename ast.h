@@ -25,7 +25,6 @@ enum class Untyped_AST_Kind {
     Array,
     Slice,
     Struct,
-    Builtin,
     
     // nullary
     Noinit,
@@ -87,6 +86,11 @@ enum class Untyped_AST_Kind {
     Method_Decl,
     Impl_Decl,
     Import_Decl,
+    
+    // builtins
+    Builtin,
+    Builtin_Sizeof,
+    Builtin_Alloc,
     
     // unique
     If,

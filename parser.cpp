@@ -1154,9 +1154,31 @@ struct Parser {
         );
     }
     
-    Ref<Untyped_AST_Builtin> parse_builtin() {
+    Ref<Untyped_AST> parse_builtin() {
         auto id_str = expect(Token_Kind::Ident, "Expected identifier of builtin after '@'.").data.s.clone();
-        return Mem.make<Untyped_AST_Builtin>(id_str);
+        
+        auto builtin = Mem.make<Untyped_AST_Builtin>(id_str);
+        
+        Ref<Untyped_AST> parsed;
+        if (id_str == "size_of") {
+            expect(Token_Kind::Left_Paren, "Expected '(' after '@size_of'.");
+            auto value_type = parse_type_signature();
+            auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+            expect(Token_Kind::Right_Paren, "Expected ')' to terminate '@size_of' builtin.");
+            parsed = Mem.make<Untyped_AST_Unary>(Untyped_AST_Kind::Builtin_Sizeof, sig);
+        } else if (id_str == "alloc") {
+            expect(Token_Kind::Left_Paren, "Expected '(' after '@alloc'.");
+            auto value_type = parse_type_signature();
+            auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+            expect(Token_Kind::Comma, "Expected ',' after type signature in '@alloc' builtin.");
+            auto size_expr = parse_expression();
+            expect(Token_Kind::Right_Paren, "Expected ')' to terminate '@alloc' builtin.");
+            parsed = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Builtin_Alloc, sig, size_expr);
+        } else {
+            parsed = builtin;
+        }
+        
+        return parsed;
     }
     
     Ref<Untyped_AST_Struct_Literal> parse_struct_literal(Ref<Untyped_AST> id) {

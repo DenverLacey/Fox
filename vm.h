@@ -100,7 +100,8 @@ enum class Opcode : uint8_t {
     Pop,    // BYTE_POP,
     Allocate, //    BYTE_ALLOCATE,
     Clear_Allocate, //    BYTE_ZERO,
-    Heap_Allocate,  //    BYTE_HEAP_ALLOCATE,
+    Heap_Allocate,
+    Heap_Allocate_Inline,  //    BYTE_HEAP_ALLOCATE,
     Flush,  // BYTE_FLUSH,
     Return, // BYTE_RETURN,
     

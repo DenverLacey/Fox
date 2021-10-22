@@ -613,6 +613,9 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
                 printf("%*ssub: nullptr\n", (indent + 1) * INDENT_SIZE, "");
             }
         } break;
+        case Typed_AST_Kind::Heap_Allocate: {
+            print_unary_at_indent(interp, "heap-alloc", node.cast<Typed_AST_Unary>(), indent);
+        } break;
         case Typed_AST_Kind::Addition: {
             print_binary_at_indent(interp, "+", node.cast<Typed_AST_Binary>(), indent);
         } break;
@@ -1516,6 +1519,14 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Deref:
             verify(sub->type.kind == Value_Type_Kind::Ptr, "Cannot dereference something of type '%s' because it is not a pointer type.", sub->type.display_str());
             return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.child_type, sub);
+        case Untyped_AST_Kind::Builtin_Sizeof: {
+            auto type = sub.cast<Typed_AST_Type_Signature>();
+            internal_verify(type, "Failed to cast 'rhs' to Type_Signature.");
+            
+            Size type_size = type->value_type->size();
+            
+            return Mem.make<Typed_AST_Int>(static_cast<int64_t>(type_size));
+        } break;
             
         default:
             internal_error("Invalid Unary Untyped_AST_Kind value: %d\n", kind);
@@ -1996,6 +2007,19 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             }
             
             return typechecked;
+        }
+        case Untyped_AST_Kind::Builtin_Alloc: {
+            auto type = lhs.cast<Typed_AST_Type_Signature>();
+            internal_verify(type, "Failed to cast type to Type_Signature");
+            
+            verify(type->value_type->kind == Value_Type_Kind::Ptr, "'@alloc' must return a pointer type.");
+            verify(rhs->type.kind == Value_Type_Kind::Int, "'@alloc' requires its second operand to be of type 'int' but was given '%s'.", rhs->type.display_str());
+            
+            return Mem.make<Typed_AST_Unary>(
+                Typed_AST_Kind::Heap_Allocate,
+                *type->value_type,
+                rhs
+            );
         }
             
         default:
