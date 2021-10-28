@@ -691,10 +691,6 @@ void Typed_AST_Unary::compile(Compiler &c) {
             c.emit_opcode(Opcode::Load);
             c.emit_size(size);
         } break;
-        case Typed_AST_Kind::Heap_Allocate: {
-            sub->compile(c);
-            c.emit_opcode(Opcode::Heap_Allocate);
-        } break;
             
         default:
             internal_error("Kind is not a valid unary operation: %d.", kind);
@@ -1091,36 +1087,7 @@ void Typed_AST_Multiary::compile(Compiler &c) {
 }
 
 void Typed_AST_Array::compile(Compiler &c) {
-    if (kind == Typed_AST_Kind::Array) {
-        element_nodes->compile(c);
-    } else {
-        Size count = (Size)element_nodes->nodes.size();
-        Address stack_top = c.stack_top;
-        
-        if (count == 0) {
-            c.emit_opcode(Opcode::Clear_Allocate);
-            c.emit_size(value_types::Slice.size());
-        } else {
-            Size alloc_size = count * type.child_type()->size();
-            
-            // slice data = result of element_nodes
-            element_nodes->compile(c);
-            
-            // data ptr = result of heap allocate
-            c.emit_opcode(Opcode::Heap_Allocate_Inline);
-            c.emit_size(alloc_size);
-            
-            // slice.data = move slice data to data ptr
-            c.emit_opcode(Opcode::Move_Push_Pointer);
-            c.emit_size(alloc_size);
-            
-            // slice.count = count
-            c.emit_opcode(Opcode::Lit_Int);
-            c.emit_value<runtime::Int>(count);
-        }
-        
-        c.stack_top = stack_top + value_types::Slice.size();
-    }
+    element_nodes->compile(c);
 }
 
 void Typed_AST_Enum_Literal::compile(Compiler &c) {

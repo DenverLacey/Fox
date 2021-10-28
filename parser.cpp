@@ -694,10 +694,18 @@ struct Parser {
                     type->kind = Value_Type_Kind::Array;
                     type->data.array.count = count;
                 }
+
                 expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
+
                 bool is_mut = match(Token_Kind::Mut);
-                type->data.array.element_type = parse_type_signature().as_ptr();
-                type->data.array.element_type->is_mut = is_mut;
+                Value_Type *element_type = parse_type_signature().as_ptr();
+                element_type->is_mut = is_mut;
+                
+                if (type->kind == Value_Type_Kind::Array) {
+                    type->data.array.element_type = element_type;
+                } else {
+                    type->data.slice.element_type = element_type;
+                }
             } break;
             default:
                 error("Invalid type signiture.");
@@ -1094,24 +1102,22 @@ struct Parser {
         return Mem.make<Untyped_AST_Dot_Call>(receiver, method_id, args);
     }
     
-    Ref<Untyped_AST_Array> parse_array_literal() {
-        Value_Type_Kind array_kind = Value_Type_Kind::Array;
+    Ref<Untyped_AST> parse_array_literal() {
         bool infer_count = false;
         size_t count = 0;
         
         if (match(Token_Kind::Right_Bracket)) {
-            array_kind = Value_Type_Kind::Slice;
+            return parse_slice_literal();
+        }
+        
+        if (match(Token_Kind::Underscore)) {
             infer_count = true;
         } else {
-            if (match(Token_Kind::Underscore)) {
-                infer_count = true;
-            } else {
-                auto count_tok = next();
-                verify(count_tok.kind == Token_Kind::Int, "Expected an int to specify count for array literal.");
-                count = count_tok.data.i;
-            }
-            expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
+            auto count_tok = next();
+            verify(count_tok.kind == Token_Kind::Int, "Expected an int to specify count for array literal.");
+            count = count_tok.data.i;
         }
+        expect(Token_Kind::Right_Bracket, "Expected ']' in array literal.");
         
         Ref<Value_Type> element_type = nullptr;
         if (check(Token_Kind::Left_Curly)) {
@@ -1139,25 +1145,35 @@ struct Parser {
         
         count = element_nodes->nodes.size();
         
-        Ref<Value_Type> array_type = nullptr;
-        if (array_kind == Value_Type_Kind::Array) {
-            array_type = Mem.make<Value_Type>(value_types::array_of(count, element_type.as_ptr()));
-        } else {
-            array_type = Mem.make<Value_Type>(value_types::slice_of(element_type.as_ptr()));
-        }
+        Ref<Value_Type> array_type = Mem.make<Value_Type>(value_types::array_of(count, element_type.as_ptr()));
         
         return Mem.make<Untyped_AST_Array>(
-            array_kind == Value_Type_Kind::Array ? Untyped_AST_Kind::Array : Untyped_AST_Kind::Slice,
+            Untyped_AST_Kind::Array,
             count,
             array_type,
             element_nodes
         );
     }
     
+    Ref<Untyped_AST_Binary> parse_slice_literal() {
+        bool is_mut = match(Token_Kind::Mut);
+        auto element_type = parse_type_signature();
+        element_type->is_mut = is_mut;
+        auto element_sig = Mem.make<Untyped_AST_Type_Signature>(element_type);
+        
+        expect(Token_Kind::Left_Curly, "Expected '{' in slice literal.");
+        auto slice_fields = parse_comma_separated_expressions();
+        expect(Token_Kind::Right_Curly, "Expected '}' in slice literal.");
+        
+        return Mem.make<Untyped_AST_Binary>(
+            Untyped_AST_Kind::Slice,
+            element_sig,
+            slice_fields
+        );
+    }
+    
     Ref<Untyped_AST> parse_builtin() {
         auto id_str = expect(Token_Kind::Ident, "Expected identifier of builtin after '@'.").data.s.clone();
-        
-        auto builtin = Mem.make<Untyped_AST_Builtin>(id_str);
         
         Ref<Untyped_AST> parsed;
         if (id_str == "size_of") {
@@ -1175,7 +1191,7 @@ struct Parser {
             expect(Token_Kind::Right_Paren, "Expected ')' to terminate '@alloc' builtin.");
             parsed = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Builtin_Alloc, sig, size_expr);
         } else {
-            parsed = builtin;
+            parsed = Mem.make<Untyped_AST_Builtin>(id_str);;
         }
         
         return parsed;

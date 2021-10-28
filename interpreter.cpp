@@ -57,7 +57,7 @@ void Interpreter::interpret(const char *path) {
     Mem.clear();
     SMem.clear();
     
-#if RUN_VIRTUAL_MACHINE
+#if COMPILE_AST && RUN_VIRTUAL_MACHINE
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("------\n");
 #endif
@@ -71,7 +71,7 @@ void Interpreter::interpret(const char *path) {
     vm.print_stack();
 #endif
     
-#endif // RUN_VIRTUAL_MACHINE
+#endif // COMPILE_AST && RUN_VIRTUAL_MACHINE
 }
 
 Module *Interpreter::create_module(String module_path) {

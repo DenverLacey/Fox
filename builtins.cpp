@@ -11,6 +11,17 @@
 #include "interpreter.h"
 #include "vm.h"
 
+void builtin_alloc(Stack &stack, Address arg_start) {
+    runtime::Int size = stack.pop<runtime::Int>();
+    runtime::Pointer allocation = malloc(size);
+    stack.push(allocation);
+}
+
+void builtin_free(Stack &stack, Address arg_start) {
+    runtime::Pointer pointer = stack.pop<runtime::Pointer>();
+    free(pointer);
+}
+
 void builtin_printb(Stack &stack, Address arg_start) {
     runtime::Bool value = stack.pop<runtime::Bool>();
     printf("%s\n", value ? "true" : "false");
@@ -38,6 +49,16 @@ void builtin_prints(Stack &stack, Address arg_start) {
 }
 
 void load_builtins(Interpreter *interp) {
+    interp->builtins.add_builtin("alloc", {
+        builtin_alloc,
+        value_types::func(value_types::ptr_to(const_cast<Value_Type *>(&value_types::Void)), value_types::Int)
+    });
+    
+    interp->builtins.add_builtin("free", {
+        builtin_free,
+        value_types::func(value_types::Void, value_types::ptr_to(const_cast<Value_Type *>(&value_types::Void)))
+    });
+    
     interp->builtins.add_builtin("printb", {
         builtin_printb,
         value_types::func(value_types::Void, value_types::Bool)

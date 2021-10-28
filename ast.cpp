@@ -928,17 +928,18 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             Ref<Untyped_AST_Type_Signature> sig = node.cast<Untyped_AST_Type_Signature>();
             printf("%s\n", sig->value_type->debug_str());
         } break;
-        case Untyped_AST_Kind::Array:
-        case Untyped_AST_Kind::Slice: {
-            Ref<Untyped_AST_Array> array = node.cast<Untyped_AST_Array>();
-            if (array->array_type->kind == Value_Type_Kind::Array) {
-                printf("(array)\n");
-            } else {
-                printf("(slice)\n");
-            }
+        case Untyped_AST_Kind::Array: {
+            auto array = node.cast<Untyped_AST_Array>();
+            printf("(array)\n");
             printf("%*scount: %zu\n", (indent + 1) * INDENT_SIZE, "", array->count);
             printf("%*stype: %s\n", (indent + 1) * INDENT_SIZE, "", array->array_type->debug_str());
             print_sub_at_indent("elems", array->element_nodes, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Slice: {
+            auto slice = node.cast<Untyped_AST_Binary>();
+            printf("(slice)\n");
+            print_sub_at_indent("type", slice->lhs, indent + 1);
+            print_sub_at_indent("fields", slice->rhs, indent + 1);
         } break;
         case Untyped_AST_Kind::Struct_Decl: {
             auto decl = node.cast<Untyped_AST_Struct_Declaration>();

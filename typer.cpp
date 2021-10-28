@@ -99,9 +99,18 @@ bool Typed_AST_Str::is_constant(Compiler &c) {
     return true;
 }
 
-Typed_AST_Builtin::Typed_AST_Builtin(Builtin_Definition *defn) {
+Typed_AST_Builtin::Typed_AST_Builtin(
+    Builtin_Definition *defn,
+    Value_Type *type)
+{
     this->kind = Typed_AST_Kind::Builtin;
     this->defn = defn;
+    
+    if (type) {
+        this->type = *type;
+    } else {
+        this->type = *defn->type.data.func.return_type;
+    }
 }
 
 bool Typed_AST_Builtin::is_constant(Compiler &c) {
@@ -612,9 +621,6 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             } else {
                 printf("%*ssub: nullptr\n", (indent + 1) * INDENT_SIZE, "");
             }
-        } break;
-        case Typed_AST_Kind::Heap_Allocate: {
-            print_unary_at_indent(interp, "heap-alloc", node.cast<Typed_AST_Unary>(), indent);
         } break;
         case Typed_AST_Kind::Addition: {
             print_binary_at_indent(interp, "+", node.cast<Typed_AST_Binary>(), indent);
@@ -1671,7 +1677,7 @@ static Ref<Typed_AST_Binary> typecheck_builtin_call(
     
     return Mem.make<Typed_AST_Binary>(
         Typed_AST_Kind::Builtin_Call,
-        *builtin_type.return_type,
+        builtin->type,
         builtin,
         args
     );
@@ -1707,6 +1713,33 @@ static Ref<Typed_AST> typecheck_invocation(
     }
     
     return typechecked;
+}
+
+static Ref<Typed_AST_Multiary> typecheck_slice_literal(
+    Typer &t,
+    Untyped_AST_Binary &lit)
+{
+    auto element_type = lit.lhs->typecheck(t).cast<Typed_AST_Type_Signature>();
+    internal_verify(element_type, "Failed to cast to Signature.");
+    
+    auto fields = lit.rhs->typecheck(t).cast<Typed_AST_Multiary>();
+    internal_verify(fields, "Failed to cast to Multiary.");
+    
+    verify(fields->nodes.size() == 2, "Incorrect number of arguments for slice literal.");
+    
+    auto pointer = fields->nodes[0];
+    auto size = fields->nodes[1];
+    
+    verify(pointer->type.kind == Value_Type_Kind::Ptr, "Type mismatch! Expected '*%s' but was given '%s'.", element_type->value_type->display_str(), pointer->type.display_str());
+    verify(element_type->value_type->eq(*pointer->type.data.ptr.child_type), "Type mismatch! Expected '*%s' but was given '%s'.", element_type->value_type->display_str(), pointer->type.display_str());
+    
+    verify(size->type.kind == Value_Type_Kind::Int, "Type mismatch! Expected 'int' but was given '%s'.", size->type.display_str());
+    
+    auto slice_type = value_types::slice_of(element_type->value_type.as_ptr());
+    
+    fields->type = slice_type;
+    
+    return fields;
 }
 
 static Ref<Typed_AST> typecheck_cast_from_bool(
@@ -1838,6 +1871,8 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
     switch (kind) {
         case Untyped_AST_Kind::Invocation:
             return typecheck_invocation(t, *this);
+        case Untyped_AST_Kind::Slice:
+            return typecheck_slice_literal(t, *this);
             
         default:
             break;
@@ -2015,9 +2050,14 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             verify(type->value_type->kind == Value_Type_Kind::Ptr, "'@alloc' must return a pointer type.");
             verify(rhs->type.kind == Value_Type_Kind::Int, "'@alloc' requires its second operand to be of type 'int' but was given '%s'.", rhs->type.display_str());
             
-            return Mem.make<Typed_AST_Unary>(
-                Typed_AST_Kind::Heap_Allocate,
+            auto defn = t.interp->builtins.get_builtin("alloc");
+            internal_verify(defn, "Could't retrieve '@alloc' builtin.");
+            auto alloc = Mem.make<Typed_AST_Builtin>(defn, type->value_type.as_ptr());
+            
+            return Mem.make<Typed_AST_Binary>(
+                Typed_AST_Kind::Builtin_Call,
                 *type->value_type,
+                alloc,
                 rhs
             );
         }

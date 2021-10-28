@@ -17,6 +17,7 @@
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
 // [ ]  Handle dot calls through pointers and handle all the deref stuff too.
+// [ ]  Add way to access slice length and data pointer.
 //
 
 #include <iostream>

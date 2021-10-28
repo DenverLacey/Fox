@@ -39,7 +39,6 @@ enum class Typed_AST_Kind {
     Address_Of_Mut,
     Deref,
     Return,
-    Heap_Allocate,
     
     // binary
     Addition,
@@ -167,7 +166,7 @@ struct Builtin_Definition;
 struct Typed_AST_Builtin : public Typed_AST {
     Builtin_Definition *defn;
     
-    Typed_AST_Builtin(Builtin_Definition *defn);
+    Typed_AST_Builtin(Builtin_Definition *defn, Value_Type *type = nullptr);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
