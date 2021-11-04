@@ -2779,6 +2779,63 @@ Ref<Typed_AST> Untyped_AST_Import_Declaration::typecheck(Typer &t) {
     return nullptr;
 }
 
+static Ref<Typed_AST> typecheck_dot_call_for_string(
+    Typer &t,
+    Ref<Typed_AST> receiver,
+    String method_id,
+    Ref<Untyped_AST_Multiary> args)
+{
+    Ref<Typed_AST> typechecked;
+    
+    if (method_id == "len") {
+        verify(args->nodes.size() == 0, "Incorrect number of arguments passed to 'len'. Expected 0 but was given %zu.", args->nodes.size());
+        
+        size_t offset = offsetof(runtime::String, len);
+        bool deref = receiver->type.kind == Value_Type_Kind::Ptr;
+        
+        typechecked = Mem.make<Typed_AST_Field_Access>(value_types::Int, deref, receiver, static_cast<Size>(offset));
+    } else {
+        error("'%s' is not a method of 'str'.", method_id.c_str());
+    }
+    
+    return typechecked;
+}
+
+static Ref<Typed_AST> typecheck_dot_call_for_slice(
+    Typer &t,
+    Ref<Typed_AST> receiver,
+    String method_id,
+    Ref<Untyped_AST_Multiary> args)
+{
+    Ref<Typed_AST> typechecked;
+    
+    if (method_id == "data") {
+        verify(args->nodes.size() == 0, "Incorrect number of arguments passed to 'data'. Expected 0 but was given %zu.", args->nodes.size());
+        
+        size_t offset = offsetof(runtime::Slice, data);
+        bool deref = receiver->type.kind == Value_Type_Kind::Ptr;
+        Value_Type type;
+        if (deref) {
+            type = value_types::ptr_to(receiver->type.data.ptr.child_type->data.slice.element_type);
+        } else {
+            type = value_types::ptr_to(receiver->type.data.slice.element_type);
+        }
+        
+        typechecked = Mem.make<Typed_AST_Field_Access>(type, deref, receiver, static_cast<Size>(offset));
+    } else if (method_id == "len") {
+        verify(args->nodes.size() == 0, "Incorrect number of arguments passed to 'len'. Expected 0 but was given %zu.", args->nodes.size());
+        
+        size_t offset = offsetof(runtime::Slice, count);
+        bool deref = receiver->type.kind == Value_Type_Kind::Ptr;
+        
+        typechecked = Mem.make<Typed_AST_Field_Access>(value_types::Int, deref, receiver, static_cast<Size>(offset));
+    } else {
+        error("'%s' is not a method of '%s'.", method_id.c_str(), receiver->type.display_str());
+    }
+    
+    return typechecked;
+}
+
 static Ref<Typed_AST> typecheck_dot_call_for_struct(
     Typer &t,
     Ref<Typed_AST> receiver,
@@ -2876,6 +2933,12 @@ Ref<Typed_AST> Untyped_AST_Dot_Call::typecheck(Typer &t) {
     
     Ref<Typed_AST> typechecked;
     switch (receiver->type.kind) {
+        case Value_Type_Kind::Str:
+            typechecked = typecheck_dot_call_for_string(t, receiver, method_id, args);
+            break;
+        case Value_Type_Kind::Slice:
+            typechecked = typecheck_dot_call_for_slice(t, receiver, method_id, args);
+            break;
         case Value_Type_Kind::Struct:
             typechecked = typecheck_dot_call_for_struct(t, receiver, method_id, args);
             break;
