@@ -2933,7 +2933,12 @@ static Ref<Typed_AST> typecheck_dot_call_for_struct(
     String method_id,
     Ref<Untyped_AST_Multiary> args)
 {
-    auto defn = receiver->type.data.struct_.defn;
+    Struct_Definition *defn;
+    if (receiver->type.kind == Value_Type_Kind::Ptr) {
+        defn = receiver->type.data.ptr.child_type->data.struct_.defn;
+    } else {
+        defn = receiver->type.data.struct_.defn;
+    }
     
     Method method;
     verify(defn->find_method(method_id, method), "Struct type '%s' does not have a method called '%s'.", defn->name.c_str(), method_id.c_str());
@@ -2997,7 +3002,12 @@ static Ref<Typed_AST> typecheck_dot_call_for_enum(
     String method_id,
     Ref<Untyped_AST_Multiary> args)
 {
-    auto defn = receiver->type.data.struct_.defn;
+    Enum_Definition *defn;
+    if (receiver->type.kind == Value_Type_Kind::Ptr) {
+        defn = receiver->type.data.ptr.child_type->data.enum_.defn;
+    } else {
+        defn = receiver->type.data.enum_.defn;
+    }
     
     Method method;
     verify(defn->find_method(method_id, method), "Enum type '%s' does not have a method called '%s'.", defn->name.c_str(), method_id.c_str());
@@ -3058,8 +3068,13 @@ static Ref<Typed_AST> typecheck_dot_call_for_enum(
 Ref<Typed_AST> Untyped_AST_Dot_Call::typecheck(Typer &t) {
     auto receiver = this->receiver->typecheck(t);
     
+    Value_Type receiver_type = receiver->type;
+    if (receiver_type.kind == Value_Type_Kind::Ptr) {
+        receiver_type = *receiver_type.data.ptr.child_type;
+    }
+    
     Ref<Typed_AST> typechecked;
-    switch (receiver->type.kind) {
+    switch (receiver_type.kind) {
         case Value_Type_Kind::Str:
             typechecked = typecheck_dot_call_for_string(t, receiver, method_id, args);
             break;
