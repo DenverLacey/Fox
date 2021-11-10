@@ -18,7 +18,6 @@
 // [ ]  Maybe handle dereferencing constant pointers.
 // [ ]  Handle dot calls through pointers and handle all the deref stuff too.
 // [ ]  Simplify Array stuff now that slices aren't coupled with them anymore.
-// [x]  Add variadic functions.
 //
 
 #include <iostream>

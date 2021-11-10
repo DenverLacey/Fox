@@ -344,7 +344,8 @@ void VM::run() {
                 void *result = stack.pop(size);
                 
                 runtime::Int ret_addr = *reinterpret_cast<runtime::Int *>(stack.get(this, -static_cast<int>(value_types::Int.size())));
-                stack._top = frame->stack_bottom + static_cast<int>(ret_addr);
+                ret_addr += value_types::Int.size();
+                stack._top = frame->stack_bottom - static_cast<int>(ret_addr);
                 
                 stack.push(result, size);
                 

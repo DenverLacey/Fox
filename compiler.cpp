@@ -945,7 +945,7 @@ void Typed_AST_Variadic_Call::compile(Compiler &c) {
     
     // relative return address
     c.emit_opcode(Opcode::Lit_Int);
-    c.emit_value<runtime::Int>(-static_cast<runtime::Int>(varargs_size + value_types::Int.size()));
+    c.emit_value<runtime::Int>(varargs_size);
     
     args->compile(c);
     

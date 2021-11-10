@@ -344,7 +344,6 @@ static void remove_underscores(char *s, size_t len) {
 
 static Token number(Tokenizer &t) {
     char *word = t.cur;
-//    if (t.check('-')) t.next();
     char *word_end = t.cur;
     bool underscores = false;
     

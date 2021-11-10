@@ -22,6 +22,12 @@ void builtin_free(Stack &stack, Address arg_start) {
     free(pointer);
 }
 
+void builtin_panic(Stack &stack, Address arg_start) {
+    runtime::String err = stack.pop<runtime::String>();
+    printf("Panic! %.*s\n", err.len, err.s);
+    exit(EXIT_FAILURE);
+}
+
 void builtin_printb(Stack &stack, Address arg_start) {
     runtime::Bool value = stack.pop<runtime::Bool>();
     printf("%s\n", value ? "true" : "false");
@@ -57,6 +63,11 @@ void load_builtins(Interpreter *interp) {
     interp->builtins.add_builtin("free", {
         builtin_free,
         value_types::func(value_types::Void, value_types::ptr_to(const_cast<Value_Type *>(&value_types::Void)))
+    });
+    
+    interp->builtins.add_builtin("panic", {
+        builtin_panic,
+        value_types::func(value_types::Void, value_types::Str)
     });
     
     interp->builtins.add_builtin("printb", {
