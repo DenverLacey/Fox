@@ -861,8 +861,14 @@ struct Typer_Binding {
         Module,
     } kind;
     
+    struct Function_Binding {
+        UUID uuid;
+        Value_Type fn_type;
+    };
+    
     union {
         Value_Type value_type;
+        Function_Binding func;
         ::Module *mod;
     };
     
@@ -880,10 +886,11 @@ struct Typer_Binding {
         return b;
     }
     
-    static Typer_Binding function(Value_Type fn_type) {
+    static Typer_Binding function(UUID uuid, Value_Type fn_type) {
         Typer_Binding b;
         b.kind = Function;
-        b.value_type = fn_type;
+        b.func.uuid = uuid;
+        b.func.fn_type = fn_type;
         return b;
     }
     
@@ -1000,9 +1007,9 @@ struct Typer {
         return put_binding(id, Typer_Binding::type(type));
     }
     
-    void bind_function(const std::string &id, Value_Type fn_type) {
+    void bind_function(const std::string &id, UUID uuid, Value_Type fn_type) {
         internal_verify(fn_type.kind == Value_Type_Kind::Function, "Attempted to bind a function name to a non-function Value_Type.");
-        return put_binding(id, Typer_Binding::function(fn_type));
+        return put_binding(id, Typer_Binding::function(uuid, fn_type));
     }
     
     void bind_module(const std::string &id, Module *module) {
@@ -1044,7 +1051,7 @@ struct Typer {
                     auto func = interp->functions.get_func_by_uuid(member.uuid);
                     internal_verify(func, "Failed to retrieve function with UUID #%lld.", member.uuid);
                     
-                    bind_function(id, func->type);
+                    bind_function(id, func->uuid, func->type);
                 } break;
                 case Module::Member::Submodule: {
                     auto sub = interp->modules.get_module_by_uuid(member.uuid);
@@ -1299,7 +1306,7 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
             }
         } break;
         case Typer_Binding::Function: {
-            ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, binding.value_type.data.func.uuid, binding.value_type);
+            ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Func, binding.func.uuid, binding.func.fn_type);
         } break;
         case Typer_Binding::Module: {
             ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Module, binding.mod->uuid, value_types::None);
@@ -2565,7 +2572,6 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
 
     Value_Type func_type;
     func_type.kind = Value_Type_Kind::Function;
-    func_type.data.func.uuid = defn.uuid;
 
     Value_Type *return_type = Mem.make<Value_Type>().as_ptr();
     if (decl.return_type_signature) {
@@ -2624,7 +2630,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
 
     new_t.begin_scope();
     
-    new_t.bind_function(new_defn->name.str(), new_defn->type);
+    new_t.bind_function(new_defn->name.str(), new_defn->uuid, new_defn->type);
     
     for (size_t i = 0; i < new_defn->param_names.size(); i++) {
         String param_name = new_defn->param_names[i];
@@ -2643,7 +2649,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
 
 Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     auto [defn, typed_decl] = typecheck_fn_decl(t, *this);
-    t.bind_function(id.str(), defn->type);
+    t.bind_function(id.str(), defn->uuid, defn->type);
     t.module->add_func_member(defn);
     return typed_decl;
 }
