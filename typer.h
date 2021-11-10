@@ -90,6 +90,7 @@ enum class Typed_AST_Kind {
     Field_Access,
     Processed_Pattern,
     Match_Pattern,
+    Variadic_Call
 };
 
 struct Compiler;
@@ -359,6 +360,17 @@ struct Typed_AST_Cast : public Typed_AST {
     Ref<Typed_AST> expr;
     
     Typed_AST_Cast(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> expr);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Variadic_Call : public Typed_AST {
+    Size varargs_size;
+    Ref<Typed_AST> func;
+    Ref<Typed_AST_Multiary> args;
+    Ref<Typed_AST_Multiary> varargs;
+    
+    Typed_AST_Variadic_Call(Value_Type type, Size varargs_size, Ref<Typed_AST> func, Ref<Typed_AST_Multiary> args, Ref<Typed_AST_Multiary> varargs);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

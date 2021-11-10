@@ -63,6 +63,7 @@ enum class Token_Kind {
     Return,
     Import,
     As,
+    Vararg,
     
     // operators
     Plus,           // +

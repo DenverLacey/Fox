@@ -17,6 +17,7 @@
 struct Module;
 
 struct Function_Definition {
+    bool varargs;
     UUID uuid;
     Module *module;
     String name;

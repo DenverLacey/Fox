@@ -50,7 +50,6 @@ Function_Definition *Compiler::compile(Ref<Typed_AST_Multiary> multi) {
 }
 
 void Compiler::emit_byte(uint8_t byte) {
-    
     function->instructions.push_back(byte);
 }
 
@@ -347,7 +346,7 @@ size_t Compiler::add_slice_constant(size_t size, char *source) {
     
     // write 64 bit length into buffer
     for (int i = 0; i < sizeof(size_t); i++) {
-        str_constants.push_back(*((reinterpret_cast<uint8_t *>(&size)) + i));
+        str_constants.push_back(*(reinterpret_cast<uint8_t *>(&size) + i));
     }
     
     // write string into buffer
@@ -926,12 +925,51 @@ static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &s
 static void compile_function_call(Compiler &c, Typed_AST_Binary &call) {
     Address stack_top = c.stack_top;
     
+    // For non-vararg functions, the relative return address will
+    // always be zero.
+    c.emit_opcode(Opcode::Lit_0);
+    
     call.rhs->compile(c);
     call.lhs->compile(c);
     c.emit_opcode(Opcode::Call);
     c.emit_size(call.lhs->type.data.func.arg_size());
     
     c.stack_top = stack_top + call.type.size();
+}
+
+void Typed_AST_Variadic_Call::compile(Compiler &c) {
+    Address stack_top = c.stack_top;
+    
+    // compile variadic parameters separately from the other arguments
+    varargs->compile(c);
+    
+    // relative return address
+    c.emit_opcode(Opcode::Lit_Int);
+    c.emit_value<runtime::Int>(-static_cast<runtime::Int>(varargs_size + value_types::Int.size()));
+    
+    args->compile(c);
+    
+    // add varargs slice to stack
+    if (varargs_size == 0) {
+        c.emit_opcode(Opcode::Lit_0);
+        c.emit_opcode(Opcode::Lit_0);
+    } else {
+        c.emit_opcode(Opcode::Push_Pointer);
+        c.emit_address(stack_top);
+    
+        if (varargs_size == 1) {
+            c.emit_opcode(Opcode::Lit_1);
+        } else {
+            c.emit_opcode(Opcode::Lit_Int);
+            c.emit_value<runtime::Int>(varargs->nodes.size());
+        }
+    }
+    
+    func->compile(c);
+    c.emit_opcode(Opcode::Call);
+    c.emit_size(func->type.data.func.arg_size());
+    
+    c.stack_top = stack_top + type.size();
 }
 
 static void compile_builtin_call(Compiler &c, Typed_AST_Binary &call) {

@@ -84,6 +84,7 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Return: return Precedence::None;
         case Token_Kind::Import: return Precedence::None;
         case Token_Kind::As: return Precedence::Cast;
+        case Token_Kind::Vararg: return Precedence::None;
             
         // operators
         case Token_Kind::Plus: return Precedence::Term;
@@ -339,9 +340,28 @@ struct Parser {
             
             match(Token_Kind::Comma);
         }
-        
-        auto param_list = parse_parameter_list();
-        params->nodes.insert(params->nodes.end(), param_list->nodes.begin(), param_list->nodes.end());
+    
+        // parse parameters
+        bool varargs = false;
+        do {
+            if (check_terminating_delimeter()) break;
+            
+            verify(!varargs, "Variadic parameter must be the last parameter of a function. '%s' has parameters after the variadic parameter.", id.c_str());
+            
+            varargs = match(Token_Kind::Vararg);
+            
+            bool is_mut = match(Token_Kind::Mut);
+            auto id = expect(Token_Kind::Ident, "Expected parameter name.").data.s.clone();
+            auto target = Mem.make<Untyped_AST_Pattern_Ident>(is_mut, id);
+            
+            expect(Token_Kind::Colon, "Expected ':' before parameters type.");
+            
+            auto value_type = parse_type_signature();
+            auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
+            auto binding = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, target, sig);
+            
+            params->add(binding);
+        } while (match(Token_Kind::Comma) && has_more());
         
         expect(Token_Kind::Right_Paren, "Expected ')' to terminate function parameter list.");
         
@@ -357,6 +377,7 @@ struct Parser {
             kind,
             id,
             params,
+            varargs,
             return_type_signature,
             body
         );
@@ -1055,22 +1076,6 @@ struct Parser {
             comma->add(parse_expression());
         } while (match(Token_Kind::Comma) && has_more());
         return comma;
-    }
-    
-    Ref<Untyped_AST_Multiary> parse_parameter_list() {
-        auto params = Mem.make<Untyped_AST_Multiary>(Untyped_AST_Kind::Comma);
-        do {
-            if (check_terminating_delimeter()) break;
-            bool is_mut = match(Token_Kind::Mut);
-            auto id = expect(Token_Kind::Ident, "Expected parameter name.").data.s.clone();
-            auto target = Mem.make<Untyped_AST_Pattern_Ident>(is_mut, id);
-            expect(Token_Kind::Colon, "Expected ':' before parameters type.");
-            auto value_type = parse_type_signature();
-            auto sig = Mem.make<Untyped_AST_Type_Signature>(value_type);
-            auto binding = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Binding, target, sig);
-            params->add(binding);
-        } while (match(Token_Kind::Comma) && has_more());
-        return params;
     }
     
     Ref<Untyped_AST> parse_dot_operator(Ref<Untyped_AST> lhs) {

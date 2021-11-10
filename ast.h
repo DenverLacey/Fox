@@ -411,10 +411,11 @@ struct Untyped_AST_Enum_Declaration : public Untyped_AST {
 struct Untyped_AST_Fn_Declaration : public Untyped_AST {
     String id;
     Ref<Untyped_AST_Multiary> params;
+    bool varargs;
     Ref<Untyped_AST_Type_Signature> return_type_signature;
     Ref<Untyped_AST_Multiary> body;
     
-    Untyped_AST_Fn_Declaration(Untyped_AST_Kind kind, String id, Ref<Untyped_AST_Multiary> params, Ref<Untyped_AST_Type_Signature> return_type_signature, Ref<Untyped_AST_Multiary> body);
+    Untyped_AST_Fn_Declaration(Untyped_AST_Kind kind, String id, Ref<Untyped_AST_Multiary> params, bool varargs, Ref<Untyped_AST_Type_Signature> return_type_signature, Ref<Untyped_AST_Multiary> body);
     ~Untyped_AST_Fn_Declaration();
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;

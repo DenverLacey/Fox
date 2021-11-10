@@ -342,7 +342,10 @@ void VM::run() {
                 
                 Size size = READ(Size, frame);
                 void *result = stack.pop(size);
-                stack._top = frame->stack_bottom;
+                
+                runtime::Int ret_addr = *reinterpret_cast<runtime::Int *>(stack.get(this, -static_cast<int>(value_types::Int.size())));
+                stack._top = frame->stack_bottom + static_cast<int>(ret_addr);
+                
                 stack.push(result, size);
                 
                 frames.pop();

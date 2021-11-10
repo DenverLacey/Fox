@@ -440,6 +440,25 @@ bool Typed_AST_Cast::is_constant(Compiler &c) {
     return expr->is_constant(c);
 }
 
+Typed_AST_Variadic_Call::Typed_AST_Variadic_Call(
+    Value_Type type,
+    Size varargs_size,
+    Ref<Typed_AST> func,
+    Ref<Typed_AST_Multiary> args,
+    Ref<Typed_AST_Multiary> varargs)
+{
+    this->kind = Typed_AST_Kind::Variadic_Call;
+    this->type = type;
+    this->varargs_size = varargs_size;
+    this->func = func;
+    this->args = args;
+    this->varargs = varargs;
+}
+
+bool Typed_AST_Variadic_Call::is_constant(Compiler &c) {
+    return func->is_constant(c) && args->is_constant(c) && varargs->is_constant(c);
+}
+
 static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
     switch (kind) {
         case Untyped_AST_Kind::Bool:            return Typed_AST_Kind::Bool;
@@ -813,6 +832,14 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         case Typed_AST_Kind::Cast_Float_Int:
             print_cast_at_indent(interp, node.cast<Typed_AST_Cast>(), indent);
             break;
+        case Typed_AST_Kind::Variadic_Call: {
+            auto call = node.cast<Typed_AST_Variadic_Call>();
+            printf("(varargs-call)\n");
+            printf("%*svarargs size: %d\n", (indent + 1) * INDENT_SIZE, "", call->varargs_size);
+            print_sub_at_indent(interp, "func", call->func, indent + 1);
+            print_sub_at_indent(interp, "args", call->args, indent + 1);
+            print_sub_at_indent(interp, "varargs", call->varargs, indent + 1);
+        } break;
             
         default:
             internal_error("Invalid Typed_AST_Kind value: %d\n", node->kind);
@@ -1559,18 +1586,25 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
 static void typecheck_function_call_arguments(
     Typer &t,
     Function_Definition *defn,
-    Ref<Typed_AST_Multiary> args,
+    Ref<Typed_AST_Multiary> out_args,
+    Ref<Typed_AST_Multiary> out_varargs, // can be null
     Ref<Untyped_AST_Multiary> rhs,
     bool skip_receiver = false)
 {
-    args->nodes.reserve(defn->type.data.func.arg_types.size());
-    for (size_t i = args->nodes.size(); i < defn->type.data.func.arg_types.size(); i++) {
-        args->nodes.push_back(nullptr);
+    internal_verify(defn->varargs == out_varargs, "Either no out parameter passed for varargs or it was passed when it wasn't needed.");
+    
+    size_t num_args = defn->type.data.func.arg_types.size() - (defn->varargs ? 1 : 0);
+    out_args->nodes.reserve(num_args);
+    for (size_t i = out_args->nodes.size(); i < num_args; i++) {
+        out_args->nodes.push_back(nullptr);
     }
     
     bool began_named_args = false;
     size_t num_positional_args = skip_receiver ? 1 : 0;
-    for (auto arg_node : rhs->nodes) {
+    size_t i = 0;
+    while (i < rhs->nodes.size()) {
+        Ref<Untyped_AST> arg_node = rhs->nodes[i];
+        
         Ref<Untyped_AST> arg_expr;
         size_t arg_pos;
         if (arg_node->kind == Untyped_AST_Kind::Binding) {
@@ -1596,18 +1630,36 @@ static void typecheck_function_call_arguments(
             arg_pos = num_positional_args++;
         }
         
-        auto typecheck_arg_expr = arg_expr->typecheck(t);
-        verify(defn->type.data.func.arg_types[arg_pos]
-                   .assignable_from(typecheck_arg_expr->type),
-               "Argument type mismatch. Expected '%s' but was given '%s'.", defn->type.data.func.arg_types[arg_pos].display_str(), typecheck_arg_expr->type.display_str());
+        if (out_varargs && arg_pos >= num_args) {
+            while (true) {
+                auto typechecked_arg_expr = arg_expr->typecheck(t);
+                out_varargs->nodes.push_back(typechecked_arg_expr);
+                
+                if (i + 1 >= rhs->nodes.size() ||
+                    rhs->nodes[i+1]->kind == Untyped_AST_Kind::Binding)
+                {
+                    break;
+                }
+                
+                i++;
+                arg_expr = rhs->nodes[i];
+            }
+        } else {
+            auto typecheck_arg_expr = arg_expr->typecheck(t);
+            verify(defn->type.data.func.arg_types[arg_pos]
+                       .assignable_from(typecheck_arg_expr->type),
+                   "Argument type mismatch. Expected '%s' but was given '%s'.", defn->type.data.func.arg_types[arg_pos].display_str(), typecheck_arg_expr->type.display_str());
+            
+            auto &arg = out_args->nodes[arg_pos];
+            verify(!arg, "Argument '%.*s' given more than once.", defn->param_names[arg_pos].size(), defn->param_names[arg_pos].c_str());
+            arg = typecheck_arg_expr;
+        }
         
-        auto &arg = args->nodes[arg_pos];
-        verify(!arg, "Argument '%.*s' given more than once.", defn->param_names[arg_pos].size(), defn->param_names[arg_pos].c_str());
-        arg = typecheck_arg_expr;
+        i++;
     }
 }
 
-static Ref<Typed_AST_Binary> typecheck_function_call(
+static Ref<Typed_AST> typecheck_function_call(
     Typer &t,
     Ref<Typed_AST> func,
     Ref<Untyped_AST_Multiary> rhs)
@@ -1619,20 +1671,43 @@ static Ref<Typed_AST_Binary> typecheck_function_call(
     auto defn = t.interp->functions.get_func_by_uuid(func_uuid->uuid);
     internal_verify(defn, "Failed to retrieve function with id #%zu.", func_uuid->uuid);
     
-    // @TODO: default arguments stuff (if we do default arguments)
+    Ref<Typed_AST> typechecked;
+    if (defn->varargs) {
+        verify(rhs->nodes.size() >= defn->type.data.func.arg_types.size() - 1, "Incorrect number of arguments for invocation. Expected at least %zu btu was given %zu.", defn->type.data.func.arg_types.size() - 1, rhs->nodes.size());
+        
+        auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+        auto varargs = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+        typecheck_function_call_arguments(t, defn, args, varargs, rhs);
+        
+        Size varargs_size = 0;
+        for (auto n : varargs->nodes) {
+            varargs_size += n->type.size();
+        }
+        
+        typechecked = Mem.make<Typed_AST_Variadic_Call>(
+            *defn->type.data.func.return_type,
+            varargs_size,
+            func,
+            args,
+            varargs
+        );
+    } else {
+        // @TODO: default arguments stuff (if we do default arguments)
     
-    verify(rhs->nodes.size() == defn->type.data.func.arg_types.size(), "Incorrect number of arguments for invocation. Expected %zu but was given %zu.", defn->type.data.func.arg_types.size(), rhs->nodes.size());
+        verify(rhs->nodes.size() == defn->type.data.func.arg_types.size(), "Incorrect number of arguments for invocation. Expected %zu but was given %zu.", defn->type.data.func.arg_types.size(), rhs->nodes.size());
     
-    auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+        auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+        typecheck_function_call_arguments(t, defn, args, nullptr, rhs);
     
-    typecheck_function_call_arguments(t, defn, args, rhs);
+        typechecked = Mem.make<Typed_AST_Binary>(
+            Typed_AST_Kind::Function_Call,
+            *defn->type.data.func.return_type,
+            func,
+            args
+        );
+    }
     
-    return Mem.make<Typed_AST_Binary>(
-        Typed_AST_Kind::Function_Call,
-        *defn->type.data.func.return_type,
-        func,
-        args
-    );
+    return typechecked;
 }
 
 static Ref<Typed_AST_Enum_Literal> typecheck_enum_literal_with_payload(
@@ -2478,6 +2553,7 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
     Untyped_AST_Fn_Declaration &decl)
 {
     Function_Definition defn;
+    defn.varargs = decl.varargs;
     defn.uuid = t.interp->next_uuid();
     defn.module = t.module;
     defn.name = decl.id.clone();
@@ -2872,7 +2948,7 @@ static Ref<Typed_AST> typecheck_dot_call_for_struct(
     
     auto typechecked_args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
     typechecked_args->add(receiver);
-    typecheck_function_call_arguments(t, method_defn, typechecked_args, args, /*skip_receiver*/ true);
+    typecheck_function_call_arguments(t, method_defn, typechecked_args, nullptr, args, /*skip_receiver*/ true);
     
     return Mem.make<Typed_AST_Binary>(
         Typed_AST_Kind::Function_Call,
@@ -2918,7 +2994,7 @@ static Ref<Typed_AST> typecheck_dot_call_for_enum(
     
     auto typechecked_args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
     typechecked_args->add(receiver);
-    typecheck_function_call_arguments(t, method_defn, typechecked_args, args, /*skip_receiver*/ true);
+    typecheck_function_call_arguments(t, method_defn, typechecked_args, nullptr, args, /*skip_receiver*/ true);
     
     return Mem.make<Typed_AST_Binary>(
         Typed_AST_Kind::Function_Call,

@@ -140,6 +140,9 @@ void Token::print() const {
         case Token_Kind::As:
             printf("As\n");
             break;
+        case Token_Kind::Vararg:
+            printf("Vararg\n");
+            break;
         case Token_Kind::Plus:
             printf("Plus\n");
             break;
@@ -341,7 +344,7 @@ static void remove_underscores(char *s, size_t len) {
 
 static Token number(Tokenizer &t) {
     char *word = t.cur;
-    if (t.check('-')) t.next();
+//    if (t.check('-')) t.next();
     char *word_end = t.cur;
     bool underscores = false;
     
@@ -667,6 +670,8 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::Import;
     } else if (word == "as") {
         tok.kind = Token_Kind::As;
+    } else if (word == "vararg") {
+        tok.kind = Token_Kind::Vararg;
     } else {
         tok.kind = Token_Kind::Ident;
         tok.data.s = word;

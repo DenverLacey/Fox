@@ -281,7 +281,7 @@ Value_Type Value_Type::clone() const {
         } break;
         case Value_Type_Kind::Slice: {
             Value_Type *child = Mem.make<Value_Type>().as_ptr();
-            *child = data.array.element_type->clone();
+            *child = data.slice.element_type->clone();
             ty.data.slice.element_type = child;
         } break;
         case Value_Type_Kind::Tuple:

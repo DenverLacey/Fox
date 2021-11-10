@@ -546,12 +546,14 @@ Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
     Untyped_AST_Kind kind,
     String id,
     Ref<Untyped_AST_Multiary> params,
+    bool varargs,
     Ref<Untyped_AST_Type_Signature> return_type_signature,
     Ref<Untyped_AST_Multiary> body)
 {
     this->kind = kind;
     this->id = id;
     this->params = params;
+    this->varargs = varargs;
     this->return_type_signature = return_type_signature;
     this->body = body;
 }
@@ -565,6 +567,7 @@ Ref<Untyped_AST> Untyped_AST_Fn_Declaration::clone() {
         kind,
         id.clone(),
         params->clone().cast<Untyped_AST_Multiary>(),
+        varargs,
         return_type_signature->clone().cast<Untyped_AST_Type_Signature>(),
         body->clone().cast<Untyped_AST_Multiary>()
     );
@@ -969,6 +972,7 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             printf("(fn-decl)\n");
             printf("%*sid: %.*s\n", (indent + 1) * INDENT_SIZE, "", decl->id.size(), decl->id.c_str());
             print_sub_at_indent("params", decl->params, indent + 1);
+            printf("%*svarargs: %s\n", (indent + 1) * INDENT_SIZE, "", decl->varargs ? "true" : "false");
             if (decl->return_type_signature) {
                 print_sub_at_indent("return", decl->return_type_signature, indent + 1);
             }
