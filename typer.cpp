@@ -2555,12 +2555,7 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     return nullptr;
 }
 
-struct Typecheck_Fn_Decl_Result {
-    Function_Definition *defn;
-    Ref<Typed_AST_Fn_Declaration> typed_decl;
-};
-
-static Typecheck_Fn_Decl_Result typecheck_fn_decl(
+static Function_Definition *typecheck_fn_decl_header(
     Typer &t,
     Untyped_AST_Fn_Declaration &decl)
 {
@@ -2623,28 +2618,46 @@ static Typecheck_Fn_Decl_Result typecheck_fn_decl(
     func_type.data.func.arg_types = param_types;
     defn.type = func_type;
 
-    auto new_defn = t.interp->functions.add_func(defn);
+    return t.interp->functions.add_func(defn);
+}
 
-    // actually typecheck the function
-    auto new_t = Typer { t, new_defn };
+static Ref<Typed_AST_Fn_Declaration> typecheck_fn_decl_body(
+    Typer &t,
+    Untyped_AST_Fn_Declaration &decl,
+    Function_Definition *defn)
+{
+    auto new_t = Typer { t, defn };
 
     new_t.begin_scope();
     
-    new_t.bind_function(new_defn->name.str(), new_defn->uuid, new_defn->type);
+    new_t.bind_function(defn->name.str(), defn->uuid, defn->type);
     
-    for (size_t i = 0; i < new_defn->param_names.size(); i++) {
-        String param_name = new_defn->param_names[i];
-        Value_Type param_type = new_defn->type.data.func.arg_types[i];
+    for (size_t i = 0; i < defn->param_names.size(); i++) {
+        String param_name = defn->param_names[i];
+        Value_Type param_type = defn->type.data.func.arg_types[i];
         new_t.bind_variable(param_name.str(), param_type, param_type.is_mut);
     }
 
     auto body = decl.body->typecheck(new_t).cast<Typed_AST_Multiary>();
 
-    verify(new_defn->type.data.func.return_type->kind == Value_Type_Kind::Void ||
-           new_t.has_return, "Not all paths return a value in non-void function '%.*s'.", new_defn->name.size(), new_defn->name.c_str());
+    verify(defn->type.data.func.return_type->kind == Value_Type_Kind::Void ||
+           new_t.has_return, "Not all paths return a value in non-void function '%.*s'.", defn->name.size(), defn->name.c_str());
     
-    auto typed_decl = Mem.make<Typed_AST_Fn_Declaration>(new_defn, body);
-    return { new_defn, typed_decl };
+    return Mem.make<Typed_AST_Fn_Declaration>(defn, body);
+}
+
+struct Typecheck_Fn_Decl_Result {
+    Function_Definition *defn;
+    Ref<Typed_AST_Fn_Declaration> typed_decl;
+};
+
+static Typecheck_Fn_Decl_Result typecheck_fn_decl(
+    Typer &t,
+    Untyped_AST_Fn_Declaration &decl)
+{
+    auto defn = typecheck_fn_decl_header(t, decl);
+    auto typed_decl = typecheck_fn_decl_body(t, decl, defn);
+    return { defn, typed_decl };
 }
 
 Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
@@ -2660,6 +2673,41 @@ static Ref<Typed_AST_Multiary> typecheck_impl_declaration(
     std::unordered_map<std::string, Method> &methods,
     Ref<Untyped_AST_Multiary> body)
 {
+    // Prepass so everything can refer to everything else regardless of order
+    // in the impl block
+    struct Prepass {
+        Function_Definition *defn;
+        Ref<Untyped_AST_Fn_Declaration> decl;
+    };
+    
+    auto prepasses = std::vector<Prepass> { body->nodes.size() };
+    for (int i = 0; i < body->nodes.size(); i++) {
+        auto node = body->nodes[i];
+        
+        switch (node->kind) {
+            case Untyped_AST_Kind::Fn_Decl:
+            case Untyped_AST_Kind::Method_Decl: {
+                auto decl = node.cast<Untyped_AST_Fn_Declaration>();
+                auto defn = typecheck_fn_decl_header(t, *decl);
+                
+                verify(methods.find(defn->name.c_str()) == methods.end(), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", defn->name.c_str(), type_name);
+                
+                auto fn_sid = defn->name.str();
+                methods[fn_sid] = {
+                    node->kind == Untyped_AST_Kind::Fn_Decl,
+                    defn->uuid
+                };
+                
+                prepasses[i] = { defn, decl };
+            } break;
+                
+            default:
+                error("Impl declaration bodies can only contain function declarations, for now.");
+                break;
+        }
+    }
+    
+    
     //
     // @HACK:
     //      Giving this Typed_AST_Kind::Comma might cause problems in the future.
@@ -2668,27 +2716,9 @@ static Ref<Typed_AST_Multiary> typecheck_impl_declaration(
     //
     auto typed_body = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
     
-    for (auto node : body->nodes) {
-        switch (node->kind) {
-            case Untyped_AST_Kind::Fn_Decl:
-            case Untyped_AST_Kind::Method_Decl: {
-                auto decl = node.cast<Untyped_AST_Fn_Declaration>();
-                auto [fn_defn, fn_decl] = typecheck_fn_decl(t, *decl);
-                verify(methods.find(fn_defn->name.c_str()) == methods.end(), "Cannot have two methods of the same name for one type. Reused name '%s'. Type '%s'.", fn_defn->name.c_str(), type_name);
-                
-                auto fn_sid = fn_defn->name.str();
-                methods[fn_sid] = {
-                    node->kind == Untyped_AST_Kind::Fn_Decl,
-                    fn_defn->uuid
-                };
-                
-                typed_body->add(fn_decl);
-            } break;
-                
-            default:
-                error("Impl declaration bodies can only canotain function declarations, for now.");
-                break;
-        }
+    for (auto [defn, decl] : prepasses) {
+        auto typechecked_decl = typecheck_fn_decl_body(t, *decl, defn);
+        typed_body->add(typechecked_decl);
     }
     
     return typed_body;

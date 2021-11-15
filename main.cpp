@@ -16,8 +16,9 @@
 // @TODOS:
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
-// [ ]  Handle dot calls through pointers and handle all the deref stuff too.
 // [ ]  Simplify Array stuff now that slices aren't coupled with them anymore.
+// [x]  Add pre-pass to impl blocks so that code doesn't have to be defined in
+//      a specific order due to dependencies.
 //
 
 #include <iostream>
