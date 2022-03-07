@@ -19,6 +19,8 @@
 // [ ]  Simplify Array stuff now that slices aren't coupled with them anymore.
 // [x]  Add pre-pass to impl blocks so that code doesn't have to be defined in
 //      a specific order due to dependencies.
+// [ ]  Change print builtins to just be '@print' and do typechecking to resolve.
+// [x]  Add puts style builtins.
 //
 
 #include <iostream>

@@ -28,39 +28,41 @@ enum Shape {
 }
 
 impl Shape {
-	fn to_str(self) -> str {
+	fn print(self) {
 		match *self {
 			Self::Circle(radius) => {
-				@prints("Circle\nradius:");
-				@printf(radius);
+				@puts("Circle(");
+				@putf(radius);
+				@printc(')');
 			}
 			Self::Square(dim) => {
-				@prints("Square\ndimensions:");
-				@printf(dim);
+				@puts("Square(");
+				@putf(dim);
+				@printc(')');
 			}
 			Self::Rectangle(width, height) => {
-				@prints("Rectangle");
+				@puts("Rectangle(");
 
-				@prints("width:");
-				@printf(width);
+				@putf(width);
+				@puts(", ");
 
-				@prints("height:");
-				@printf(height);
+				@putf(height);
+
+				@printc(')');
 			}
 			Self::Triangle(width, height) => {
-				@prints("Triangle");
+				@puts("Triangle(");
 
-				@prints("width:");
-				@printf(width);
+				@putf(width);
+				@puts(", ");
 
-				@prints("height:");
-				@printf(height);
+				@putf(height);
+				
+				@printc(')');
 			}
 		}
-
-		return "";
 	}
 }
 
 let shape = Shape::Rectangle(3.14, 6.28);
-@prints(shape.to_str());
+shape.print();

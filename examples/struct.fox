@@ -36,26 +36,28 @@ impl Timer {
 	}
 
 	fn print(self) {
-		@printd(self.seconds);
-		@printd(self.minutes);
-		@printd(self.hours);
+		@puts("Timer(");
+		
+		@putd(self.seconds);
+		@puts(", ");
+
+		@putd(self.minutes);
+		@puts(", ");
+
+		@putd(self.hours);
+
+		@printc(')');
 	}
 }
 
 let mut timer = Timer::new(1, 4, 9);
 timer.print();
 
-@prints("");
-
 timer.tick();
 timer.print();
 
-@prints("");
-
 timer.reset();
 timer.print();
-
-@prints("");
 
 let Timer { s, m, h } = timer;
 @printd(s);
