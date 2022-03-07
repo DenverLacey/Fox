@@ -1,0 +1,63 @@
+struct Timer {
+	seconds: int,
+	minutes: int,
+	hours: int,
+}
+
+impl Timer {
+	fn default() -> Self {
+		return Self {
+			seconds: 0,
+			minutes: 0,
+			hours: 0,
+		};
+	}
+
+	fn new(seconds: int, minutes: int, hours: int) -> Self {
+		return Self { seconds, minutes, hours };
+	}
+
+	fn tick(mut self) {
+		self.seconds += 1;
+		if self.seconds >= 60 {
+			self.seconds = 0;
+			self.minutes += 1;
+			if self.minutes >= 60 {
+				self.minutes = 0;
+				self.hours += 1;
+			}
+		}
+	}
+
+	fn reset(mut self) {
+		self.seconds = 0;
+		self.minutes = 0;
+		self.hours = 0;
+	}
+
+	fn print(self) {
+		@printd(self.seconds);
+		@printd(self.minutes);
+		@printd(self.hours);
+	}
+}
+
+let mut timer = Timer::new(1, 4, 9);
+timer.print();
+
+@prints("");
+
+timer.tick();
+timer.print();
+
+@prints("");
+
+timer.reset();
+timer.print();
+
+@prints("");
+
+let Timer { s, m, h } = timer;
+@printd(s);
+@printd(m);
+@printd(h);
