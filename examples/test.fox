@@ -1,20 +1,2 @@
-@print(true);
-@print(96);
-@print(3.14);
-@print("Hello world!");
-
-enum Direction {
-	Up,
-	Down,
-	Left,
-	Right,
-}
-
-@print(Direction::Left);
-
-struct Foo {
-	i: int,
-	f: float,
-}
-
-@print(Foo { i: 99, f: 6.28 });
+let string = "\e[33mCOLOUR!!!\e[0m";
+@print(string);

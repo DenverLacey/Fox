@@ -394,6 +394,9 @@ static size_t replace_escape_sequence(char *s, size_t len) {
             case '0':
                 s[i] = '\0';
                 break;
+            case 'e':
+                s[i] = '\e';
+                break;
             case 'n':
                 s[i] = '\n';
                 break;
