@@ -18,7 +18,7 @@ impl Direction {
 }
 
 let dir = Direction::Left;
-@prints(dir.to_str());
+@print(dir.to_str());
 
 enum Shape {
 	Circle(float),
@@ -32,33 +32,33 @@ impl Shape {
 		match *self {
 			Self::Circle(radius) => {
 				@puts("Circle(");
-				@putf(radius);
-				@printc(')');
+				@puts(radius);
+				@print(')');
 			}
 			Self::Square(dim) => {
 				@puts("Square(");
-				@putf(dim);
-				@printc(')');
+				@puts(dim);
+				@print(')');
 			}
 			Self::Rectangle(width, height) => {
 				@puts("Rectangle(");
 
-				@putf(width);
+				@puts(width);
 				@puts(", ");
 
-				@putf(height);
+				@puts(height);
 
-				@printc(')');
+				@print(')');
 			}
 			Self::Triangle(width, height) => {
 				@puts("Triangle(");
 
-				@putf(width);
+				@puts(width);
 				@puts(", ");
 
-				@putf(height);
+				@puts(height);
 				
-				@printc(')');
+				@print(')');
 			}
 		}
 	}

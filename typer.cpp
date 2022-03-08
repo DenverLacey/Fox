@@ -99,6 +99,16 @@ bool Typed_AST_Str::is_constant(Compiler &c) {
     return true;
 }
 
+Typed_AST_Ptr::Typed_AST_Ptr(void *value) {
+    kind = Typed_AST_Kind::Ptr;
+    type.kind = Value_Type_Kind::Ptr;
+    this->value = value;
+}
+
+bool Typed_AST_Ptr::is_constant(Compiler &c) {
+    return true;
+}
+
 Typed_AST_Builtin::Typed_AST_Builtin(
     Builtin_Definition *defn,
     Value_Type *type)
@@ -109,7 +119,13 @@ Typed_AST_Builtin::Typed_AST_Builtin(
     if (type) {
         this->type = *type;
     } else {
-        this->type = *defn->type.data.func.return_type;
+        // @NOTE:
+        //  This may cause some problems else where in the code that expects a Bulitin's type to
+        // just be the return type of the builtin function.
+        //
+        // this->type = *defn->type.data.func.return_type;
+
+        this->type = defn->type;
     }
 }
 
@@ -610,9 +626,13 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             Ref<Typed_AST_Str> lit = node.cast<Typed_AST_Str>();
             printf("\"%.*s\"\n", lit->value.size(), lit->value.c_str());
         } break;
+        case Typed_AST_Kind::Ptr: {
+            auto lit = node.cast<Typed_AST_Ptr>();
+            printf("%p\n", lit->value);
+        } break;
         case Typed_AST_Kind::Builtin: {
             auto builtin = node.cast<Typed_AST_Builtin>();
-            printf("@%p :: %s\n", builtin->defn->builtin, builtin->defn->type.debug_str());
+            printf("@%p :: %s\n", builtin->defn->builtin, builtin->type.debug_str());
         } break;
         case Typed_AST_Kind::Allocate: {
             print_nullary("allocate", node.cast<Typed_AST_Nullary>());
@@ -1743,7 +1763,7 @@ static Ref<Typed_AST_Binary> typecheck_builtin_call(
     auto builtin = lhs.cast<Typed_AST_Builtin>();
     internal_verify(builtin, "lhs passed to %s() was not a builtin.", __func__);
     
-    auto builtin_type = builtin->defn->type.data.func;
+    auto builtin_type = builtin->type.data.func;
     
     //
     // @NOTE:
@@ -1761,10 +1781,10 @@ static Ref<Typed_AST_Binary> typecheck_builtin_call(
         auto given = args->nodes[i];
         verify(expected.assignable_from(given->type), "Type mismatch: Argument %zu of builtin call expected to be '%s' but was given '%s'.", expected.display_str(), given->type.display_str());
     }
-    
+
     return Mem.make<Typed_AST_Binary>(
         Typed_AST_Kind::Builtin_Call,
-        builtin->type,
+        *builtin_type.return_type,
         builtin,
         args
     );
@@ -2252,10 +2272,93 @@ Ref<Typed_AST> Untyped_AST_Struct_Literal::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Builtin::typecheck(Typer &t) {
-    auto defn = t.interp->builtins.get_builtin(id.str());
-    verify(defn, "'@%s' is not a builtin.");
+    auto sid = id.str();
+    auto defn = t.interp->builtins.get_builtin(sid);
+    verify(defn, "'@%s' is not a builtin.", sid.c_str());
     
     return Mem.make<Typed_AST_Builtin>(defn);
+}
+
+Ref<Typed_AST> Untyped_AST_Builtin_Printlike::typecheck(Typer &t) {
+    bool is_puts = this->printlike_kind == Untyped_AST_Builtin_Printlike::Puts;
+    auto arg = this->arg->typecheck(t);
+
+    Ref<Typed_AST> printlike = nullptr;
+    switch (arg->type.kind) {
+        case Value_Type_Kind::Bool: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-bool>" : "<print-bool>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+        } break;
+        case Value_Type_Kind::Char: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-char>" : "<print-char>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+        } break;
+        case Value_Type_Kind::Int: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-int>" : "<print-int>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+        } break;
+        case Value_Type_Kind::Float: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-float>" : "<print-float>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+        } break;
+        case Value_Type_Kind::Str: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-str>" : "<print-str>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+        } break;
+        case Value_Type_Kind::Ptr: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-ptr>" : "<print-ptr>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+        } break;
+        case Value_Type_Kind::Struct: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-struct>" : "<print-struct>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+
+            printlike->type = printlike->type.clone();
+            printlike->type.data.func.arg_types[0] = arg->type;
+
+            auto struct_defn = arg->type.data.struct_.defn;
+            auto push_defn = Mem.make<Typed_AST_Ptr>(struct_defn);
+
+            auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+            args->add(arg);
+            args->add(push_defn);
+            arg = args;
+        } break;
+        case Value_Type_Kind::Enum: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-enum>" : "<print-enum>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn);
+
+            printlike->type = printlike->type.clone();
+            printlike->type.data.func.arg_types[0] = arg->type;
+
+            auto enum_defn = arg->type.data.enum_.defn;
+            auto push_defn = Mem.make<Typed_AST_Ptr>(enum_defn);
+
+            auto args = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma);
+            args->add(arg);
+            args->add(push_defn);
+            arg = args;
+        } break;
+
+        default:
+            error("`@%s` does not take an argument of type `%s`.", is_puts ? "puts" : "print", arg->type.display_str());
+            break;
+    }
+
+    return Mem.make<Typed_AST_Binary>(
+        Typed_AST_Kind::Builtin_Call,
+        *printlike->type.data.func.return_type,
+        printlike,
+        arg
+    );
 }
 
 Ref<Typed_AST> Untyped_AST_Field_Access::typecheck(Typer &t) {

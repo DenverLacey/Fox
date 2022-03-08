@@ -439,6 +439,12 @@ void Typed_AST_Str::compile(Compiler &c) {
     c.stack_top += type.size();
 }
 
+void Typed_AST_Ptr::compile(Compiler &c) {
+    c.emit_opcode(Opcode::Lit_Pointer);
+    c.emit_value<runtime::Pointer>(value);
+    c.stack_top += type.size();
+}
+
 void Typed_AST_Builtin::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Builtin::compile() is disallowed.");
 }
@@ -924,7 +930,7 @@ static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &s
 
 static void compile_function_call(Compiler &c, Typed_AST_Binary &call) {
     Address stack_top = c.stack_top;
-    
+
     // For non-vararg functions, the relative return address will
     // always be zero.
     c.emit_opcode(Opcode::Lit_0);
@@ -981,7 +987,7 @@ static void compile_builtin_call(Compiler &c, Typed_AST_Binary &call) {
     call.rhs->compile(c);
     c.emit_opcode(Opcode::Call_Builtin);
     c.emit_value<Builtin>(builtin->defn->builtin);
-    c.emit_size(builtin->defn->type.data.func.arg_size());
+    c.emit_size(builtin->type.data.func.arg_size());
     
     c.stack_top = stack_top + call.type.size();
 }

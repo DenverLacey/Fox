@@ -129,12 +129,18 @@ char *Value_Type::debug_str() const {
             s << data.range.child_type->debug_str() << ">";
             break;
         case Value_Type_Kind::Struct: {
-            auto defn = data.struct_.defn;
-            s << defn->name.c_str() << "#" << defn->uuid;
+            if (auto defn = data.struct_.defn) {
+                s << defn->name.c_str() << "#" << defn->uuid;
+            } else {
+                s << "<STRUCT>";
+            }
         } break;
         case Value_Type_Kind::Enum: {
-            auto defn = data.enum_.defn;
-            s << defn->name.c_str() << "#" << defn->uuid;
+            if (auto defn = data.enum_.defn) {
+                s << defn->name.c_str() << "#" << defn->uuid;
+            } else {
+                s << "<ENUM>";
+            }
         } break;
         case Value_Type_Kind::Function:
             s << "(";

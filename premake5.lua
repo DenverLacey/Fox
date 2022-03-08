@@ -6,8 +6,8 @@ project "Fox"
 	language "C++"
 	cppdialect "C++17"
 
-	files { 
-		"*.h", 
+	files {
+		"*.h",
 		"*.cpp",
 		"utfcpp/**.h"
 	}

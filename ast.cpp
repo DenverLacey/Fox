@@ -249,6 +249,19 @@ Ref<Untyped_AST> Untyped_AST_Builtin::clone() {
     return Mem.make<Untyped_AST_Builtin>(id.clone());
 }
 
+Untyped_AST_Builtin_Printlike::Untyped_AST_Builtin_Printlike(
+    Untyped_AST_Builtin_Printlike::Kind kind, 
+    Ref<Untyped_AST> arg) 
+{
+    this->kind = Untyped_AST_Kind::Builtin_Printlike;
+    this->printlike_kind = kind;
+    this->arg = arg;
+}
+
+Ref<Untyped_AST> Untyped_AST_Builtin_Printlike::clone() {
+    return Mem.make<Untyped_AST_Builtin_Printlike>(printlike_kind, arg->clone());
+}
+
 Untyped_AST_Field_Access::Untyped_AST_Field_Access(
     Ref<Untyped_AST> instance,
     String field_id)
@@ -1006,6 +1019,15 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
         case Untyped_AST_Kind::Builtin_Alloc: {
             print_binary_at_indent("@alloc", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
+        case Untyped_AST_Kind::Builtin_Printlike: {
+            auto builtin = node.cast<Untyped_AST_Builtin_Printlike>();
+            if (builtin->printlike_kind == Untyped_AST_Builtin_Printlike::Puts) {
+                printf("(@puts)\n");
+            } else {
+                printf("(@print)\n");
+            }
+            print_sub_at_indent("arg", builtin->arg, indent + 1);
         } break;
         case Untyped_AST_Kind::Dot_Call: {
             auto dot = node.cast<Untyped_AST_Dot_Call>();

@@ -74,6 +74,7 @@ struct Enum_Definition {
     std::unordered_map<std::string, Method> methods;
     
     Enum_Variant *find_variant(String id);
+    Enum_Variant *find_variant_by_tag(runtime::Int tag);
     bool has_method(String id);
     bool find_method(String id, Method &out_method);
 };

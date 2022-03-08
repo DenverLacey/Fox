@@ -1195,6 +1195,12 @@ struct Parser {
             auto size_expr = parse_expression();
             expect(Token_Kind::Right_Paren, "Expected ')' to terminate '@alloc' builtin.");
             parsed = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Builtin_Alloc, sig, size_expr);
+        } else if (id_str == "puts" || id_str == "print") {
+            expect(Token_Kind::Left_Paren, "Expected '(' after '@%.*s'.", id_str.size(), id_str.c_str());
+            auto kind = id_str == "puts" ? Untyped_AST_Builtin_Printlike::Puts : Untyped_AST_Builtin_Printlike::Print;
+            auto arg = parse_expression();
+            expect(Token_Kind::Right_Paren, "Expected ')' to terminate '@%.*s' builtin.", id_str.size(), id_str.c_str());
+            parsed = Mem.make<Untyped_AST_Builtin_Printlike>(kind, arg);
         } else {
             parsed = Mem.make<Untyped_AST_Builtin>(id_str);;
         }

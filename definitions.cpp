@@ -52,6 +52,15 @@ Enum_Variant *Enum_Definition::find_variant(String id) {
     return nullptr;
 }
 
+Enum_Variant *Enum_Definition::find_variant_by_tag(runtime::Int tag) {
+    for (auto &v : variants) {
+        if (v.tag == tag) {
+            return &v;
+        }
+    }
+    return nullptr;
+}
+
 bool Enum_Definition::has_method(String id) {
     auto sid = id.str();
     auto it = methods.find(sid);

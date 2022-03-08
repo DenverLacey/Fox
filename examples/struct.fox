@@ -38,15 +38,15 @@ impl Timer {
 	fn print(self) {
 		@puts("Timer(");
 		
-		@putd(self.seconds);
+		@puts(self.seconds);
 		@puts(", ");
 
-		@putd(self.minutes);
+		@puts(self.minutes);
 		@puts(", ");
 
-		@putd(self.hours);
+		@puts(self.hours);
 
-		@printc(')');
+		@print(')');
 	}
 }
 
@@ -60,6 +60,6 @@ timer.reset();
 timer.print();
 
 let Timer { s, m, h } = timer;
-@printd(s);
-@printd(m);
-@printd(h);
+@print(s);
+@print(m);
+@print(h);

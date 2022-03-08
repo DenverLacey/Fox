@@ -91,6 +91,7 @@ enum class Untyped_AST_Kind {
     Builtin,
     Builtin_Sizeof,
     Builtin_Alloc,
+    Builtin_Printlike,
     
     // unique
     If,
@@ -248,6 +249,18 @@ struct Untyped_AST_Builtin : public Untyped_AST {
     
     Untyped_AST_Builtin(String id);
     ~Untyped_AST_Builtin();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Builtin_Printlike : public Untyped_AST {
+    enum Kind {
+        Puts,
+        Print,
+    } printlike_kind;
+    Ref<Untyped_AST> arg;
+
+    Untyped_AST_Builtin_Printlike(Kind kind, Ref<Untyped_AST> arg);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };
