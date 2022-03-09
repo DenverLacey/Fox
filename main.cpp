@@ -21,6 +21,8 @@
 //      a specific order due to dependencies.
 // [ ]  Change print builtins to just be '@print' and do typechecking to resolve.
 // [x]  Add puts style builtins.
+// [ ]  Diverge variadic function calls and returns from normal calls and returns
+//      to alleviate overhead.
 //
 
 #include <iostream>

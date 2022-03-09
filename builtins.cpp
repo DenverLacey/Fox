@@ -12,6 +12,9 @@
 #include "vm.h"
 #include "error.h"
 
+void print_struct(Struct_Definition *defn, void *ptr);
+void print_enum(Enum_Definition *defn, void *ptr);
+
 void builtin_alloc(Stack &stack, Address arg_start) {
     runtime::Int size = stack.pop<runtime::Int>();
     runtime::Pointer allocation = malloc(size);
@@ -29,52 +32,137 @@ void builtin_panic(Stack &stack, Address arg_start) {
     exit(EXIT_FAILURE);
 }
 
-void builtin_puts_bool(Stack &stack, Address arg_start) {
-    runtime::Bool value = stack.pop<runtime::Bool>();
+void print_bool(runtime::Bool value) {
     printf("%s", value ? "true" : "false");
 }
 
-void builtin_puts_char(Stack &stack, Address arg_start) {
-    runtime::Char value = stack.pop<runtime::Char>();
+void print_char(runtime::Char value) {
     auto utf_value = utf8char_t::from_char32(value);
     printf("%s", utf_value.buf);
 }
 
+void print_int(runtime::Int value) {
+    printf("%lld", value);
+}
+
+void print_float(runtime::Float value) {
+    printf("%f", value);
+}
+
+void print_str(runtime::String value) {
+    printf("%.*s", value.len, value.s);
+}
+
+void print_value(Value_Type type, void *ptr) {
+    switch (type.kind) {
+        case Value_Type_Kind::Bool:
+            print_bool(*reinterpret_cast<runtime::Bool *>(ptr));
+            break;
+        case Value_Type_Kind::Char:
+            print_char(*reinterpret_cast<runtime::Char *>(ptr));
+            break;
+        case Value_Type_Kind::Int:
+            print_int(*reinterpret_cast<runtime::Int *>(ptr));
+            break;
+        case Value_Type_Kind::Float:
+            print_float(*reinterpret_cast<runtime::Float *>(ptr));
+            break;
+        case Value_Type_Kind::Str:
+            print_str(*reinterpret_cast<runtime::String *>(ptr));
+            break;
+        case Value_Type_Kind::Struct:
+            print_struct(type.data.struct_.defn, ptr);
+            break;
+        case Value_Type_Kind::Enum:
+            print_enum(type.data.enum_.defn, ptr);
+            break;
+
+        default:
+            printf("%s", type.display_str());
+            break;
+    }
+}
+
+void print_struct(Struct_Definition *defn, void *ptr) {
+    printf("%.*s{ ", defn->name.size(), defn->name.c_str());
+
+    for (size_t i = 0; i < defn->fields.size(); i++) {
+        auto &field = defn->fields[i];
+        
+        printf("%.*s: ", field.id.size(), field.id.c_str());
+
+        void *field_ptr = reinterpret_cast<uint8_t *>(ptr) + field.offset;
+        print_value(field.type, field_ptr);
+
+        if (i + 1 < defn->fields.size()) {
+            printf(", ");
+        }
+    }
+
+    printf(" }");
+}
+
+void print_enum(Enum_Definition *defn, void *ptr) {
+    runtime::Int tag = *reinterpret_cast<runtime::Int *>(ptr);
+    auto variant = defn->find_variant_by_tag(tag);
+    internal_verify(variant, "Invalid variant tag for type `%.*s`: %lld.", defn->name.size(), defn->name.c_str(), tag);
+
+    printf("%.*s", variant->id.size(), variant->id.c_str());
+
+    if (!variant->payload.empty()) {
+        printf("(");
+
+        for (size_t i = 0; i < variant->payload.size(); i++) {
+            auto &p = variant->payload[i];
+
+            void *p_ptr = reinterpret_cast<uint8_t *>(ptr) + p.offset;
+            print_value(p.type, p_ptr);
+
+            if (i + 1 < variant->payload.size()) {
+                printf(", ");
+            }
+        }
+
+        printf(")");
+    }
+}
+
+void builtin_puts_bool(Stack &stack, Address arg_start) {
+    runtime::Bool value = stack.pop<runtime::Bool>();
+    print_bool(value);
+}
+
+void builtin_puts_char(Stack &stack, Address arg_start) {
+    runtime::Char value = stack.pop<runtime::Char>();
+    print_char(value);
+}
+
 void builtin_puts_int(Stack &stack, Address arg_start) {
     runtime::Int value = stack.pop<runtime::Int>();
-    printf("%lld", value);
+    print_int(value);
 }
 
 void builtin_puts_float(Stack &stack, Address arg_start) {
     runtime::Float value = stack.pop<runtime::Float>();
-    printf("%f", value);
+    print_float(value);
 }
 
 void builtin_puts_str(Stack &stack, Address arg_start) {
     runtime::String value = stack.pop<runtime::String>();
-    printf("%.*s", value.len, value.s);
+    print_str(value);
 }
 
 void builtin_puts_struct(Stack &stack, Address arg_start) {
     auto defn = stack.pop<Struct_Definition *>();
     auto data = stack.pop(defn->size);
-
-    printf("(value of struct %.*s at %p)", defn->name.size(), defn->name.c_str(), data);
+    print_struct(defn, data);
 }
 
 void builtin_puts_enum(Stack &stack, Address arg_start) {
     auto defn = stack.pop<Enum_Definition *>();
     auto data = stack.pop(defn->size);
 
-    if (defn->is_sumtype) {
-        printf("(value of enum %.*s at %p)", defn->name.size(), defn->name.c_str(), data);
-    } else {
-        runtime::Int tag = *reinterpret_cast<runtime::Int *>(data);
-        Enum_Variant *var = defn->find_variant_by_tag(tag);
-        internal_verify(var, "Invalid tag value for %s: %lld.", defn->name.c_str(), tag);
-
-        printf("%.*s", var->id.size(), var->id.c_str());
-    }
+    print_enum(defn, data);
 }
 
 void builtin_print_bool(Stack &stack, Address arg_start) {

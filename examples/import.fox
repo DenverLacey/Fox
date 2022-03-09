@@ -1,0 +1,4 @@
+import examples::print as *;
+
+let foo = Foo { i:  56, f: 3.14, e: Euax::Un(1337) };
+@print(foo);

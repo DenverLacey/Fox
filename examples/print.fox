@@ -3,18 +3,18 @@
 @print(3.14);
 @print("Hello world!");
 
-enum Direction {
-	Up,
-	Down,
-	Left,
-	Right,
+enum Euax {
+	Zéro,
+	Un(int),
+	Deux(char, char),
 }
 
-@print(Direction::Left);
+@print(Euax::Zéro);
 
 struct Foo {
 	i: int,
 	f: float,
+	e: Euax,
 }
 
-@print(Foo { i: 99, f: 6.28 });
+@print(Foo { i: 69, f: 3.14, e: Euax::Deux('I', '😎') });

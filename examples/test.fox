@@ -1,2 +1,9 @@
-let string = "\e[33mCOLOUR!!!\e[0m";
-@print(string);
+import examples::print as *;
+
+struct Bar {
+	name: str,
+	foo: Foo,
+}
+
+let bar = Bar { name: "Michael", foo: Foo { i: 69, f: 1.14 } };
+@print(bar);

@@ -50,6 +50,7 @@ void String_Allocator::clear() {
         free(b);
     }
     blocks.clear();
+    current = 0;
 }
     
 void String_Allocator::allocate_chunk(size_t size) {

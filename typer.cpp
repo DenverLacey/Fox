@@ -973,19 +973,19 @@ struct Typer {
             out_binding = it->second;
             return true;
         }
-        
+
         if (parent) {
             if (find_non_variable_binding_by_id_in_parent(id, out_binding)) {
                 return true;
             }
         }
-        
+
         auto it = global_scope->bindings.find(id);
         if (it != global_scope->bindings.end()) {
             out_binding = it->second;
             return true;
         }
-        
+
         return false;
     }
     
@@ -1306,9 +1306,9 @@ Ref<Typed_AST> Untyped_AST_Float::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
+    auto sid = id.str();
     Typer_Binding binding;
-    verify(t.find_binding_by_id(id.str(), binding), "Unresolved identifier '%s'.", id.c_str());
-    
+    verify(t.find_binding_by_id(sid, binding), "Unresolved identifier '%s'.", sid.c_str());
     Ref<Typed_AST> ident;
     switch (binding.kind) {
         case Typer_Binding::Type: {
@@ -1336,7 +1336,7 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
             ident = Mem.make<Typed_AST_Ident>(id.clone(), binding.value_type);
             break;
     }
-    
+
     return ident;
 }
 

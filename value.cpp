@@ -239,7 +239,7 @@ char *Value_Type::display_str() const {
             s << "typeof(" << data.type.type->display_str() << ")";
             break;
     }
-    
+
     char *debug_str = SMem.duplicate(s.str().c_str(), s.str().size());
     return debug_str;
 }
