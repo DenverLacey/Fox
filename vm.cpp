@@ -18,12 +18,12 @@
 #include "definitions.h"
 
 void Stack::alloc(size_t size) {
-    verify(_top + size <= Stack::Size, "Out of memory!");
+    verify(_top + size <= Stack::Size, Code_Location{ 0,0,"<NO-LOC>" }, "Out of memory!");
     _top += size;
 }
 
 void Stack::calloc(size_t size) {
-    verify(_top + size <= Stack::Size, "Out of memory!");
+    verify(_top + size <= Stack::Size, Code_Location{ 0,0,"<NO-LOC>" }, "Out of memory!");
     memset(&_buffer[_top], 0, size);
     _top += size;
 }
@@ -72,7 +72,7 @@ void VM::run() {
     #define BIOP_CHECK_FOR_ZERO(type, op, op_str) { \
         type b = stack.pop<type>(); \
         type a = stack.pop<type>(); \
-        verify(b != 0, "Second operand detected as zero which is disallowed for operator " op_str "."); \
+        verify(b != 0, Code_Location{ 0,0,"<NO-LOC>" }, "Second operand detected as zero which is disallowed for operator " op_str "."); \
         stack.push(a op b); \
     } break
     

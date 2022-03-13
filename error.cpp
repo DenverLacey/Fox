@@ -11,27 +11,29 @@
 #include <stdlib.h>
 #include <assert.h>
 
-static void error_impl(const char *err_type, const char *file, size_t line, const char *err_msg, va_list args) {
-    if (file == nullptr) {
-        fprintf(stderr, "%s", err_type);
-    } else {
-        fprintf(stderr, "%s:%zu: %s", file, line, err_type);
-    }
+static void internal_error_impl(const char *err_type, const char *file, size_t line, const char *err_msg, va_list args) {
+    fprintf(stderr, "%s:%zu: %s", file, line, err_type);
     vfprintf(stderr, err_msg, args);
     fprintf(stderr, "\n");
 }
 
+static void error_impl(Code_Location loc, const char *err, va_list args) {
+    fprintf(stderr, "%s:%zu:%zu: Error: ", loc.filename, loc.l0 + 1, loc.c0 + 1);
+    vfprintf(stderr, err, args);
+    fprintf(stderr, "\n");
+}
+
 [[noreturn]]
-void error(const char *err, ...) {
+void error(Code_Location loc, const char *err, ...) {
     va_list args;
     va_start(args, err);
-    error(err, args);
+    error(loc, err, args);
     va_end(args);
 }
 
 [[noreturn]]
-void error(const char *err, va_list args) {
-    error_impl("Error: ", nullptr, 0, err, args);
+void error(Code_Location loc, const char *err, va_list args) {
+    error_impl(loc, err, args);
     exit(EXIT_FAILURE);
 }
 
@@ -45,7 +47,7 @@ void __private_internal_error(const char *file, size_t line, const char *err, ..
 
 [[noreturn]]
 void __private_internal_error(const char *file, size_t line, const char *err, va_list args) {
-    error_impl("Internal Error: ", file, line, err, args);
+    internal_error_impl("Internal Error: ", file, line, err, args);
     exit(EXIT_FAILURE);
 }
 
@@ -59,6 +61,6 @@ void __private_todo(const char *file, size_t line, const char *err, ...) {
 
 [[noreturn]]
 void __private_todo(const char *file, size_t line, const char *err, va_list args) {
-    error_impl("Todo: ", file, line, err, args);
+    internal_error_impl("Todo: ", file, line, err, args);
     exit(EXIT_FAILURE);
 }

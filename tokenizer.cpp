@@ -15,213 +15,216 @@
 void Token::print() const {
     switch (kind) {
         case Token_Kind::Eof:
-            printf("EOF\n");
+            printf("EOF");
             break;
         case Token_Kind::Err:
-            printf("Err (%.*s)\n", data.s.size(), data.s.c_str());
+            printf("Err (%.*s)", data.s.size(), data.s.c_str());
             break;
         case Token_Kind::True:
-            printf("True\n");
+            printf("True");
             break;
         case Token_Kind::False:
-            printf("False\n");
+            printf("False");
             break;
         case Token_Kind::Int:
-            printf("Int (%lld)\n", data.i);
+            printf("Int (%lld)", data.i);
             break;
         case Token_Kind::Float:
-            printf("Float (%f)\n", data.f);
+            printf("Float (%f)", data.f);
             break;
         case Token_Kind::Char:
-            printf("Char '%s'\n", utf8char_t::from_char32(data.c).buf);
+            printf("Char '%s'", utf8char_t::from_char32(data.c).buf);
             break;
         case Token_Kind::String:
-            printf("String \"%.*s\"\n", data.s.size(), data.s.c_str());
+            printf("String \"%.*s\"", data.s.size(), data.s.c_str());
             break;
         case Token_Kind::Ident:
-            printf("Ident `%.*s`\n", data.s.size(), data.s.c_str());
+            printf("Ident `%.*s`", data.s.size(), data.s.c_str());
             break;
         case Token_Kind::Semi:
-            printf("Semi\n");
+            printf("Semi");
             break;
         case Token_Kind::Colon:
-            printf("Colon\n");
+            printf("Colon");
             break;
         case Token_Kind::Double_Colon:
-            printf("Double_Colon\n");
+            printf("Double_Colon");
             break;
         case Token_Kind::Comma:
-            printf("Comma\n");
+            printf("Comma");
             break;
         case Token_Kind::Left_Paren:
-            printf("Left_Paren\n");
+            printf("Left_Paren");
             break;
         case Token_Kind::Right_Paren:
-            printf("Right_Paren\n");
+            printf("Right_Paren");
             break;
         case Token_Kind::Left_Curly:
-            printf("Left_Curly\n");
+            printf("Left_Curly");
             break;
         case Token_Kind::Right_Curly:
-            printf("Right_Curly\n");
+            printf("Right_Curly");
             break;
         case Token_Kind::Left_Bracket:
-            printf("Left_Bracket\n");
+            printf("Left_Bracket");
             break;
         case Token_Kind::Right_Bracket:
-            printf("Right_Bracket\n");
+            printf("Right_Bracket");
             break;
         case Token_Kind::At:
-            printf("At\n");
+            printf("At");
             break;
         case Token_Kind::Thin_Right_Arrow:
-            printf("Thin_Right_Arrow\n");
+            printf("Thin_Right_Arrow");
             break;
         case Token_Kind::Fat_Right_Arrow:
-            printf("Fat_Right_Arrow\n");
+            printf("Fat_Right_Arrow");
             break;
         case Token_Kind::Underscore:
-            printf("Underscore\n");
+            printf("Underscore");
             break;
         case Token_Kind::Noinit:
-            printf("Noinit\n");
+            printf("Noinit");
             break;
         case Token_Kind::Let:
-            printf("Let\n");
+            printf("Let");
             break;
         case Token_Kind::Mut:
-            printf("Mut\n");
+            printf("Mut");
             break;
         case Token_Kind::Const:
-            printf("Const\n");
+            printf("Const");
             break;
         case Token_Kind::If:
-            printf("If\n");
+            printf("If");
             break;
         case Token_Kind::Else:
-            printf("Else\n");
+            printf("Else");
             break;
         case Token_Kind::While:
-            printf("While\n");
+            printf("While");
             break;
         case Token_Kind::For:
-            printf("For\n");
+            printf("For");
             break;
         case Token_Kind::Match:
-            printf("Match\n");
+            printf("Match");
             break;
         case Token_Kind::Fn:
-            printf("Fn\n");
+            printf("Fn");
             break;
         case Token_Kind::Struct:
-            printf("Struct\n");
+            printf("Struct");
             break;
         case Token_Kind::Enum:
-            printf("Enum\n");
+            printf("Enum");
             break;
         case Token_Kind::Impl:
-            printf("Impl\n");
+            printf("Impl");
             break;
         case Token_Kind::And:
-            printf("And\n");
+            printf("And");
             break;
         case Token_Kind::Or:
-            printf("Or\n");
+            printf("Or");
             break;
         case Token_Kind::In:
-            printf("In\n");
+            printf("In");
             break;
         case Token_Kind::Return:
-            printf("Return\n");
+            printf("Return");
             break;
         case Token_Kind::Import:
-            printf("Import\n");
+            printf("Import");
             break;
         case Token_Kind::As:
-            printf("As\n");
+            printf("As");
             break;
         case Token_Kind::Vararg:
-            printf("Vararg\n");
+            printf("Vararg");
             break;
         case Token_Kind::Plus:
-            printf("Plus\n");
+            printf("Plus");
             break;
         case Token_Kind::Plus_Eq:
-            printf("Plus_Eq\n");
+            printf("Plus_Eq");
             break;
         case Token_Kind::Dash:
-            printf("Dash\n");
+            printf("Dash");
             break;
         case Token_Kind::Dash_Eq:
-            printf("Dash_Eq\n");
+            printf("Dash_Eq");
             break;
         case Token_Kind::Star:
-            printf("Star\n");
+            printf("Star");
             break;
         case Token_Kind::Star_Eq:
-            printf("Star_Eq\n");
+            printf("Star_Eq");
             break;
         case Token_Kind::Slash:
-            printf("Slash\n");
+            printf("Slash");
             break;
         case Token_Kind::Slash_Eq:
-            printf("Slash_Eq\n");
+            printf("Slash_Eq");
             break;
         case Token_Kind::Percent:
-            printf("Percent\n");
+            printf("Percent");
             break;
         case Token_Kind::Percent_Eq:
-            printf("Percent_Eq\n");
+            printf("Percent_Eq");
             break;
         case Token_Kind::Bang:
-            printf("Bang\n");
+            printf("Bang");
             break;
         case Token_Kind::Bang_Eq:
-            printf("Bang_Eq\n");
+            printf("Bang_Eq");
             break;
         case Token_Kind::Eq:
-            printf("Eq\n");
+            printf("Eq");
             break;
         case Token_Kind::Double_Eq:
-            printf("Double_Eq\n");
+            printf("Double_Eq");
             break;
         case Token_Kind::Left_Angle:
-            printf("Left_Angle\n");
+            printf("Left_Angle");
             break;
         case Token_Kind::Left_Angle_Eq:
-            printf("Left_Angle_Eq\n");
+            printf("Left_Angle_Eq");
             break;
         case Token_Kind::Right_Angle:
-            printf("Right_Angle\n");
+            printf("Right_Angle");
             break;
         case Token_Kind::Right_Angle_Eq:
-            printf("Right_Angle_Eq\n");
+            printf("Right_Angle_Eq");
             break;
         case Token_Kind::Ampersand:
-            printf("Ampersand\n");
+            printf("Ampersand");
             break;
         case Token_Kind::Ampersand_Mut:
-            printf("Ampersand_Mut\n");
+            printf("Ampersand_Mut");
             break;
         case Token_Kind::Dot:
-            printf("Dot\n");
+            printf("Dot");
             break;
         case Token_Kind::Double_Dot:
-            printf("Double_Dot\n");
+            printf("Double_Dot");
             break;
         case Token_Kind::Triple_Dot:
-            printf("Triple_Dot\n");
+            printf("Triple_Dot");
             break;
             
         default:
             internal_error("Unknown Token_Kind: %d.", kind);
             break;
     }
+
+    printf(": %s:%zu:%zu\n", location.filename, location.l0 + 1, location.c0 + 1);
 }
 
-static Token eof_token() {
+static Token eof_token(Code_Location location) {
     Token t;
     t.kind = Token_Kind::Eof;
+    t.location = location;
     return t;
 }
 
@@ -241,14 +244,31 @@ static Token err_token(const char *err, ...) {
 struct Tokenizer {
     char *cur;
     char *end;
+    const char *filename;
+    size_t current_line;
+    size_t current_column;
     std::vector<Token> tokens;
     
     bool has_more() const {
         return cur != end;
     }
+
+    Code_Location current_location() const {
+        return Code_Location {
+            .l0 = current_line,
+            .c0 = current_column,
+            .filename = filename,
+        };
+    }
     
     char32_t next() {
-        return utf8::next(cur, end);
+        char32_t c = utf8::next(cur, end);
+        current_column++;
+        if (c == '\n') {
+            current_line++;
+            current_column = 0;
+        }
+        return c;
     }
     
     char32_t peek() const {
@@ -284,11 +304,29 @@ struct Tokenizer {
     }
     
     bool match(const char *s) {
-        size_t len = strlen(s);
-        auto num_remaining = end - cur;
-        if (num_remaining < len) return false;
-        if (memcmp(s, cur, len) != 0) return false;
-        cur += len;
+        // @NOTE:
+        //  This doesn't track locaton data properly so for now
+        //  we're doing the dumb thing
+        //
+        // size_t len = strlen(s);
+        // auto num_remaining = end - cur;
+        // if (num_remaining < len) return false;
+        // if (memcmp(s, cur, len) != 0) return false;
+        // cur += len;
+        // return true;
+
+        auto old_cur = cur;
+
+        String _s = const_cast<char *>(s);
+        char *it = _s.c_str();
+        size_t _s_len = _s.len();
+        for (size_t i = 0; i < _s_len; i++) {
+            if (!match(utf8::next(it, _s.end()))) {
+                cur = old_cur;
+                return false;
+            }
+        }
+
         return true;
     }
     
@@ -382,7 +420,7 @@ static Token number(Tokenizer &t) {
     return tok;
 }
 
-static size_t replace_escape_sequence(char *s, size_t len) {
+static size_t replace_escape_sequence(char *s, size_t len, Code_Location loc) {
     int i = 0;
     while (i < len) {
         if (s[i] != '\\') {
@@ -414,7 +452,7 @@ static size_t replace_escape_sequence(char *s, size_t len) {
                 break;
                 
             default:
-                error("Expected an escape sequence but got '%.*s'", len-i, &s[i]);
+                error(loc, "Expected an escape sequence but got '%.*s'", len-i, &s[i]);
                 break;
         }
         
@@ -427,7 +465,8 @@ static size_t replace_escape_sequence(char *s, size_t len) {
 }
 
 static Token character(Tokenizer &t) {
-    verify(t.next() == '\'', "Character literals must start with a '.");
+    auto location = t.current_location();
+    verify(t.next() == '\'', location, "Character literals must start with a '.");
     
     char *word = t.cur;
     char *word_end = t.cur;
@@ -441,13 +480,13 @@ static Token character(Tokenizer &t) {
         word_end = t.cur;
     }
     
-    verify(t.next() == '\'', "Character literals must end with a '.");
+    verify(t.next() == '\'', t.current_location(), "Character literals must end with a '.");
     
     size_t size = word_end - word;
     char *cs = SMem.duplicate(word, size);
-    if (escape_sequences) size = replace_escape_sequence(cs, size);
+    if (escape_sequences) size = replace_escape_sequence(cs, size, location);
     auto len = utf8::distance(cs, &cs[size]);
-    verify(len == 1, "Character literals must contain exactly one character.");
+    verify(len == 1, t.current_location(), "Character literals must contain exactly one character.");
     char32_t c = utf8::peek_next(cs, &cs[size]);
     SMem.deallocate(cs, word_end - word);
     
@@ -458,7 +497,8 @@ static Token character(Tokenizer &t) {
 }
 
 static Token string(Tokenizer &t) {
-    verify(t.next() == '"', "String literals must start with a \".");
+    auto location = t.current_location();
+    verify(t.next() == '"', location, "String literals must start with a \".");
     
     char *word = t.cur;
     char *word_end = t.cur;
@@ -472,11 +512,11 @@ static Token string(Tokenizer &t) {
         word_end = t.cur;
     }
     
-    verify(t.next() == '"', "String literals must end with a \".");
+    verify(t.next() == '"', t.current_location(), "String literals must end with a \".");
     
     size_t len = word_end - word;
     char *cs = SMem.duplicate(word, len);
-    if (escape_sequences) len = replace_escape_sequence(cs, len);
+    if (escape_sequences) len = replace_escape_sequence(cs, len, location);
     String s(cs, len);
     
     Token tok;
@@ -599,7 +639,7 @@ static Token punctuation(Tokenizer &t) {
             
         default:
             auto _c = utf8char_t::from_char32(c);
-            error("Unexpected punctuation '%s'.\n", _c.buf);
+            error(t.current_location(), "Unexpected punctuation '%s'.\n", _c.buf);
     }
     
     return tok;
@@ -683,6 +723,7 @@ static Token identifier_or_keyword(Tokenizer &t) {
 }
 
 static Token next_token(Tokenizer &t) {
+    auto loc = t.current_location();
     auto c = t.peek();
     Token tok;
     if (is_beginning_of_number(t)) {
@@ -696,11 +737,12 @@ static Token next_token(Tokenizer &t) {
     } else {
         tok = punctuation(t);
     }
+    tok.location = loc;
     return tok;
 }
 
-std::vector<Token> tokenize(String source) {
-    auto t = Tokenizer { source.begin(), source.end() };
+std::vector<Token> tokenize(String source, const char *filename) {
+    auto t = Tokenizer { source.begin(), source.end(), filename };
     
     while (true) {
         t.skip_whitespace();
@@ -708,7 +750,7 @@ std::vector<Token> tokenize(String source) {
         t.tokens.push_back(next_token(t));
     }
     
-    t.tokens.push_back(eof_token());
+    t.tokens.push_back(eof_token(t.current_location()));
     
     return t.tokens;
 }

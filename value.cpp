@@ -584,8 +584,8 @@ Value_Type unresolved(Untyped_AST_Symbol *symbol) {
     return ty;
 }
 
-Value_Type unresolved(String id) {
-    auto id_ndoe = Mem.make<Untyped_AST_Ident>(id);
+Value_Type unresolved(String id, Code_Location location) {
+    auto id_ndoe = Mem.make<Untyped_AST_Ident>(id, location);
     return unresolved(id_ndoe.as_ptr());
 }
 

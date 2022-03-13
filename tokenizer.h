@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <vector>
 #include "String.h"
+#include "definitions.h"
 
 enum class Token_Kind {
     // internal
@@ -101,8 +102,9 @@ union Token_Data {
 struct Token {
     Token_Kind kind;
     Token_Data data;
+    Code_Location location;
     
     void print() const;
 };
 
-std::vector<Token> tokenize(String source);
+std::vector<Token> tokenize(String source, const char *filename);

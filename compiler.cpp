@@ -152,7 +152,7 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
     internal_verify(let.target->bindings.size() == 1, "'const' only works with single identifiers, for now.");
     auto id = let.target->bindings[0].id;
     
-    verify(let.initializer->is_constant(*this), "Cannot initialize constant with non-constant expression.");
+    verify(let.initializer->is_constant(*this), let.initializer->location, "Cannot initialize constant with non-constant expression.");
     
     Variable constant = { true, let.initializer->type };
     constant.type.is_mut = false; // incase initializer->type.is_mut
@@ -220,7 +220,7 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
             break;
             
         case Value_Type_Kind::Void:
-            error("Cannot declare a constant of type (void).");
+            error(let.initializer->location, "Cannot declare a constant of type (void).");
             break;
             
         default:
@@ -404,7 +404,7 @@ void Typed_AST_Ident::compile(Compiler &c) {
     auto [status, v] = c.find_variable(id);
     switch (status) {
         case Find_Variable_Result::Not_Found:
-            error("Unresolved identifier '%s'.", id.c_str());
+            error(location, "Unresolved identifier '%s'.", id.c_str());
             break;
         case Find_Variable_Result::Found:
         case Find_Variable_Result::Found_Global:
@@ -470,7 +470,7 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             internal_verify(id, "Failed to cast node to an Ident* in find_static_address.");
             
             auto [v_status, v] = c.find_variable(id->id);
-            verify(v, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
+            verify(v, id->location, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
             
             if (v_status == Find_Variable_Result::Found_Global) {
                 status = Find_Static_Address_Result::Found_Global;
@@ -539,7 +539,7 @@ static bool emit_dynamic_address_code(Compiler &c, Typed_AST &node) {
             internal_verify(id, "Failed to cast node to Ident* in emit_dynamic_address_code().");
             
             auto [v_status, v] = c.find_variable(id->id);
-            verify(v, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
+            verify(v, id->location, "Unresolved identifier '%.*s'.", id->id.size(), id->id.c_str());
             
             c.emit_opcode(v_status == Find_Variable_Result::Found_Global ? Opcode::Push_Global_Pointer : Opcode::Push_Pointer);
             c.emit_address(v->address);
@@ -724,7 +724,7 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
     
     b.rhs->compile(c);
     bool success = emit_address_code(c, *b.lhs);
-    verify(success, "Cannot assign to this kind of expression.");
+    verify(success, b.lhs->location, "Cannot assign to this kind of expression.");
         
     Size size = b.rhs->type.size();
     c.emit_opcode(Opcode::Move);
@@ -866,13 +866,13 @@ static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
                     break;
                 case Find_Static_Address_Result::Not_Found:
                     bool success = emit_dynamic_address_code(c, *sub.lhs);
-                    verify(success, "Cannot subscript this expression.");
+                    verify(success, sub.lhs->location, "Cannot subscript this expression.");
                     emit_dynamic_offset_load(c, *sub.rhs, element_size);
                     break;
             }
         } else {
             bool success = emit_address_code(c, *sub.lhs);
-            verify(success, "Cannot subscript this expression.");
+            verify(success, sub.lhs->location, "Cannot subscript this expression.");
             emit_dynamic_offset_load(c, *sub.rhs, element_size);
         }
     } else {
@@ -882,7 +882,7 @@ static void compile_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
 //                emit_byte(c, BYTE_PUSH_POINTER);
 //                emit_address(c, stack_top);
 //            }
-        verify(success, "Can't subscript this expression.");
+        verify(success, sub.lhs->location, "Can't subscript this expression.");
         
         // data = Load(&slice, sizeof(Pointer))
         c.emit_opcode(Opcode::Load);
@@ -919,7 +919,7 @@ static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &s
     
     // element_ptr = result of ...
     bool success = emit_address_code(c, sub);
-    verify(success, "Cannot subscript this expression.");
+    verify(success, sub.location, "Cannot subscript this expression.");
     
     // element = Load(element_ptr, sizeof(Element))
     c.emit_opcode(Opcode::Load);
@@ -1204,7 +1204,7 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
         auto set_id = f.iterable.cast<Typed_AST_Ident>();
         internal_verify(set_id, "Failed to cast f.iterable to Ident* in compile_for_loop().");
         auto [_, v] = c.find_variable(set_id->id);
-        verify(v, "Unresolved identifier '%.*s'.", set_id->id.size(), set_id->id.c_str());
+        verify(v, f.iterable->location, "Unresolved identifier '%.*s'.", set_id->id.size(), set_id->id.c_str());
         iterable_v = *v;
     } else {
         iterable_v = { false, f.iterable->type, c.stack_top };
@@ -1299,7 +1299,7 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
                     range->kind == Typed_AST_Kind::Inclusive_Range, "Invalid kind for range variable in compile_for_range_loop(): %d.", range->kind);
     
     // ranges are simple so it should just be an identifier
-    verify(f.target->bindings.size() == 1, "Incorrect pattern in for-loop.");
+    verify(f.target->bindings.size() == 1, f.target->location, "Incorrect pattern in for-loop.");
     
     // initialize target_v
     Variable &target_v = c.put_variable(f.target->bindings[0].id, f.target->bindings[0].type, c.stack_top);
@@ -1580,7 +1580,7 @@ void Typed_AST_Field_Access::compile(Compiler &c) {
     
     if (deref) {
         bool success = emit_dynamic_address_code(c, *this);
-        verify(success, "Cannot access field of this expression.");
+        verify(success, instance->location, "Cannot access field of this expression.");
         c.emit_opcode(Opcode::Load);
         c.emit_size(type.size());
     } else {
@@ -1598,7 +1598,7 @@ void Typed_AST_Field_Access::compile(Compiler &c) {
                 break;
             case Find_Static_Address_Result::Not_Found:
                 bool success = emit_dynamic_address_code(c, *this);
-                verify(success, "Cannot access field of this expression.");
+                verify(success, instance->location, "Cannot access field of this expression.");
                 c.emit_opcode(Opcode::Load);
                 c.emit_size(type.size());
                 break;

@@ -1,9 +1,46 @@
-import examples::print as *;
-
-struct Bar {
-	name: str,
-	foo: Foo,
+struct IntList {
+	items: []mut int,
+	count: int,
 }
 
-let bar = Bar { name: "Michael", foo: Foo { i: 69, f: 1.14 } };
-@print(bar);
+impl IntList {
+	fn new() -> Self {
+		return Self{ items: []mut int{ 0 as *mut int, 0 }, count: 0 };
+	}
+
+	fn with_capacity(cap: int) -> Self {
+		return Self{ 
+			items: []mut int{
+				@alloc(*mut int, cap * @size_of(int)),
+				cap,
+			},
+			count: 0,
+		};
+	}
+
+	fn free(mut self) {
+		@free(self.items.data() as *void);
+		self.items = []mut int{ 0 as *mut int, 0 };
+		self.count = 0;
+	}
+
+	fn print(self) {
+		@puts('[');
+		for i in 0..self.count {
+			@puts(self.items[i]);
+			if i + 1 < self.count {
+				@puts(", ");
+			}
+		}
+		@print(']');
+	}
+}
+
+let mut list = IntList::with_capacity(5);
+for i in 0..5 {
+	list.items[i] = i + 1;
+	list.count += 1;
+}
+list.print();
+
+list.free();

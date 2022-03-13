@@ -11,6 +11,7 @@
 #include "String.h"
 #include "value.h"
 #include "typedefs.h"
+#include "codelocation.h"
 
 #include <unordered_map>
 

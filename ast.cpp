@@ -12,31 +12,34 @@
 
 #include <sstream>
 
-Untyped_AST_Bool::Untyped_AST_Bool(bool value) {
+Untyped_AST_Bool::Untyped_AST_Bool(bool value, Code_Location location) {
     kind = Untyped_AST_Kind::Bool;
     this->value = value;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Bool::clone() {
-    return Mem.make<Untyped_AST_Bool>(value);
+    return Mem.make<Untyped_AST_Bool>(value, location);
 }
 
-Untyped_AST_Char::Untyped_AST_Char(char32_t value) {
+Untyped_AST_Char::Untyped_AST_Char(char32_t value, Code_Location location) {
     kind = Untyped_AST_Kind::Char;
     this->value = value;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Char::clone() {
-    return Mem.make<Untyped_AST_Char>(value);
+    return Mem.make<Untyped_AST_Char>(value, location);
 }
 
-Untyped_AST_Float::Untyped_AST_Float(double value) {
+Untyped_AST_Float::Untyped_AST_Float(double value, Code_Location location) {
     kind = Untyped_AST_Kind::Float;
     this->value = value;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Float::clone() {
-    return Mem.make<Untyped_AST_Float>(value);
+    return Mem.make<Untyped_AST_Float>(value, location);
 }
 
 const char *Untyped_AST_Symbol::display_str() const {
@@ -67,9 +70,10 @@ const char *Untyped_AST_Symbol::display_str() const {
     return str;
 }
 
-Untyped_AST_Ident::Untyped_AST_Ident(String id) {
+Untyped_AST_Ident::Untyped_AST_Ident(String id, Code_Location location) {
     kind = Untyped_AST_Kind::Ident;
     this->id = id;
+    this->location = location;
 }
 
 Untyped_AST_Ident::~Untyped_AST_Ident() {
@@ -77,37 +81,42 @@ Untyped_AST_Ident::~Untyped_AST_Ident() {
 }
 
 Ref<Untyped_AST> Untyped_AST_Ident::clone() {
-    return Mem.make<Untyped_AST_Ident>(id.clone());
+    return Mem.make<Untyped_AST_Ident>(id.clone(), location);
 }
 
 Untyped_AST_Path::Untyped_AST_Path(
     Ref<Untyped_AST_Ident> lhs,
-    Ref<Untyped_AST_Symbol> rhs)
+    Ref<Untyped_AST_Symbol> rhs,
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Path;
     this->lhs = lhs;
     this->rhs = rhs;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Path::clone() {
     return Mem.make<Untyped_AST_Path>(
         lhs->clone().cast<Untyped_AST_Ident>(),
-        rhs->clone().cast<Untyped_AST_Symbol>()
+        rhs->clone().cast<Untyped_AST_Symbol>(), 
+        location
     );
 }
 
-Untyped_AST_Int::Untyped_AST_Int(int64_t value) {
+Untyped_AST_Int::Untyped_AST_Int(int64_t value, Code_Location location) {
     kind = Untyped_AST_Kind::Int;
     this->value = value;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Int::clone() {
-    return Mem.make<Untyped_AST_Int>(value);
+    return Mem.make<Untyped_AST_Int>(value, location);
 }
 
-Untyped_AST_Str::Untyped_AST_Str(String value) {
+Untyped_AST_Str::Untyped_AST_Str(String value, Code_Location location) {
     kind = Untyped_AST_Kind::Str;
     this->value = value;
+    this->location = location;
 }
 
 Untyped_AST_Str::~Untyped_AST_Str() {
@@ -115,63 +124,74 @@ Untyped_AST_Str::~Untyped_AST_Str() {
 }
 
 Ref<Untyped_AST> Untyped_AST_Str::clone() {
-    return Mem.make<Untyped_AST_Str>(value.clone());
+    return Mem.make<Untyped_AST_Str>(value.clone(), location);
 }
 
-Untyped_AST_Nullary::Untyped_AST_Nullary(Untyped_AST_Kind kind) {
+Untyped_AST_Nullary::Untyped_AST_Nullary(Untyped_AST_Kind kind, Code_Location location) {
     this->kind = kind;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Nullary::clone() {
-    return Mem.make<Untyped_AST_Nullary>(kind);
+    return Mem.make<Untyped_AST_Nullary>(kind, location);
 }
 
-Untyped_AST_Unary::Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub) {
+Untyped_AST_Unary::Untyped_AST_Unary(Untyped_AST_Kind kind, Ref<Untyped_AST> sub, Code_Location location) {
     this->kind = kind;
     this->sub = sub;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Unary::clone() {
-    return Mem.make<Untyped_AST_Unary>(kind, sub->clone());
+    return Mem.make<Untyped_AST_Unary>(kind, sub->clone(), location);
 }
 
-Untyped_AST_Return::Untyped_AST_Return(Ref<Untyped_AST> sub)
-    : Untyped_AST_Unary(Untyped_AST_Kind::Return, sub)
+Untyped_AST_Return::Untyped_AST_Return(Ref<Untyped_AST> sub, Code_Location location)
+    : Untyped_AST_Unary(Untyped_AST_Kind::Return, sub, location)
 {
 }
 
 Ref<Untyped_AST> Untyped_AST_Return::clone() {
-    return Mem.make<Untyped_AST_Return>(sub ? sub->clone() : nullptr);
+    return Mem.make<Untyped_AST_Return>(sub ? sub->clone() : nullptr, location);
 }
 
-Untyped_AST_Binary::Untyped_AST_Binary(Untyped_AST_Kind kind, Ref<Untyped_AST> lhs, Ref<Untyped_AST> rhs) {
+Untyped_AST_Binary::Untyped_AST_Binary(
+    Untyped_AST_Kind kind, 
+    Ref<Untyped_AST> lhs, 
+    Ref<Untyped_AST> rhs, 
+    Code_Location location) 
+{
     this->kind = kind;
     this->lhs = lhs;
     this->rhs = rhs;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Binary::clone() {
-    return Mem.make<Untyped_AST_Binary>(kind, lhs->clone(), rhs->clone());
+    return Mem.make<Untyped_AST_Binary>(kind, lhs->clone(), rhs->clone(), location);
 }
 
 Untyped_AST_Ternary::Untyped_AST_Ternary(
     Untyped_AST_Kind kind,
     Ref<Untyped_AST> lhs,
     Ref<Untyped_AST> mid,
-    Ref<Untyped_AST> rhs)
+    Ref<Untyped_AST> rhs,
+    Code_Location location)
 {
     this->kind = kind;
     this->lhs = lhs;
     this->mid = mid;
     this->rhs = rhs;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Ternary::clone() {
-    return Mem.make<Untyped_AST_Ternary>(kind, lhs->clone(), mid->clone(), rhs->clone());
+    return Mem.make<Untyped_AST_Ternary>(kind, lhs->clone(), mid->clone(), rhs->clone(), location);
 }
 
-Untyped_AST_Multiary::Untyped_AST_Multiary(Untyped_AST_Kind kind) {
+Untyped_AST_Multiary::Untyped_AST_Multiary(Untyped_AST_Kind kind, Code_Location location) {
     this->kind = kind;
+    this->location = location;
 }
 
 void Untyped_AST_Multiary::add(Ref<Untyped_AST> node) {
@@ -179,34 +199,37 @@ void Untyped_AST_Multiary::add(Ref<Untyped_AST> node) {
 }
 
 Ref<Untyped_AST> Untyped_AST_Multiary::clone() {
-    auto block = Mem.make<Untyped_AST_Multiary>(kind);
+    auto block = Mem.make<Untyped_AST_Multiary>(kind, location);
     for (auto &n : nodes) {
         block->add(n->clone());
     }
     return block;
 }
 
-Untyped_AST_Type_Signature::Untyped_AST_Type_Signature(Ref<Value_Type> value_type) {
+Untyped_AST_Type_Signature::Untyped_AST_Type_Signature(Ref<Value_Type> value_type, Code_Location location) {
     this->kind = Untyped_AST_Kind::Type_Signature;
     this->value_type = value_type;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Type_Signature::clone() {
     Ref<Value_Type> type = Mem.make<Value_Type>();
     *type = value_type->clone();
-    return Mem.make<Untyped_AST_Type_Signature>(type);
+    return Mem.make<Untyped_AST_Type_Signature>(type, location);
 }
 
 Untyped_AST_Array::Untyped_AST_Array(
     Untyped_AST_Kind kind,
     size_t count,
     Ref<Value_Type> array_type,
-    Ref<Untyped_AST_Multiary> element_nodes)
+    Ref<Untyped_AST_Multiary> element_nodes, 
+    Code_Location location)
 {
     this->kind = kind;
     this->count = count;
     this->array_type = array_type;
     this->element_nodes = element_nodes;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Array::clone() {
@@ -216,29 +239,34 @@ Ref<Untyped_AST> Untyped_AST_Array::clone() {
         kind,
         count,
         type,
-        element_nodes->clone().cast<Untyped_AST_Multiary>()
+        element_nodes->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
 Untyped_AST_Struct_Literal::Untyped_AST_Struct_Literal(
     Ref<Untyped_AST_Symbol> struct_id,
-    Ref<Untyped_AST_Multiary> bindings)
+    Ref<Untyped_AST_Multiary> bindings, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Struct;
     this->struct_id = struct_id;
     this->bindings = bindings;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Struct_Literal::clone() {
     return Mem.make<Untyped_AST_Struct_Literal>(
         struct_id->clone().cast<Untyped_AST_Symbol>(),
-        bindings->clone().cast<Untyped_AST_Multiary>()
+        bindings->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
-Untyped_AST_Builtin::Untyped_AST_Builtin(String id) {
+Untyped_AST_Builtin::Untyped_AST_Builtin(String id, Code_Location location) {
     this->kind = Untyped_AST_Kind::Builtin;
     this->id = id;
+    this->location = location;
 }
 
 Untyped_AST_Builtin::~Untyped_AST_Builtin() {
@@ -246,29 +274,33 @@ Untyped_AST_Builtin::~Untyped_AST_Builtin() {
 }
 
 Ref<Untyped_AST> Untyped_AST_Builtin::clone() {
-    return Mem.make<Untyped_AST_Builtin>(id.clone());
+    return Mem.make<Untyped_AST_Builtin>(id.clone(), location);
 }
 
 Untyped_AST_Builtin_Printlike::Untyped_AST_Builtin_Printlike(
     Untyped_AST_Builtin_Printlike::Kind kind, 
-    Ref<Untyped_AST> arg) 
+    Ref<Untyped_AST> arg, 
+    Code_Location location) 
 {
     this->kind = Untyped_AST_Kind::Builtin_Printlike;
     this->printlike_kind = kind;
     this->arg = arg;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Builtin_Printlike::clone() {
-    return Mem.make<Untyped_AST_Builtin_Printlike>(printlike_kind, arg->clone());
+    return Mem.make<Untyped_AST_Builtin_Printlike>(printlike_kind, arg->clone(), location);
 }
 
 Untyped_AST_Field_Access::Untyped_AST_Field_Access(
     Ref<Untyped_AST> instance,
-    String field_id)
+    String field_id, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Field_Access;
     this->instance = instance;
     this->field_id = field_id;
+    this->location = location;
 }
 
 Untyped_AST_Field_Access::~Untyped_AST_Field_Access() {
@@ -276,7 +308,7 @@ Untyped_AST_Field_Access::~Untyped_AST_Field_Access() {
 }
 
 Ref<Untyped_AST> Untyped_AST_Field_Access::clone() {
-    return Mem.make<Untyped_AST_Field_Access>(instance->clone(), field_id.clone());
+    return Mem.make<Untyped_AST_Field_Access>(instance->clone(), field_id.clone(), location);
 }
 
 bool Untyped_AST_Pattern::are_all_variables_mut() {
@@ -335,18 +367,20 @@ bool Untyped_AST_Pattern::are_no_variables_mut() {
     return not_mut;
 }
 
-Untyped_AST_Pattern_Underscore::Untyped_AST_Pattern_Underscore() {
+Untyped_AST_Pattern_Underscore::Untyped_AST_Pattern_Underscore(Code_Location location) {
     kind = Untyped_AST_Kind::Pattern_Underscore;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Pattern_Underscore::clone() {
-    return Mem.make<Untyped_AST_Pattern_Underscore>();
+    return Mem.make<Untyped_AST_Pattern_Underscore>(location);
 }
 
-Untyped_AST_Pattern_Ident::Untyped_AST_Pattern_Ident(bool is_mut, String id) {
+Untyped_AST_Pattern_Ident::Untyped_AST_Pattern_Ident(bool is_mut, String id, Code_Location location) {
     kind = Untyped_AST_Kind::Pattern_Ident;
     this->is_mut = is_mut;
     this->id = id;
+    this->location = location;
 }
 
 Untyped_AST_Pattern_Ident::~Untyped_AST_Pattern_Ident() {
@@ -354,15 +388,16 @@ Untyped_AST_Pattern_Ident::~Untyped_AST_Pattern_Ident() {
 }
 
 Ref<Untyped_AST> Untyped_AST_Pattern_Ident::clone() {
-    return Mem.make<Untyped_AST_Pattern_Ident>(is_mut, id.clone());
+    return Mem.make<Untyped_AST_Pattern_Ident>(is_mut, id.clone(), location);
 }
 
-Untyped_AST_Pattern_Tuple::Untyped_AST_Pattern_Tuple() {
+Untyped_AST_Pattern_Tuple::Untyped_AST_Pattern_Tuple(Code_Location location) {
     kind = Untyped_AST_Kind::Pattern_Tuple;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Pattern_Tuple::clone() {
-    auto copy = Mem.make<Untyped_AST_Pattern_Tuple>();
+    auto copy = Mem.make<Untyped_AST_Pattern_Tuple>(location);
     for (auto sub : sub_patterns) {
         copy->add(sub->clone().cast<Untyped_AST_Pattern>());
     }
@@ -374,71 +409,82 @@ void Untyped_AST_Pattern_Tuple::add(Ref<Untyped_AST_Pattern> sub) {
 }
 
 Untyped_AST_Pattern_Struct::Untyped_AST_Pattern_Struct(
-    Ref<Untyped_AST_Symbol> struct_id)
+    Ref<Untyped_AST_Symbol> struct_id, 
+    Code_Location location)
+  : Untyped_AST_Pattern_Tuple(location)
 {
     this->kind = Untyped_AST_Kind::Pattern_Struct;
     this->struct_id = struct_id;
 }
 
 Ref<Untyped_AST> Untyped_AST_Pattern_Struct::clone() {
-    auto copy = Mem.make<Untyped_AST_Pattern_Struct>(struct_id->clone().cast<Untyped_AST_Ident>());
+    auto copy = Mem.make<Untyped_AST_Pattern_Struct>(struct_id->clone().cast<Untyped_AST_Ident>(), location);
     for (auto s : sub_patterns) {
         copy->add(s->clone().cast<Untyped_AST_Pattern>());
     }
     return copy;
 }
 
-Untyped_AST_Pattern_Enum::Untyped_AST_Pattern_Enum(Ref<Untyped_AST_Symbol> enum_id) {
+Untyped_AST_Pattern_Enum::Untyped_AST_Pattern_Enum(
+    Ref<Untyped_AST_Symbol> enum_id, 
+    Code_Location location)
+  : Untyped_AST_Pattern_Tuple(location)
+{
     this->kind = Untyped_AST_Kind::Pattern_Enum;
     this->enum_id = enum_id;
 }
 
 Ref<Untyped_AST> Untyped_AST_Pattern_Enum::clone() {
-    auto copy = Mem.make<Untyped_AST_Pattern_Enum>(enum_id->clone().cast<Untyped_AST_Ident>());
+    auto copy = Mem.make<Untyped_AST_Pattern_Enum>(enum_id->clone().cast<Untyped_AST_Ident>(), location);
     for (auto s : sub_patterns) {
         copy->add(s->clone().cast<Untyped_AST_Pattern>());
     }
     return copy;
 }
 
-Untyped_AST_Pattern_Value::Untyped_AST_Pattern_Value(Ref<Untyped_AST> value) {
+Untyped_AST_Pattern_Value::Untyped_AST_Pattern_Value(Ref<Untyped_AST> value, Code_Location location) {
     this->kind = Untyped_AST_Kind::Pattern_Value;
     this->value = value;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Pattern_Value::clone() {
-    return Mem.make<Untyped_AST_Pattern_Value>(value->clone());
+    return Mem.make<Untyped_AST_Pattern_Value>(value->clone(), location);
 }
 
 Untyped_AST_If::Untyped_AST_If(
     Ref<Untyped_AST> cond,
     Ref<Untyped_AST> then,
-    Ref<Untyped_AST> else_)
+    Ref<Untyped_AST> else_, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::If;
     this->cond = cond;
     this->then = then;
     this->else_ = else_;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_If::clone() {
     auto cond = this->cond->clone();
     auto then = this->then->clone();
     auto else_ = this->else_ ? this->else_->clone() : nullptr;
-    return Mem.make<Untyped_AST_If>(cond, then, else_);
+    return Mem.make<Untyped_AST_If>(cond, then, else_, location);
 }
 
 Untyped_AST_For::Untyped_AST_For(
     Ref<Untyped_AST_Pattern> target,
     String counter,
     Ref<Untyped_AST> iterable,
-    Ref<Untyped_AST_Multiary> body)
+    Ref<Untyped_AST_Multiary> body, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::For;
     this->target = target;
     this->counter = counter;
     this->iterable = iterable;
     this->body = body;
+    this->location = location;
 }
 
 Untyped_AST_For::~Untyped_AST_For() {
@@ -450,26 +496,30 @@ Ref<Untyped_AST> Untyped_AST_For::clone() {
         target->clone().cast<Untyped_AST_Pattern>(),
         counter.clone(),
         iterable->clone(),
-        body->clone().cast<Untyped_AST_Multiary>()
+        body->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
 Untyped_AST_Match::Untyped_AST_Match(
     Ref<Untyped_AST> cond,
     Ref<Untyped_AST> default_arm,
-    Ref<Untyped_AST_Multiary> arms)
+    Ref<Untyped_AST_Multiary> arms, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Match;
     this->cond = cond;
     this->default_arm = default_arm;
     this->arms = arms;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Match::clone() {
     return Mem.make<Untyped_AST_Match>(
         cond->clone(),
         default_arm->clone(),
-        arms->clone().cast<Untyped_AST_Multiary>()
+        arms->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
@@ -477,39 +527,50 @@ Untyped_AST_Let::Untyped_AST_Let(
     bool is_const,
     Ref<Untyped_AST_Pattern> target,
     Ref<Untyped_AST_Type_Signature> specified_type,
-    Ref<Untyped_AST> initializer)
+    Ref<Untyped_AST> initializer, 
+    Code_Location location)
 {
     kind = Untyped_AST_Kind::Let;
     this->is_const = is_const;
     this->target = target;
     this->specified_type = specified_type;
     this->initializer = initializer;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Let::clone() {
     auto sig = specified_type ? specified_type->clone().cast<Untyped_AST_Type_Signature>() : nullptr;
-    return Mem.make<Untyped_AST_Let>(is_const, target->clone().cast<Untyped_AST_Pattern>(), sig, initializer->clone());
+    return Mem.make<Untyped_AST_Let>(
+        is_const, 
+        target->clone().cast<Untyped_AST_Pattern>(), 
+        sig, initializer->clone(), 
+        location
+    );
 }
 
 Untyped_AST_Generic_Specification::Untyped_AST_Generic_Specification(
     Ref<Untyped_AST_Symbol> id,
-    Ref<Untyped_AST_Multiary> type_params)
+    Ref<Untyped_AST_Multiary> type_params, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Generic_Specification;
     this->id = id;
     this->type_params = type_params;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Generic_Specification::clone() {
     return Mem.make<Untyped_AST_Generic_Specification>(
         id->clone().cast<Untyped_AST_Symbol>(),
-        type_params->clone().cast<Untyped_AST_Multiary>()
+        type_params->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
-Untyped_AST_Struct_Declaration::Untyped_AST_Struct_Declaration(String id) {
+Untyped_AST_Struct_Declaration::Untyped_AST_Struct_Declaration(String id, Code_Location location) {
     kind = Untyped_AST_Kind::Struct_Decl;
     this->id = id;
+    this->location = location;
 }
 
 Untyped_AST_Struct_Declaration::~Untyped_AST_Struct_Declaration() {
@@ -524,16 +585,17 @@ void Untyped_AST_Struct_Declaration::add_field(
 }
 
 Ref<Untyped_AST> Untyped_AST_Struct_Declaration::clone() {
-    auto copy = Mem.make<Untyped_AST_Struct_Declaration>(id.clone());
+    auto copy = Mem.make<Untyped_AST_Struct_Declaration>(id.clone(), location);
     for (auto &f : fields) {
         copy->add_field(f.id.clone(), f.type->clone().cast<Untyped_AST_Type_Signature>());
     }
     return copy;
 }
 
-Untyped_AST_Enum_Declaration::Untyped_AST_Enum_Declaration(String id) {
+Untyped_AST_Enum_Declaration::Untyped_AST_Enum_Declaration(String id, Code_Location location) {
     this->kind = Untyped_AST_Kind::Enum_Decl;
     this->id = id;
+    this->location = location;
 }
 
 Untyped_AST_Enum_Declaration::~Untyped_AST_Enum_Declaration() {
@@ -548,7 +610,7 @@ void Untyped_AST_Enum_Declaration::add_variant(
 }
 
 Ref<Untyped_AST> Untyped_AST_Enum_Declaration::clone() {
-    auto copy = Mem.make<Untyped_AST_Enum_Declaration>(id.clone());
+    auto copy = Mem.make<Untyped_AST_Enum_Declaration>(id.clone(), location);
     for (auto &v : variants) {
         copy->add_variant(v.id.clone(), v.payload->clone().cast<Untyped_AST_Multiary>());
     }
@@ -561,7 +623,8 @@ Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
     Ref<Untyped_AST_Multiary> params,
     bool varargs,
     Ref<Untyped_AST_Type_Signature> return_type_signature,
-    Ref<Untyped_AST_Multiary> body)
+    Ref<Untyped_AST_Multiary> body, 
+    Code_Location location)
 {
     this->kind = kind;
     this->id = id;
@@ -569,6 +632,7 @@ Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
     this->varargs = varargs;
     this->return_type_signature = return_type_signature;
     this->body = body;
+    this->location = location;
 }
 
 Untyped_AST_Fn_Declaration::~Untyped_AST_Fn_Declaration() {
@@ -582,38 +646,44 @@ Ref<Untyped_AST> Untyped_AST_Fn_Declaration::clone() {
         params->clone().cast<Untyped_AST_Multiary>(),
         varargs,
         return_type_signature->clone().cast<Untyped_AST_Type_Signature>(),
-        body->clone().cast<Untyped_AST_Multiary>()
+        body->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
 Untyped_AST_Impl_Declaration::Untyped_AST_Impl_Declaration(
     Ref<Untyped_AST_Symbol> target,
     Ref<Untyped_AST_Symbol> for_,
-    Ref<Untyped_AST_Multiary> body)
+    Ref<Untyped_AST_Multiary> body, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Impl_Decl;
     this->target = target;
     this->for_ = for_;
     this->body = body;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Impl_Declaration::clone() {
     return Mem.make<Untyped_AST_Impl_Declaration>(
         target->clone().cast<Untyped_AST_Symbol>(),
         for_ ? for_->clone().cast<Untyped_AST_Symbol>() : nullptr,
-        body->clone().cast<Untyped_AST_Multiary>()
+        body->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
 Untyped_AST_Dot_Call::Untyped_AST_Dot_Call(
     Ref<Untyped_AST> receiver,
     String method_id,
-    Ref<Untyped_AST_Multiary> args)
+    Ref<Untyped_AST_Multiary> args, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Dot_Call;
     this->receiver = receiver;
     this->method_id = method_id;
     this->args = args;
+    this->location = location;
 }
 
 Untyped_AST_Dot_Call::~Untyped_AST_Dot_Call() {
@@ -624,23 +694,27 @@ Ref<Untyped_AST> Untyped_AST_Dot_Call::clone() {
     return Mem.make<Untyped_AST_Dot_Call>(
         receiver->clone(),
         method_id.clone(),
-        args->clone().cast<Untyped_AST_Multiary>()
+        args->clone().cast<Untyped_AST_Multiary>(), 
+        location
     );
 }
 
 Untyped_AST_Import_Declaration::Untyped_AST_Import_Declaration(
     Ref<Untyped_AST_Symbol> path,
-    Ref<Untyped_AST_Ident> rename_id)
+    Ref<Untyped_AST_Ident> rename_id, 
+    Code_Location location)
 {
     this->kind = Untyped_AST_Kind::Import_Decl;
     this->path = path;
     this->rename_id = rename_id;
+    this->location = location;
 }
 
 Ref<Untyped_AST> Untyped_AST_Import_Declaration::clone() {
     return Mem.make<Untyped_AST_Import_Declaration>(
         path->clone().cast<Untyped_AST_Symbol>(),
-        rename_id->clone().cast<Untyped_AST_Ident>()
+        rename_id->clone().cast<Untyped_AST_Ident>(), 
+        location
     );
 }
 

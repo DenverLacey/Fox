@@ -10,6 +10,8 @@
 
 #include "mem.h"
 #include "value.h"
+#include "definitions.h"
+
 #include <vector>
 
 enum class Typed_AST_Kind {
@@ -99,6 +101,7 @@ struct Compiler;
 struct Typed_AST {
     Typed_AST_Kind kind;
     Value_Type type;
+    Code_Location location;
     
     virtual ~Typed_AST() = default;
     void print(struct Interpreter *interp) const;
@@ -109,7 +112,7 @@ struct Typed_AST {
 struct Typed_AST_Bool : public Typed_AST {
     bool value;
     
-    Typed_AST_Bool(bool value);
+    Typed_AST_Bool(bool value, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -117,7 +120,7 @@ struct Typed_AST_Bool : public Typed_AST {
 struct Typed_AST_Char : public Typed_AST {
     char32_t value;
     
-    Typed_AST_Char(char32_t value);
+    Typed_AST_Char(char32_t value, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -125,7 +128,7 @@ struct Typed_AST_Char : public Typed_AST {
 struct Typed_AST_Float : public Typed_AST {
     double value;
     
-    Typed_AST_Float(double value);
+    Typed_AST_Float(double value, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -133,7 +136,7 @@ struct Typed_AST_Float : public Typed_AST {
 struct Typed_AST_Ident : public Typed_AST {
     String id;
     
-    Typed_AST_Ident(String id, Value_Type type);
+    Typed_AST_Ident(String id, Value_Type type, Code_Location location);
     ~Typed_AST_Ident() override;
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
@@ -142,7 +145,7 @@ struct Typed_AST_Ident : public Typed_AST {
 struct Typed_AST_UUID : public Typed_AST {
     UUID uuid;
     
-    Typed_AST_UUID(Typed_AST_Kind kind, UUID uuid, Value_Type type);
+    Typed_AST_UUID(Typed_AST_Kind kind, UUID uuid, Value_Type type, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -150,7 +153,7 @@ struct Typed_AST_UUID : public Typed_AST {
 struct Typed_AST_Int : public Typed_AST {
     int64_t value;
     
-    Typed_AST_Int(int64_t value);
+    Typed_AST_Int(int64_t value, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -158,7 +161,7 @@ struct Typed_AST_Int : public Typed_AST {
 struct Typed_AST_Str : public Typed_AST {
     String value;
     
-    Typed_AST_Str(String value);
+    Typed_AST_Str(String value, Code_Location location);
     ~Typed_AST_Str() override;
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
@@ -167,7 +170,7 @@ struct Typed_AST_Str : public Typed_AST {
 struct Typed_AST_Ptr : public Typed_AST {
     void *value;
     
-    Typed_AST_Ptr(void *value);
+    Typed_AST_Ptr(void *value, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -176,13 +179,13 @@ struct Builtin_Definition;
 struct Typed_AST_Builtin : public Typed_AST {
     Builtin_Definition *defn;
     
-    Typed_AST_Builtin(Builtin_Definition *defn, Value_Type *type = nullptr);
+    Typed_AST_Builtin(Builtin_Definition *defn, Value_Type *type, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Nullary : public Typed_AST {
-    Typed_AST_Nullary(Typed_AST_Kind kind, Value_Type type);
+    Typed_AST_Nullary(Typed_AST_Kind kind, Value_Type type, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -190,13 +193,13 @@ struct Typed_AST_Nullary : public Typed_AST {
 struct Typed_AST_Unary : public Typed_AST {
     Ref<Typed_AST> sub;
     
-    Typed_AST_Unary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> sub);
+    Typed_AST_Unary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> sub, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
 
 struct Typed_AST_Return : public Typed_AST_Unary {
-    Typed_AST_Return(Ref<Typed_AST> sub);
+    Typed_AST_Return(Ref<Typed_AST> sub, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -205,7 +208,7 @@ struct Typed_AST_Binary : public Typed_AST {
     Ref<Typed_AST> lhs;
     Ref<Typed_AST> rhs;
     
-    Typed_AST_Binary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs);
+    Typed_AST_Binary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> rhs, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -215,7 +218,7 @@ struct Typed_AST_Ternary : public Typed_AST {
     Ref<Typed_AST> mid;
     Ref<Typed_AST> rhs;
     
-    Typed_AST_Ternary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> mid, Ref<Typed_AST> rhs);
+    Typed_AST_Ternary(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> lhs, Ref<Typed_AST> mid, Ref<Typed_AST> rhs, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -223,7 +226,7 @@ struct Typed_AST_Ternary : public Typed_AST {
 struct Typed_AST_Multiary : public Typed_AST {
     std::vector<Ref<Typed_AST>> nodes;
     
-    Typed_AST_Multiary(Typed_AST_Kind kind);
+    Typed_AST_Multiary(Typed_AST_Kind kind, Code_Location location);
     void add(Ref<Typed_AST> node);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
@@ -234,7 +237,7 @@ struct Typed_AST_Array : public Typed_AST {
     Ref<Value_Type> array_type;
     Ref<Typed_AST_Multiary> element_nodes;
     
-    Typed_AST_Array(Value_Type type, Typed_AST_Kind kind, size_t count, Ref<Value_Type> array_type, Ref<Typed_AST_Multiary> element_nodes);
+    Typed_AST_Array(Value_Type type, Typed_AST_Kind kind, size_t count, Ref<Value_Type> array_type, Ref<Typed_AST_Multiary> element_nodes, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -243,7 +246,7 @@ struct Typed_AST_Enum_Literal : public Typed_AST {
     runtime::Int tag;
     Ref<Typed_AST_Multiary> payload;
     
-    Typed_AST_Enum_Literal(Value_Type enum_type, runtime::Int tag, Ref<Typed_AST_Multiary> payload);
+    Typed_AST_Enum_Literal(Value_Type enum_type, runtime::Int tag, Ref<Typed_AST_Multiary> payload, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -253,7 +256,7 @@ struct Typed_AST_If : public Typed_AST {
     Ref<Typed_AST> then;
     Ref<Typed_AST> else_;
     
-    Typed_AST_If(Value_Type type, Ref<Typed_AST> cond, Ref<Typed_AST> then, Ref<Typed_AST> else_);
+    Typed_AST_If(Value_Type type, Ref<Typed_AST> cond, Ref<Typed_AST> then, Ref<Typed_AST> else_, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -261,7 +264,7 @@ struct Typed_AST_If : public Typed_AST {
 struct Typed_AST_Type_Signature : public Typed_AST {
     Ref<Value_Type> value_type;
     
-    Typed_AST_Type_Signature(Ref<Value_Type> value_type);
+    Typed_AST_Type_Signature(Ref<Value_Type> value_type, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -273,7 +276,7 @@ struct Typed_AST_Processed_Pattern : public Typed_AST {
     };
     std::vector<Binding> bindings;
     
-    Typed_AST_Processed_Pattern();
+    Typed_AST_Processed_Pattern(Code_Location location);
     ~Typed_AST_Processed_Pattern();
     void add_binding(String id, Value_Type type, bool is_mut);
     void compile(Compiler &c) override;
@@ -304,7 +307,7 @@ struct Typed_AST_Match_Pattern : public Typed_AST {
     
     std::vector<Binding> bindings;
     
-    Typed_AST_Match_Pattern();
+    Typed_AST_Match_Pattern(Code_Location location);
     void add_none_binding();
     void add_value_binding(Ref<Typed_AST> binding, Size offset);
     void add_variable_binding(String id, Value_Type type, Size offset);
@@ -319,7 +322,7 @@ struct Typed_AST_For : public Typed_AST {
     Ref<Typed_AST> iterable;
     Ref<Typed_AST_Multiary> body;
     
-    Typed_AST_For(Typed_AST_Kind kind, Ref<Typed_AST_Processed_Pattern> target, String counter, Ref<Typed_AST> iterable, Ref<Typed_AST_Multiary> body);
+    Typed_AST_For(Typed_AST_Kind kind, Ref<Typed_AST_Processed_Pattern> target, String counter, Ref<Typed_AST> iterable, Ref<Typed_AST_Multiary> body, Code_Location location);
     ~Typed_AST_For();
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
@@ -330,7 +333,7 @@ struct Typed_AST_Match : public Typed_AST {
     Ref<Typed_AST> default_arm;
     Ref<Typed_AST_Multiary> arms;
     
-    Typed_AST_Match(Ref<Typed_AST> cond, Ref<Typed_AST> default_arm, Ref<Typed_AST_Multiary> arms);
+    Typed_AST_Match(Ref<Typed_AST> cond, Ref<Typed_AST> default_arm, Ref<Typed_AST_Multiary> arms, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -341,7 +344,7 @@ struct Typed_AST_Let : public Typed_AST {
     Ref<Typed_AST_Type_Signature> specified_type;
     Ref<Typed_AST> initializer;
     
-    Typed_AST_Let(bool is_const, Ref<Typed_AST_Processed_Pattern> target, Ref<Typed_AST_Type_Signature> specified_type, Ref<Typed_AST> initializer);
+    Typed_AST_Let(bool is_const, Ref<Typed_AST_Processed_Pattern> target, Ref<Typed_AST_Type_Signature> specified_type, Ref<Typed_AST> initializer, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -351,7 +354,7 @@ struct Typed_AST_Field_Access : public Typed_AST {
     Ref<Typed_AST> instance;
     Size field_offset;
     
-    Typed_AST_Field_Access(Value_Type type, bool deref, Ref<Typed_AST> instance, Size field_offset);
+    Typed_AST_Field_Access(Value_Type type, bool deref, Ref<Typed_AST> instance, Size field_offset, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -360,7 +363,7 @@ struct Typed_AST_Fn_Declaration : public Typed_AST {
     struct Function_Definition *defn;
     Ref<Typed_AST_Multiary> body;
     
-    Typed_AST_Fn_Declaration(Function_Definition *defn, Ref<Typed_AST_Multiary> body);
+    Typed_AST_Fn_Declaration(Function_Definition *defn, Ref<Typed_AST_Multiary> body, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -368,7 +371,7 @@ struct Typed_AST_Fn_Declaration : public Typed_AST {
 struct Typed_AST_Cast : public Typed_AST {
     Ref<Typed_AST> expr;
     
-    Typed_AST_Cast(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> expr);
+    Typed_AST_Cast(Typed_AST_Kind kind, Value_Type type, Ref<Typed_AST> expr, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
@@ -379,7 +382,7 @@ struct Typed_AST_Variadic_Call : public Typed_AST {
     Ref<Typed_AST_Multiary> args;
     Ref<Typed_AST_Multiary> varargs;
     
-    Typed_AST_Variadic_Call(Value_Type type, Size varargs_size, Ref<Typed_AST> func, Ref<Typed_AST_Multiary> args, Ref<Typed_AST_Multiary> varargs);
+    Typed_AST_Variadic_Call(Value_Type type, Size varargs_size, Ref<Typed_AST> func, Ref<Typed_AST_Multiary> args, Ref<Typed_AST_Multiary> varargs, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

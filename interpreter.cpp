@@ -27,15 +27,17 @@ Interpreter::Interpreter() {
 }
 
 static String read_entire_file(const char *path) {
+    auto dummy_loc = Code_Location{ 0, 0, "<read_entire_file>" };
+
     std::ifstream file(path, std::ios::binary | std::ios::ate);
-    verify(file.is_open(), "'%s' could not be opened.", path);
+    verify(file.is_open(), dummy_loc, "'%s' could not be opened.", path);
     
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     
     String source = String::with_null_terminator(size);
     file.read(source.c_str(), size);
-    verify(file.good(), "Could not read from '%s'.", path);
+    verify(file.good(), dummy_loc, "Could not read from '%s'.", path);
     
     return source;
 }
@@ -54,9 +56,6 @@ void Interpreter::interpret(const char *path) {
     }
 #endif
     
-    Mem.clear();
-    SMem.clear();
-    
 #if COMPILE_AST && RUN_VIRTUAL_MACHINE
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("------\n");
@@ -72,6 +71,9 @@ void Interpreter::interpret(const char *path) {
 #endif
     
 #endif // COMPILE_AST && RUN_VIRTUAL_MACHINE
+
+    Mem.clear();
+    SMem.clear();
 }
 
 Module *Interpreter::create_module(String module_path) {
@@ -100,7 +102,7 @@ Module *Interpreter::compile_module(String module_path) {
     }
     
     String source = read_entire_file(module_path.c_str());
-    auto tokens = tokenize(source);
+    auto tokens = tokenize(source, module_path.c_str());
     
 #if PRINT_DEBUG_DIAGNOSTICS
     printf("------\n");
@@ -177,7 +179,8 @@ bool Module::find_member_by_id(const std::string &id, Member &out_member) {
 
 void Module::merge(Module *other) {
     for (auto &[id, member] : other->members) {
-        verify(members.find(id) == members.end(), "While merging 2 modules encountered name conflict. '%s'.", id.c_str());
+        auto dummy_loc = Code_Location{ 0, 0, "<Module::merge()>" };
+        verify(members.find(id) == members.end(), dummy_loc, "While merging 2 modules encountered name conflict. '%s'.", id.c_str());
         members[id] = member;
     }
 }

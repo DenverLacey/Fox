@@ -17,12 +17,9 @@
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
 // [ ]  Simplify Array stuff now that slices aren't coupled with them anymore.
-// [x]  Add pre-pass to impl blocks so that code doesn't have to be defined in
-//      a specific order due to dependencies.
-// [ ]  Change print builtins to just be '@print' and do typechecking to resolve.
-// [x]  Add puts style builtins.
 // [ ]  Diverge variadic function calls and returns from normal calls and returns
 //      to alleviate overhead.
+// [ ]  Add Code_Location information.
 //
 
 #include <iostream>
