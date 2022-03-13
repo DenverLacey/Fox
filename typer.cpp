@@ -170,9 +170,10 @@ bool Typed_AST_Unary::is_constant(Compiler &c) {
     return sub->is_constant(c);
 }
 
-Typed_AST_Return::Typed_AST_Return(Ref<Typed_AST> sub, Code_Location location)
+Typed_AST_Return::Typed_AST_Return(bool variadic, Ref<Typed_AST> sub, Code_Location location)
     : Typed_AST_Unary(Typed_AST_Kind::Return, value_types::None, sub, location)
 {
+    this->variadic = variadic;
 }
 
 bool Typed_AST_Return::is_constant(Compiler &c) {
@@ -1663,8 +1664,8 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
     }
     
     t.has_return = true;
-    
-    return Mem.make<Typed_AST_Return>(sub, location);
+
+    return Mem.make<Typed_AST_Return>(t.function->varargs, sub, location);
 }
 
 static void typecheck_function_call_arguments(

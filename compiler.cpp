@@ -713,7 +713,7 @@ void Typed_AST_Return::compile(Compiler &c) {
         sub->compile(c);
     }
     
-    c.emit_opcode(Opcode::Return);
+    c.emit_opcode(variadic ? Opcode::Variadic_Return : Opcode::Return);
     c.emit_size(size);
     
     c.stack_top = stack_top;
@@ -930,10 +930,6 @@ static void compile_negative_subscript_operator(Compiler &c, Typed_AST_Binary &s
 
 static void compile_function_call(Compiler &c, Typed_AST_Binary &call) {
     Address stack_top = c.stack_top;
-
-    // For non-vararg functions, the relative return address will
-    // always be zero.
-    c.emit_opcode(Opcode::Lit_0);
     
     call.rhs->compile(c);
     call.lhs->compile(c);
@@ -1650,7 +1646,7 @@ void Typed_AST_Fn_Declaration::compile(Compiler &c) {
     }
     
     if (fn->type.data.func.return_type->kind == Value_Type_Kind::Void) {
-        new_c.emit_opcode(Opcode::Return);
+        new_c.emit_opcode(Opcode::Variadic_Return);
         new_c.emit_size(0);
     }
 }

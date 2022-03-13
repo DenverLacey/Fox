@@ -240,8 +240,8 @@ char *Value_Type::display_str() const {
             break;
     }
 
-    char *debug_str = SMem.duplicate(s.str().c_str(), s.str().size());
-    return debug_str;
+    char *display_str = SMem.duplicate(s.str().c_str(), s.str().size());
+    return display_str;
 }
 
 Value_Type *Value_Type::child_type() {

@@ -199,7 +199,9 @@ struct Typed_AST_Unary : public Typed_AST {
 };
 
 struct Typed_AST_Return : public Typed_AST_Unary {
-    Typed_AST_Return(Ref<Typed_AST> sub, Code_Location location);
+    bool variadic;
+
+    Typed_AST_Return(bool variadic, Ref<Typed_AST> sub, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

@@ -1,0 +1,51 @@
+struct IntList {
+	items: []mut int,
+	count: int,
+}
+
+impl IntList {
+	fn new() -> Self {
+		return Self{ items: []mut int{ 0 as *mut int, 0 }, count: 0 };
+	}
+
+	fn with_capacity(cap: int) -> Self {
+		return Self{ 
+			items: []mut int{
+				@alloc(*mut int, cap * @size_of(int)),
+				cap,
+			},
+			count: 0,
+		};
+	}
+
+	fn of(vararg ns: []int) -> Self {
+		let mut self = Self::with_capacity(ns.len());
+		for i in 0..ns.len() {
+			self.items[i] = ns[i];
+			self.count += 1;
+		}
+		return self;
+	}
+
+	fn free(mut self) {
+		@free(self.items.data() as *void);
+		self.items = []mut int{ 0 as *mut int, 0 };
+		self.count = 0;
+	}
+
+	fn print(self) {
+		@puts('[');
+		for i in 0..self.count {
+			@puts(self.items[i]);
+			if i + 1 < self.count {
+				@puts(", ");
+			}
+		}
+		@print(']');
+	}
+}
+
+let mut list = IntList::of(1, 2, 3, 4, 5);
+list.print();
+
+list.free();

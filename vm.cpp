@@ -335,8 +335,22 @@ void VM::run() {
                 runtime::Float value = stack.pop<runtime::Float>();
                 stack.push(static_cast<runtime::Int>(value));
             } break;
-                
+
             case Opcode::Return: {
+                if (frames.size() - 1 == 0)
+                    return;
+                
+                Size size = READ(Size, frame);
+                void *result = stack.pop(size);
+
+                stack._top = frame->stack_bottom;
+                
+                stack.push(result, size);
+                
+                frames.pop();
+                frame = &frames.top();
+            } break;    
+            case Opcode::Variadic_Return: {
                 if (frames.size() - 1 == 0)
                     return;
                 
@@ -661,6 +675,11 @@ void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Sectio
                 MARK(i);
                 Size size = READ(Size, i);
                 printf(IDX "Return %ub\n", mark, size * 8);
+            } break;
+            case Opcode::Variadic_Return: {
+                MARK(i);
+                Size size = READ(Size, i);
+                printf(IDX "Variadic_Return %ub\n", mark, size * 8);
             } break;
                 
             // Branching

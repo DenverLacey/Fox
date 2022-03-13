@@ -284,8 +284,7 @@ struct Parser {
         auto t = next();
         va_list args;
         va_start(args, err);
-        verify(t.kind == kind, t.location, err, args);
-        va_end(args);
+        vverify(t.kind == kind, t.location, err, args);
         return t;
     }
     

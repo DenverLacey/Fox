@@ -19,7 +19,6 @@
 // [ ]  Simplify Array stuff now that slices aren't coupled with them anymore.
 // [ ]  Diverge variadic function calls and returns from normal calls and returns
 //      to alleviate overhead.
-// [ ]  Add Code_Location information.
 //
 
 #include <iostream>

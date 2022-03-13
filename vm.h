@@ -103,6 +103,7 @@ enum class Opcode : uint8_t {
 //    BYTE_HEAP_ALLOCATE,
     Flush,  // BYTE_FLUSH,
     Return, // BYTE_RETURN,
+    Variadic_Return,
     
     // BRANCHING
     Jump,
