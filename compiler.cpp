@@ -1646,7 +1646,7 @@ void Typed_AST_Fn_Declaration::compile(Compiler &c) {
     }
     
     if (fn->type.data.func.return_type->kind == Value_Type_Kind::Void) {
-        new_c.emit_opcode(Opcode::Variadic_Return);
+        new_c.emit_opcode(defn->varargs ? Opcode::Variadic_Return : Opcode::Return);
         new_c.emit_size(0);
     }
 }
