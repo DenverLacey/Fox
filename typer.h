@@ -22,6 +22,7 @@ enum class Typed_AST_Kind {
     Ident,
     Ident_Struct,
     Ident_Enum,
+    Ident_Trait,
     Ident_Func,
     Ident_Module,
     Int,

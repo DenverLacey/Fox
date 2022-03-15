@@ -656,6 +656,16 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             auto defn = uuid->type.data.type.type->data.struct_.defn;
             printf("%.*s :: %s\n", defn->name.size(), defn->name.c_str(), uuid->type.debug_str());
         } break;
+        case Typed_AST_Kind::Ident_Enum: {
+            auto uuid = node.cast<Typed_AST_UUID>();
+            auto defn = uuid->type.data.type.type->data.enum_.defn;
+            printf("%.*s :: %s\n", defn->name.size(), defn->name.c_str(), uuid->type.debug_str());
+        } break;
+        case Typed_AST_Kind::Ident_Trait: {
+            auto uuid = node.cast<Typed_AST_UUID>();
+            auto defn = uuid->type.data.type.type->data.trait.defn;
+            printf("%.*s :: %s\n", defn->name.size(), defn->name.c_str(), uuid->type.debug_str());
+        } break;
         case Typed_AST_Kind::Ident_Func: {
             auto uuid = node.cast<Typed_AST_UUID>();
             auto defn = interp->functions.get_func_by_uuid(uuid->uuid);
@@ -1373,6 +1383,9 @@ Ref<Typed_AST> Untyped_AST_Ident::typecheck(Typer &t) {
                 case Value_Type_Kind::Enum:
                     ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Enum, binding.value_type.data.type.type->data.enum_.defn->uuid, binding.value_type, location);
                     break;
+                case Value_Type_Kind::Trait:
+                    ident = Mem.make<Typed_AST_UUID>(Typed_AST_Kind::Ident_Trait, binding.value_type.data.type.type->data.trait.defn->uuid, binding.value_type, location);
+                    break;
                 
                 default:
                     internal_error("Invalid Value_Type_Kind for Type type.");
@@ -1668,13 +1681,18 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Return>(t.function->varargs, sub, location);
 }
 
+enum class Skip_Receiver {
+    Dont_Skip = 0,
+    Do_Skip = 1,
+};
+
 static void typecheck_function_call_arguments(
     Typer &t,
     Function_Definition *defn,
     Ref<Typed_AST_Multiary> out_args,
     Ref<Typed_AST_Multiary> out_varargs, // can be null
     Ref<Untyped_AST_Multiary> rhs,
-    bool skip_receiver = false)
+    Skip_Receiver skip_receiver = Skip_Receiver::Dont_Skip)
 {
     internal_verify(defn->varargs == out_varargs, "Either no out parameter passed for varargs or it was passed when it wasn't needed.");
     
@@ -1685,7 +1703,7 @@ static void typecheck_function_call_arguments(
     }
     
     bool began_named_args = false;
-    size_t num_positional_args = skip_receiver ? 1 : 0;
+    size_t num_positional_args = static_cast<bool>(skip_receiver) ? 1 : 0;
     size_t i = 0;
     while (i < rhs->nodes.size()) {
         Ref<Untyped_AST> arg_node = rhs->nodes[i];
@@ -2786,9 +2804,107 @@ Ref<Typed_AST> Untyped_AST_Enum_Declaration::typecheck(Typer &t) {
     return nullptr;
 }
 
+enum class Is_Method {
+    No = 0,
+    Yes = 1,
+};
+
+static Trait_Method typecheck_trait_fn_decl_header(
+    Typer &t, 
+    Untyped_AST_Fn_Declaration_Header &decl, 
+    Is_Method is_method) 
+{
+    Trait_Method method;
+    method.name = decl.id;
+    method.variadic = decl.varargs;
+    method.is_method = static_cast<bool>(is_method);
+
+    if (decl.return_type_signature) {
+        method.return_type = t.resolve_value_type(*decl.return_type_signature->value_type);
+    } else {
+        method.return_type = value_types::Void;
+    }
+
+    for (size_t i = 0; i < decl.params->nodes.size(); i++) {
+        auto param = decl.params->nodes[i];
+
+        //
+        // @COPYPASTE(typecheck_fn_decl_header)
+        //
+        String param_name;
+        Value_Type param_type;
+        switch (param->kind) {
+            case Untyped_AST_Kind::Assignment:
+                todo("Default arguments not yet implemented.");
+                break;
+            case Untyped_AST_Kind::Binding: {
+                auto b = param.cast<Untyped_AST_Binary>();
+                internal_verify(b, "param in trait fn decl header not a binary node.");
+
+                auto id = b->lhs.cast<Untyped_AST_Pattern_Ident>();
+                param_name = id->id.clone();
+                param_type = t.resolve_value_type(*b->rhs.cast<Untyped_AST_Type_Signature>()->value_type);
+                param_type.is_mut = id->is_mut;
+            } break;
+
+            default:
+                error(param->location, "Expected a parameter.");
+                break;
+        }
+        
+        if (method.variadic && i == decl.params->nodes.size() - 1) {
+            verify(param_type.kind == Value_Type_Kind::Slice, param->location, "Variadic parameter must be a slice type but was given '%s'.", param_type.display_str());
+        }
+
+        method.params.push_back({ param_name, param_type });
+    }
+
+    return method;
+}
+
+Ref<Typed_AST> Untyped_AST_Trait_Declaration::typecheck(Typer &t) {
+    Trait_Definition _defn;
+    _defn.module = t.module;
+    _defn.uuid = t.interp->next_uuid();
+    _defn.name = id.clone();
+
+    Trait_Definition *defn = t.interp->types.add_trait(_defn);
+
+    t.begin_scope();
+    Value_Type *trait_ty = Mem.make<Value_Type>(value_types::trait(defn, nullptr)).as_ptr();
+    t.bind_type("Self", value_types::type_of(trait_ty), location);
+
+    for (auto node : body->nodes) {
+        switch (node->kind) {
+            case Untyped_AST_Kind::Method_Decl_Header:
+            case Untyped_AST_Kind::Fn_Decl_Header: {
+                auto decl = node.cast<Untyped_AST_Fn_Declaration_Header>();
+                internal_verify(decl, "Failed to cast to 'Fn_Decl_Header *'");
+
+                auto is_method = static_cast<Is_Method>(node->kind == Untyped_AST_Kind::Method_Decl_Header);
+                auto trait_method = typecheck_trait_fn_decl_header(t, *decl, is_method);
+                defn->methods.push_back(trait_method);
+            } break;
+
+            case Untyped_AST_Kind::Method_Decl:
+            case Untyped_AST_Kind::Fn_Decl: {
+                error(node->location, "trait functions with default implementations not yet implemented.");
+            } break;
+
+            default:
+                error(node->location, "This type of declaration is disallowed in trait bodies.");
+                break;
+        }
+    }
+
+    t.end_scope();
+
+    return nullptr;
+}
+
 static Function_Definition *typecheck_fn_decl_header(
     Typer &t,
-    Untyped_AST_Fn_Declaration &decl)
+    Untyped_AST_Fn_Declaration_Header &decl)
 {
     Function_Definition defn;
     defn.varargs = decl.varargs;
@@ -2896,6 +3012,10 @@ Ref<Typed_AST> Untyped_AST_Fn_Declaration::typecheck(Typer &t) {
     t.bind_function(id.str(), defn->uuid, defn->type, location);
     t.module->add_func_member(defn);
     return typed_decl;
+}
+
+Ref<Typed_AST> Untyped_AST_Fn_Declaration_Header::typecheck(Typer &t) {
+    internal_error("Call to Untyped_AST_Fn_Declaration_Header::typecheck() is disallowed.");
 }
 
 static Ref<Typed_AST_Multiary> typecheck_impl_declaration(
@@ -3211,7 +3331,7 @@ static Ref<Typed_AST> typecheck_dot_call_for_struct(
     if (method_defn->varargs) {
         auto typechecked_varargs = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma, args->location);
         
-        typecheck_function_call_arguments(t, method_defn, typechecked_args, typechecked_varargs, args, /*skip_receiver*/ true);
+        typecheck_function_call_arguments(t, method_defn, typechecked_args, typechecked_varargs, args, Skip_Receiver::Do_Skip);
         
         Size varargs_size = 0;
         for (auto n : typechecked_varargs->nodes) {
@@ -3227,7 +3347,7 @@ static Ref<Typed_AST> typecheck_dot_call_for_struct(
             location
         );
     } else {
-        typecheck_function_call_arguments(t, method_defn, typechecked_args, nullptr, args, /*skip_receiver*/ true);
+        typecheck_function_call_arguments(t, method_defn, typechecked_args, nullptr, args, Skip_Receiver::Do_Skip);
         
         return Mem.make<Typed_AST_Binary>(
             Typed_AST_Kind::Function_Call,
@@ -3283,7 +3403,7 @@ static Ref<Typed_AST> typecheck_dot_call_for_enum(
     if (method_defn->varargs) {
         auto typechecked_varargs = Mem.make<Typed_AST_Multiary>(Typed_AST_Kind::Comma, args->location);
         
-        typecheck_function_call_arguments(t, method_defn, typechecked_args, typechecked_varargs, args, /*skip_receiver*/ true);
+        typecheck_function_call_arguments(t, method_defn, typechecked_args, typechecked_varargs, args, Skip_Receiver::Do_Skip);
         
         Size varargs_size = 0;
         for (auto n : typechecked_varargs->nodes) {
@@ -3299,7 +3419,7 @@ static Ref<Typed_AST> typecheck_dot_call_for_enum(
             location
         );
     } else {
-        typecheck_function_call_arguments(t, method_defn, typechecked_args, nullptr, args, /*skip_receiver*/ true);
+        typecheck_function_call_arguments(t, method_defn, typechecked_args, nullptr, args, Skip_Receiver::Do_Skip);
         
         return Mem.make<Typed_AST_Binary>(
             Typed_AST_Kind::Function_Call,

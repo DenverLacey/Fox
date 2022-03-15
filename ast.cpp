@@ -617,6 +617,60 @@ Ref<Untyped_AST> Untyped_AST_Enum_Declaration::clone() {
     return copy;
 }
 
+Untyped_AST_Trait_Declaration::Untyped_AST_Trait_Declaration(
+    String id, 
+    Ref<Untyped_AST_Multiary> body, 
+    Code_Location location)
+{
+    this->kind = Untyped_AST_Kind::Trait_Decl;
+    this->id = id;
+    this->body = body;
+    this->location = location;
+}
+
+Untyped_AST_Trait_Declaration::~Untyped_AST_Trait_Declaration() {
+    id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Trait_Declaration::clone() {
+    return Mem.make<Untyped_AST_Trait_Declaration>(
+        id.clone(), 
+        body->clone().cast<Untyped_AST_Multiary>(),
+        location
+    );
+}
+
+Untyped_AST_Fn_Declaration_Header::Untyped_AST_Fn_Declaration_Header(
+    Untyped_AST_Kind kind, 
+    String id, 
+    Ref<Untyped_AST_Multiary> params, 
+    bool varargs, 
+    Ref<Untyped_AST_Type_Signature> return_type_signature, 
+    Code_Location location)
+{
+    this->kind = kind;
+    this->id = id;
+    this->params = params;
+    this->varargs = varargs;
+    this->return_type_signature = return_type_signature;
+    this->location = location;
+}
+
+Untyped_AST_Fn_Declaration_Header::~Untyped_AST_Fn_Declaration_Header() {
+    id.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Fn_Declaration_Header::clone() {
+    return Mem.make<Untyped_AST_Fn_Declaration_Header>(
+        kind,
+        id.clone(),
+        params->clone().cast<Untyped_AST_Multiary>(),
+        varargs,
+        return_type_signature->clone().cast<Untyped_AST_Type_Signature>(),
+        location
+    );
+}
+
 Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
     Untyped_AST_Kind kind,
     String id,
@@ -625,14 +679,9 @@ Untyped_AST_Fn_Declaration::Untyped_AST_Fn_Declaration(
     Ref<Untyped_AST_Type_Signature> return_type_signature,
     Ref<Untyped_AST_Multiary> body, 
     Code_Location location)
+  : Untyped_AST_Fn_Declaration_Header(kind, id, params, varargs, return_type_signature, location)
 {
-    this->kind = kind;
-    this->id = id;
-    this->params = params;
-    this->varargs = varargs;
-    this->return_type_signature = return_type_signature;
-    this->body = body;
-    this->location = location;
+    this->body = body;   
 }
 
 Untyped_AST_Fn_Declaration::~Untyped_AST_Fn_Declaration() {
@@ -1053,6 +1102,12 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 }
             }
         } break;
+        case Untyped_AST_Kind::Trait_Decl: {
+            auto decl = node.cast<Untyped_AST_Trait_Declaration>();
+            printf("(trait-decl)\n");
+            printf("%*sid: %.*s\n", (indent + 1) * INDENT_SIZE, "", decl->id.size(), decl->id.c_str());
+            print_sub_at_indent("body", decl->body, indent + 1);
+        } break;
         case Untyped_AST_Kind::Method_Decl:
         case Untyped_AST_Kind::Fn_Decl: {
             auto decl = node.cast<Untyped_AST_Fn_Declaration>();
@@ -1064,6 +1119,17 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 print_sub_at_indent("return", decl->return_type_signature, indent + 1);
             }
             print_sub_at_indent("body", decl->body, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Method_Decl_Header:
+        case Untyped_AST_Kind::Fn_Decl_Header: {
+            auto decl = node.cast<Untyped_AST_Fn_Declaration_Header>();
+            printf("(fn-decl-header)\n");
+            printf("%*sid: %.*s\n", (indent + 1) * INDENT_SIZE, "", decl->id.size(), decl->id.c_str());
+            print_sub_at_indent("params", decl->params, indent + 1);
+            printf("%*svarargs: %s\n", (indent + 1) * INDENT_SIZE, "", decl->varargs ? "true" : "false");
+            if (decl->return_type_signature) {
+                print_sub_at_indent("return", decl->return_type_signature, indent + 1);
+            }
         } break;
         case Untyped_AST_Kind::Impl_Decl: {
             auto decl = node.cast<Untyped_AST_Impl_Declaration>();

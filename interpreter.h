@@ -42,11 +42,14 @@ struct Module {
 struct Types {
     std::unordered_map<UUID, Struct_Definition> structs;
     std::unordered_map<UUID, Enum_Definition> enums;
+    std::unordered_map<UUID, Trait_Definition> traits;
     
     Struct_Definition *add_struct(const Struct_Definition &defn);
     Enum_Definition *add_enum(const Enum_Definition &defn);
+    Trait_Definition *add_trait(const Trait_Definition &defn);
     Struct_Definition *get_struct_by_uuid(UUID uuid);
     Enum_Definition *get_enum_by_uuid(UUID uuid);
+    Trait_Definition *get_trait_by_uuid(UUID uuid);
 };
 
 struct Functions {

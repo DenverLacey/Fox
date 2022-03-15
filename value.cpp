@@ -51,13 +51,13 @@ Size Value_Type::size() const {
             return 2 * data.range.child_type->size();
         case Value_Type_Kind::Struct:
             return data.struct_.defn->size;
-            
         case Value_Type_Kind::Enum:
             return data.enum_.defn->size;
-            
+        case Value_Type_Kind::Trait:
+            internal_verify(data.trait.real_type, "Attempted to retrieve size of trait.");
+            return data.trait.real_type->size();
         case Value_Type_Kind::Function:
             return sizeof(runtime::Pointer);
-            
         case Value_Type_Kind::Type:
             todo("Value_Type_Kind::Type::size() not yet implemented.");
             return 0;
@@ -140,6 +140,17 @@ char *Value_Type::debug_str() const {
                 s << defn->name.c_str() << "#" << defn->uuid;
             } else {
                 s << "<ENUM>";
+            }
+        } break;
+        case Value_Type_Kind::Trait: {
+            if (auto defn = data.trait.defn) {
+                if (auto real_type = data.trait.real_type) {
+                    s << "<" << real_type->debug_str() << " as " << defn->name.c_str() << "#" << defn->uuid  << ">";
+                } else {
+                    s << defn->name.c_str() << "#" << defn->uuid;
+                }
+            } else {
+                s << "<TRAIT>";
             }
         } break;
         case Value_Type_Kind::Function:
@@ -227,6 +238,14 @@ char *Value_Type::display_str() const {
             auto defn = data.enum_.defn;
             s << defn->name.c_str();
         } break;
+        case Value_Type_Kind::Trait: {
+            auto defn = data.trait.defn;
+            if (auto real_type = data.trait.real_type) {
+                s << "<" << real_type->debug_str() << " as " << defn->name.c_str() << ">";
+            } else {
+                s << defn->name.c_str();
+            }
+        } break;
         case Value_Type_Kind::Function:
             s << "(";
             for (size_t i = 0; i < data.func.arg_types.size(); i++) {
@@ -313,6 +332,10 @@ Value_Type Value_Type::clone() const {
             break;
         case Value_Type_Kind::Enum:
             ty.data.enum_.defn = data.enum_.defn;
+            break;
+        case Value_Type_Kind::Trait:
+            ty.data.trait.defn = data.trait.defn;
+            ty.data.trait.real_type = data.trait.real_type;
             break;
             
         case Value_Type_Kind::Function: {
@@ -403,6 +426,9 @@ bool Value_Type::eq_ignoring_mutability(const Value_Type &other) {
         case Value_Type_Kind::Enum:
             match = data.enum_.defn->uuid == other.data.enum_.defn->uuid;
             break;
+        case Value_Type_Kind::Trait:
+            match = data.trait.defn->uuid == other.data.trait.defn->uuid;
+            break;
     }
     
     return match;
@@ -488,6 +514,9 @@ bool Value_Type::assignable_from(const Value_Type &other) {
         case Value_Type_Kind::Enum:
             match = data.enum_.defn->uuid == other.data.enum_.defn->uuid;
             break;
+        case Value_Type_Kind::Trait:
+            match = data.trait.defn->uuid == other.data.trait.defn->uuid;
+            break;
     }
     
     return match;
@@ -523,6 +552,13 @@ bool Value_Type::is_resolved() const {
                             return false;
                         }
                     }
+                }
+            }
+            break;
+        case Value_Type_Kind::Trait:
+            if (auto real_type = data.trait.real_type) {
+                if (!real_type->is_resolved()) {
+                    return false;
                 }
             }
             break;
@@ -623,11 +659,26 @@ Value_Type tup_from(size_t count, Value_Type *child_types) {
     return ty;
 }
 
+Value_Type trait(Trait_Definition *defn, Value_Type *real_type) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Trait;
+    ty.data.trait.defn = defn;
+    ty.data.trait.real_type = real_type;
+    return ty;
+}
+
 Value_Type func(Value_Type *return_type, size_t arg_count, Value_Type *arg_types) {
     Value_Type ty;
     ty.kind = Value_Type_Kind::Function;
     ty.data.func.return_type = return_type;
     ty.data.func.arg_types = ::Array { arg_count, arg_types };
+    return ty;
+}
+
+Value_Type type_of(Value_Type *type) {
+    Value_Type ty;
+    ty.kind = Value_Type_Kind::Type;
+    ty.data.type.type = type;
     return ty;
 }
 } // namespace value_types

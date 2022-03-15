@@ -296,6 +296,8 @@ struct Parser {
             d = parse_struct_declaration(next());
         } else if (check(Token_Kind::Enum)) {
             d = parse_enum_declaration(next());
+        } else if (check(Token_Kind::Trait)) {
+            d = parse_trait_declaration(next());
         } else if (check(Token_Kind::Impl)) {
             d = parse_impl_declaration(next());
         } else if (check(Token_Kind::Import)) {
@@ -308,7 +310,8 @@ struct Parser {
     }
     
     Ref<Untyped_AST> parse_fn_declaration(Token token) {
-        Untyped_AST_Kind kind = Untyped_AST_Kind::Fn_Decl;
+        // Untyped_AST_Kind kind = Untyped_AST_Kind::Fn_Decl;
+        bool is_method = false;
         
         String id = expect(Token_Kind::Ident, "Expected identifier after 'fn' keyword").data.s.clone();
         
@@ -324,7 +327,8 @@ struct Parser {
             check(Token_Kind::Mut) &&
             check_identifier("self", 1)))
         {
-            kind = Untyped_AST_Kind::Method_Decl;
+            // kind = Untyped_AST_Kind::Method_Decl;
+            is_method = true;
 
             bool is_mut = match(Token_Kind::Mut);
             
@@ -381,17 +385,28 @@ struct Parser {
             return_type_signature = Mem.make<Untyped_AST_Type_Signature>(type, Code_Location{ 0, 0, "<return-type>" });
         }
         
-        auto body = parse_block();
+        if (match(Token_Kind::Semi)) {
+            return Mem.make<Untyped_AST_Fn_Declaration_Header>(
+                is_method ? Untyped_AST_Kind::Method_Decl_Header : Untyped_AST_Kind::Fn_Decl_Header,
+                id,
+                params,
+                varargs,
+                return_type_signature,
+                token.location
+            );
+        } else {
+            auto body = parse_block();
         
-        return Mem.make<Untyped_AST_Fn_Declaration>(
-            kind,
-            id,
-            params,
-            varargs,
-            return_type_signature,
-            body,
-            token.location
-        );
+            return Mem.make<Untyped_AST_Fn_Declaration>(
+                is_method ? Untyped_AST_Kind::Method_Decl : Untyped_AST_Kind::Fn_Decl,
+                id,
+                params,
+                varargs,
+                return_type_signature,
+                body,
+                token.location
+            );
+        }
     }
     
     Ref<Untyped_AST> parse_struct_declaration(Token token) {
@@ -454,6 +469,13 @@ struct Parser {
         
         return decl;
     }
+
+    Ref<Untyped_AST_Trait_Declaration> parse_trait_declaration(Token token) {
+        String id = expect(Token_Kind::Ident, "Expected identifier after 'trait' keyword.").data.s.clone();
+        auto body = parse_block();
+
+        return Mem.make<Untyped_AST_Trait_Declaration>(id, body, token.location);
+    }
     
     Ref<Untyped_AST_Impl_Declaration> parse_impl_declaration(Token token) {
         auto target_expr = parse_expression();
@@ -462,7 +484,7 @@ struct Parser {
         
         Ref<Untyped_AST_Symbol> for_ = nullptr;
         if (match(Token_Kind::For)) {
-            todo("Implement trait impl decls.");
+            for_ = parse_symbol();
         }
         
         auto body = parse_block();

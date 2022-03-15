@@ -15,6 +15,9 @@
 #include "codelocation.h"
 
 struct Untyped_AST_Symbol;
+struct Struct_Definition;
+struct Enum_Definition;
+struct Trait_Definition;
 
 enum class Value_Type_Kind : uint8_t {
     None,
@@ -32,6 +35,7 @@ enum class Value_Type_Kind : uint8_t {
     Range,
     Struct,
     Enum,
+    Trait,
     Function,
     Type,
 };
@@ -85,11 +89,16 @@ struct Range_Type_Data {
 };
 
 struct Struct_Type_Data {
-    struct Struct_Definition *defn;
+    Struct_Definition *defn;
 };
 
 struct Enum_Type_Data {
-    struct Enum_Definition *defn;
+    Enum_Definition *defn;
+};
+
+struct Trait_Type_Data {
+    Trait_Definition *defn;
+    Value_Type *real_type; // optional
 };
 
 struct Function_Type_Data {
@@ -112,6 +121,7 @@ union Value_Type_Data {
     Range_Type_Data range;
     Struct_Type_Data struct_;
     Enum_Type_Data enum_;
+    Trait_Type_Data trait;
     Function_Type_Data func;
     Type_Type_Data type;
 };
@@ -156,7 +166,9 @@ Value_Type array_of(size_t count, Value_Type *element_type);
 Value_Type slice_of(Value_Type *element_type);
 Value_Type range_of(bool inclusive, Value_Type *child_type);
 Value_Type tup_from(size_t count, Value_Type *child_types);
+Value_Type trait(Trait_Definition *defn, Value_Type *real_type);
 Value_Type func(Value_Type *return_type, size_t arg_count, Value_Type *arg_types);
+Value_Type type_of(Value_Type *type);
 
 template<typename ...Ts>
 Value_Type tup_of(Ts ...child_types) {

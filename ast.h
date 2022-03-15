@@ -83,8 +83,11 @@ enum class Untyped_AST_Kind {
     Let,
     Struct_Decl,
     Enum_Decl,
+    Trait_Decl,
     Fn_Decl,
+    Fn_Decl_Header,
     Method_Decl,
+    Method_Decl_Header,
     Impl_Decl,
     Import_Decl,
     
@@ -423,11 +426,29 @@ struct Untyped_AST_Enum_Declaration : public Untyped_AST {
     Ref<Untyped_AST> clone() override;
 };
 
-struct Untyped_AST_Fn_Declaration : public Untyped_AST {
+struct Untyped_AST_Trait_Declaration : public Untyped_AST {
+    String id;
+    Ref<Untyped_AST_Multiary> body;
+
+    Untyped_AST_Trait_Declaration(String id, Ref<Untyped_AST_Multiary> body, Code_Location location);
+    ~Untyped_AST_Trait_Declaration();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Fn_Declaration_Header : public Untyped_AST {
     String id;
     Ref<Untyped_AST_Multiary> params;
     bool varargs;
     Ref<Untyped_AST_Type_Signature> return_type_signature;
+
+    Untyped_AST_Fn_Declaration_Header(Untyped_AST_Kind kind, String id, Ref<Untyped_AST_Multiary> params, bool varargs, Ref<Untyped_AST_Type_Signature> return_type_signature, Code_Location location);
+    ~Untyped_AST_Fn_Declaration_Header();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Fn_Declaration : public Untyped_AST_Fn_Declaration_Header {
     Ref<Untyped_AST_Multiary> body;
     
     Untyped_AST_Fn_Declaration(Untyped_AST_Kind kind, String id, Ref<Untyped_AST_Multiary> params, bool varargs, Ref<Untyped_AST_Type_Signature> return_type_signature, Ref<Untyped_AST_Multiary> body, Code_Location location);

@@ -197,6 +197,12 @@ Enum_Definition *Types::add_enum(const Enum_Definition &defn) {
     return &enums[defn.uuid];
 }
 
+Trait_Definition *Types::add_trait(const Trait_Definition &defn) {
+    internal_verify(traits.find(defn.uuid) == traits.end(), "Trait with duplicate UUID detected: #%zu", defn.uuid);
+    traits[defn.uuid] = std::move(defn);
+    return &traits[defn.uuid];
+}
+
 Struct_Definition *Types::get_struct_by_uuid(UUID uuid) {
     auto it = structs.find(uuid);
     if (it == structs.end()) return nullptr;
@@ -207,6 +213,12 @@ Enum_Definition *Types::get_enum_by_uuid(UUID uuid) {
     auto it = enums.find(uuid);
     if (it == enums.end()) return nullptr;
     return &enums[uuid];
+}
+
+Trait_Definition *Types::get_trait_by_uuid(UUID uuid) {
+    auto it = traits.find(uuid);
+    if (it == traits.end()) return nullptr;
+    return &traits[uuid];
 }
 
 Function_Definition *Functions::add_func(const Function_Definition &defn) {

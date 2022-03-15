@@ -79,3 +79,25 @@ struct Enum_Definition {
     bool has_method(String id);
     bool find_method(String id, Method &out_method);
 };
+
+struct Trait_Method {
+    struct Parameter {
+        String name;
+        Value_Type type;
+    };
+
+    bool variadic;
+    bool is_method;
+    String name;
+    Value_Type return_type;
+    std::vector<Parameter> params;
+
+    bool eq_func_type(Value_Type func_type);
+};
+
+struct Trait_Definition {
+    UUID uuid;
+    Module *module;
+    String name;
+    std::vector<Trait_Method> methods;
+};

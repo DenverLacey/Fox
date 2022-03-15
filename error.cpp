@@ -37,6 +37,12 @@ void verror(Code_Location loc, const char *err, va_list args) {
     exit(EXIT_FAILURE);
 }
 
+static void __private_internal_error(const char *file, size_t line, const char *err, va_list args) {
+    internal_error_impl("Internal Error: ", file, line, err, args);
+    va_end(args);
+    exit(EXIT_FAILURE);
+}
+
 [[noreturn]]
 void __private_internal_error(const char *file, size_t line, const char *err, ...) {
     va_list args;
@@ -44,8 +50,8 @@ void __private_internal_error(const char *file, size_t line, const char *err, ..
     __private_internal_error(file, line, err, args);
 }
 
-static void __private_internal_error(const char *file, size_t line, const char *err, va_list args) {
-    internal_error_impl("Internal Error: ", file, line, err, args);
+static void __private_vtodo(const char *file, size_t line, const char *err, va_list args) {
+    internal_error_impl("Todo: ", file, line, err, args);
     va_end(args);
     exit(EXIT_FAILURE);
 }
@@ -54,12 +60,5 @@ static void __private_internal_error(const char *file, size_t line, const char *
 void __private_todo(const char *file, size_t line, const char *err, ...) {
     va_list args;
     va_start(args, err);
-    __private_todo(file, line, err, args);
-    va_end(args);
-}
-
-static void __private_todo(const char *file, size_t line, const char *err, va_list args) {
-    internal_error_impl("Todo: ", file, line, err, args);
-    va_end(args);
-    exit(EXIT_FAILURE);
+    __private_vtodo(file, line, err, args);
 }

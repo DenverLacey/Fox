@@ -8,6 +8,7 @@
 
 #include "definitions.h"
 #include "vm.h"
+#include "error.h"
 
 bool Struct_Definition::has_field(String id) {
     for (auto &f : fields) {
@@ -75,4 +76,8 @@ bool Enum_Definition::find_method(String id, Method &out_method) {
         return true;
     }
     return false;
+}
+
+bool Trait_Method::eq_func_type(Value_Type func_type) {
+    todo("Implement %s", __func__);
 }

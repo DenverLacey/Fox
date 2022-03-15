@@ -17,8 +17,6 @@
 // [x]  Handle array subscript for constant arrays.
 // [ ]  Maybe handle dereferencing constant pointers.
 // [ ]  Simplify Array stuff now that slices aren't coupled with them anymore.
-// [ ]  Diverge variadic function calls and returns from normal calls and returns
-//      to alleviate overhead.
 //
 
 #include <iostream>
