@@ -29,6 +29,7 @@ struct Compiler_Scope {
     Address stack_bottom;
     Compiler_Scope *parent;
     std::unordered_map<std::string, Variable> variables;
+    std::vector<Ref<Typed_AST>> deferred_statements;
 };
 
 struct Find_Variable_Result {
@@ -117,6 +118,8 @@ struct Compiler {
     Compiler_Scope &current_scope();
     void begin_scope();
     void end_scope();
+    void compile_deferred_statements(Compiler_Scope &scope, bool pop = true);
+    void compile_all_deferred_statements(bool pop = true);
     
     template<typename T>
     bool evaluate(Ref<Typed_AST> expression, T &out_result) {

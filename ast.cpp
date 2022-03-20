@@ -70,6 +70,43 @@ const char *Untyped_AST_Symbol::display_str() const {
     return str;
 }
 
+bool Untyped_AST_Symbol::matches(const char *symbol) const {
+    bool matches = true;
+    auto self = this;
+
+    while (matches) {
+        switch (kind) {
+            case Untyped_AST_Kind::Ident: {
+                auto id = dynamic_cast<const Untyped_AST_Ident *>(self);
+                internal_verify(id, "Failed to cast to Ident* in Untyped_AST_Symbol::matches().");
+                matches = id->id == symbol;
+                return matches;
+            } break;
+            case Untyped_AST_Kind::Path: {
+                auto path = dynamic_cast<const Untyped_AST_Path *>(self);
+                internal_verify(path, "Failed to cast to Path* in Untyped_AST_Symbol::matches().");
+
+                if (memcmp(path->lhs->id.c_str(), symbol, path->lhs->id.size()) != 0) {
+                    matches = false;
+                    break;
+                }
+
+                symbol += path->lhs->id.size();
+                internal_verify(symbol[0] == ':' && symbol[1] == ':', "Expected '::' to separate path segments in symbol in Untyped_AST_Symbol::matches().");
+                symbol += 2;
+
+                self = path->rhs.as_ptr();
+            } break;
+
+            default:
+                internal_error("Invalid symbol kind: %d.", kind);
+                break;
+        }   
+    }
+
+    return matches;
+}
+
 Untyped_AST_Ident::Untyped_AST_Ident(String id, Code_Location location) {
     kind = Untyped_AST_Kind::Ident;
     this->id = id;
@@ -915,6 +952,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
         case Untyped_AST_Kind::Deref: {
             print_unary_at_indent("*", node.cast<Untyped_AST_Unary>(), indent);
+        } break;
+        case Untyped_AST_Kind::Defer: {
+            print_unary_at_indent("defer", node.cast<Untyped_AST_Unary>(), indent);
         } break;
         case Untyped_AST_Kind::Return: {
             auto ret = node.cast<Untyped_AST_Return>();

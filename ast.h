@@ -36,6 +36,7 @@ enum class Untyped_AST_Kind {
     Address_Of,
     Address_Of_Mut,
     Deref,
+    Defer,
     Return,
     
     // binary
@@ -145,6 +146,7 @@ struct Untyped_AST_Float : public Untyped_AST {
 
 struct Untyped_AST_Symbol : public Untyped_AST {
     const char *display_str() const;
+    bool matches(const char *symbol) const;
 };
 
 struct Untyped_AST_Ident : public Untyped_AST_Symbol {

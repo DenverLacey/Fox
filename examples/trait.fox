@@ -1,0 +1,33 @@
+enum Bar {
+	Floop,
+	Doop(int),
+}
+
+trait Foo {
+	fn foo(self) -> Bar;
+}
+
+struct Quox {
+	i: int,
+}
+
+impl Foo for Quox {
+	fn foo(self) -> Bar {
+		if self.i < 0 {
+			return Bar::Floop;
+		}
+		return Bar::Doop(self.i);
+	}
+}
+
+let q1 = Quox{ i: 1 };
+let q2 = Quox{ i: -1 };
+
+@print(q1);
+@print(q2);
+
+//let b1 = q1.foo();
+//let b2 = q2.foo();
+//
+//@print(b1);
+//@print(b2);

@@ -89,7 +89,7 @@ bool String::operator!=(const String &other) const {
 }
 
 bool String::operator==(const char *other) const {
-    return _size == strlen(other) && memcmp(_data, other, _size) == 0;
+    return other[_size] == '\0' && memcmp(_data, other, _size) == 0;
 }
 
 bool String::operator!=(const char *other) const {

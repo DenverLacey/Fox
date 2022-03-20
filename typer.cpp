@@ -710,6 +710,9 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         case Typed_AST_Kind::Deref: {
             print_unary_at_indent(interp, "*", node.cast<Typed_AST_Unary>(), indent);
         } break;
+        case Typed_AST_Kind::Defer: {
+            print_unary_at_indent(interp, "defer", node.cast<Typed_AST_Unary>(), indent);
+        } break;
         case Typed_AST_Kind::Return: {
             auto ret = node.cast<Typed_AST_Return>();
             printf("(ret)\n");
@@ -1650,6 +1653,9 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Deref:
             verify(sub->type.kind == Value_Type_Kind::Ptr, location, "Cannot dereference something of type '%s' because it is not a pointer type.", sub->type.display_str());
             return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Deref, *sub->type.data.ptr.child_type, sub, location);
+        case Untyped_AST_Kind::Defer:
+            internal_verify(sub->type.kind == Value_Type_Kind::None || sub->type.kind == Value_Type_Kind::Void, "deferred statement would leave an orphaned value on the stack");
+            return Mem.make<Typed_AST_Unary>(Typed_AST_Kind::Defer, value_types::None, sub, location);
         case Untyped_AST_Kind::Builtin_Sizeof: {
             auto type = sub.cast<Typed_AST_Type_Signature>();
             internal_verify(type, "Failed to cast 'rhs' to Type_Signature.");
@@ -3074,10 +3080,8 @@ static Ref<Typed_AST_Multiary> typecheck_impl_declaration(
     return typed_body;
 }
 
-Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
-    internal_verify(!for_, "trait impl decls not yet implemented.");
-    
-    auto target = this->target->typecheck(t).cast<Typed_AST_UUID>();
+Ref<Typed_AST> typecheck_impl_for_type(Typer &t, Untyped_AST_Impl_Declaration &impl) {
+    auto target = impl.target->typecheck(t).cast<Typed_AST_UUID>();
     internal_verify(target, "Failed to cast target to UUID* in Untyped_AST_Impl_Declaration::typecheck().");
     
     Ref<Typed_AST> typechecked = nullptr;
@@ -3091,7 +3095,7 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
                     
                     t.begin_scope();
                     t.bind_type("Self", target->type, target->location);
-                    typechecked = typecheck_impl_declaration(t, defn->name.c_str(), defn->methods, body);
+                    typechecked = typecheck_impl_declaration(t, defn->name.c_str(), defn->methods, impl.body);
                     t.end_scope();
                 } break;
                 case Value_Type_Kind::Enum: {
@@ -3100,7 +3104,7 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
                     
                     t.begin_scope();
                     t.bind_type("Self", target->type, target->location);
-                    typechecked = typecheck_impl_declaration(t, defn->name.c_str(), defn->methods, body);
+                    typechecked = typecheck_impl_declaration(t, defn->name.c_str(), defn->methods, impl.body);
                     t.end_scope();
                 } break;
                     
@@ -3115,6 +3119,20 @@ Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
             break;
     }
     
+    return typechecked;
+}
+
+Ref<Typed_AST> typecheck_impl_for_trait(Typer &t, Untyped_AST_Impl_Declaration &impl) {
+    todo("Implement %s", __func__);
+}
+
+Ref<Typed_AST> Untyped_AST_Impl_Declaration::typecheck(Typer &t) {
+    Ref<Typed_AST> typechecked;
+    if (for_) {
+        typechecked = typecheck_impl_for_trait(t, *this);
+    } else {
+        typechecked = typecheck_impl_for_type(t, *this);
+    }
     return typechecked;
 }
 

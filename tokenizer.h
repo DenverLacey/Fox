@@ -54,6 +54,7 @@ enum class Token_Kind {
     While,
     For,
     Match,
+    Defer,
     Fn,
     Struct,
     Enum,

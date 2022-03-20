@@ -45,6 +45,8 @@ Function_Definition *Compiler::compile(Ref<Typed_AST_Multiary> multi) {
     for (auto &n : multi->nodes) {
         n->compile(*this);
     }
+
+    compile_deferred_statements(*global_scope);
     
     return this->function;
 }
@@ -374,11 +376,32 @@ void Compiler::begin_scope() {
 }
 
 void Compiler::end_scope() {
-    Address flush_point = current_scope().stack_bottom;
+    auto current = current_scope();
+
+    compile_deferred_statements(current);
+
+    Address flush_point = current.stack_bottom;
     emit_opcode(Opcode::Flush);
     emit_address(flush_point);
     scopes.pop_front();
     stack_top = flush_point;
+}
+
+void Compiler::compile_deferred_statements(Compiler_Scope &scope, bool pop) {
+    for (int i = scope.deferred_statements.size() - 1; i >= 0; i--) {
+        auto s = scope.deferred_statements[i];
+        s->compile(*this);
+    }
+
+    if (pop) {
+        scope.deferred_statements.clear();
+    }
+}
+
+void Compiler::compile_all_deferred_statements(bool pop) {
+    for (auto &scope : scopes) {
+        compile_deferred_statements(scope, pop);
+    }
 }
 
 void Typed_AST_Bool::compile(Compiler &c) {
@@ -696,6 +719,9 @@ void Typed_AST_Unary::compile(Compiler &c) {
             c.emit_opcode(Opcode::Load);
             c.emit_size(size);
         } break;
+        case Typed_AST_Kind::Defer:
+            c.current_scope().deferred_statements.push_back(sub);
+            break;
             
         default:
             internal_error("Kind is not a valid unary operation: %d.", kind);
@@ -706,6 +732,8 @@ void Typed_AST_Unary::compile(Compiler &c) {
 
 void Typed_AST_Return::compile(Compiler &c) {
     Address stack_top = c.stack_top;
+
+    c.compile_all_deferred_statements(/*pop*/ false);
     
     Size size = 0;
     if (sub) {
@@ -1646,6 +1674,7 @@ void Typed_AST_Fn_Declaration::compile(Compiler &c) {
     }
     
     if (fn->type.data.func.return_type->kind == Value_Type_Kind::Void) {
+        new_c.compile_deferred_statements(new_c.current_scope());
         new_c.emit_opcode(defn->varargs ? Opcode::Variadic_Return : Opcode::Return);
         new_c.emit_size(0);
     }

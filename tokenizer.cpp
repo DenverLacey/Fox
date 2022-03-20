@@ -110,6 +110,9 @@ void Token::print() const {
         case Token_Kind::Match:
             printf("Match");
             break;
+        case Token_Kind::Defer:
+            printf("Defer");
+            break;
         case Token_Kind::Fn:
             printf("Fn");
             break;
@@ -695,6 +698,8 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::For;
     } else if (word == "match") {
         tok.kind = Token_Kind::Match;
+    } else if (word == "defer") {
+        tok.kind = Token_Kind::Defer;
     } else if (word == "fn") {
         tok.kind = Token_Kind::Fn;
     } else if (word == "struct") {

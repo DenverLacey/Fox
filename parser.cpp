@@ -526,13 +526,14 @@ struct Parser {
             s = parse_for_statement(next());
         } else if (check(Token_Kind::Match)) {
             s = parse_match_statement(next());
+        } else if (check(Token_Kind::Defer)) {
+            s = parse_defer_statement(next());
         } else if (check(Token_Kind::Return)) {
             s = parse_return_statement(next());
             expect(Token_Kind::Semi, "Expected ';' after statement.");
         } else if (check(Token_Kind::Left_Curly)) {
             s = parse_block();
         } else {
-            peek().print();
             s = parse_expression_or_assignment();
             expect(Token_Kind::Semi, "Expected ';' after statement.");
         }
@@ -837,6 +838,11 @@ struct Parser {
             arms,
             token.location
         );
+    }
+
+    Ref<Untyped_AST_Unary> parse_defer_statement(Token token) {
+        auto deferred_statement = parse_statement();
+        return Mem.make<Untyped_AST_Unary>(Untyped_AST_Kind::Defer, deferred_statement, token.location);
     }
     
     Ref<Untyped_AST_Return> parse_return_statement(Token token) {

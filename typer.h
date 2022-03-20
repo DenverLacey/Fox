@@ -42,6 +42,7 @@ enum class Typed_AST_Kind {
     Address_Of,
     Address_Of_Mut,
     Deref,
+    Defer,
     Return,
     
     // binary
