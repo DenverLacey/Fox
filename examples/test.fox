@@ -1,56 +1,17 @@
-@print("Test: Breaks in While loop");
-let mut i = 0;
-while i < 5 {
-	if i == 3 {
-		break;
-	}
 
-	@print(i);
-
-	i += 1;
-}
-
-@print("Test: Continue in While loop");
-let mut i = 0;
-while i < 5 {
-	if i == 3 {
-		i += 1;
-		continue;
-	}
-
-	@print(i);
-
-	i += 1;
-}
-
-@print("Test: Break in For Range loop");
 for i in 0..5 {
+	defer {
+		@puts("Leaving iteration ");
+		@print(i);
+	}
+
+	if i == 1 {
+		continue;
+	}
+
 	if i == 3 {
 		break;
 	}
+
 	@print(i);
-}
-
-@print("Test: Continue in For Range loop");
-for i in 0..5 {
-	if i == 3 {
-		continue;
-	}
-	@print(i);
-}
-
-@print("Test: Break in For loop");
-for n in [_]{ 0, 1, 2, 3, 4 } {
-	if n == 3 {
-		break;
-	}
-	@print(n);
-}
-
-@print("Test: Continue in For loop");
-for n in [_]{ 0, 1, 2, 3, 4 } {
-	if n == 3 {
-		continue;
-	}
-	@print(n);
 }

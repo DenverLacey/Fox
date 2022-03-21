@@ -46,7 +46,7 @@ Function_Definition *Compiler::compile(Ref<Typed_AST_Multiary> multi) {
         n->compile(*this);
     }
 
-    compile_deferred_statements(*global_scope);
+    compile_deferred_statements(global_scope, nullptr, Clear_Defers::Yes);
     
     return this->function;
 }
@@ -384,7 +384,7 @@ void Compiler::begin_scope() {
 void Compiler::end_scope() {
     auto current = current_scope();
 
-    compile_deferred_statements(current);
+    compile_deferred_statements(&current, current.parent, Clear_Defers::Yes);
 
     Address flush_point = current.stack_bottom;
     emit_opcode(Opcode::Flush);
@@ -393,26 +393,24 @@ void Compiler::end_scope() {
     stack_top = flush_point;
 }
 
-void Compiler::compile_deferred_statements(Compiler_Scope &scope, Clear_Defers clear) {
-    for (int i = scope.deferred_statements.size() - 1; i >= 0; i--) {
-        auto s = scope.deferred_statements[i];
-        s->compile(*this);
-    }
+void Compiler::compile_deferred_statements(Compiler_Scope *begin, Compiler_Scope *end, Clear_Defers clear) {
+    for (Compiler_Scope *scope = begin; scope != end; scope = scope->parent) {
+        auto &defers = scope->deferred_statements;
 
-    if (clear == Clear_Defers::Yes) {
-        scope.deferred_statements.clear();
-    }
-}
+        for (auto it = defers.rbegin(); it != defers.rend(); it++) {
+            auto &s = *it;
+            s->compile(*this);
+        }
 
-void Compiler::compile_all_deferred_statements(Clear_Defers clear) {
-    for (auto &scope : scopes) {
-        compile_deferred_statements(scope, clear);
+        if (clear == Clear_Defers::Yes) {
+            defers.clear();
+        }
     }
 }
 
-void Compiler::begin_loop(size_t loop_start) {
+void Compiler::begin_loop() {
     loops.push_back(Compiler_Loop {
-        .start = loop_start
+        .scope = &current_scope()
     });
 }
 
@@ -749,7 +747,7 @@ void Typed_AST_Unary::compile(Compiler &c) {
 void Typed_AST_Return::compile(Compiler &c) {
     Address stack_top = c.stack_top;
 
-    c.compile_all_deferred_statements(Clear_Defers::No);
+    c.compile_deferred_statements(&c.current_scope(), nullptr, Clear_Defers::No);
     
     Size size = 0;
     if (sub) {
@@ -775,11 +773,7 @@ void Typed_AST_Loop_Control::compile(Compiler &c) {
         loop = &c.loops.back();
     }
 
-    // @TODO:
-    // @NOTE:
-    //  When we have labels this is gonna become more complicated.
-    //
-    c.compile_deferred_statements(c.current_scope(), Clear_Defers::No);
+    c.compile_deferred_statements(&c.current_scope(), loop->scope->parent, Clear_Defers::No);
 
     size_t jump = c.emit_jump(Opcode::Jump);
 
@@ -810,7 +804,7 @@ static void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     size_t loop_start = c.function->instructions.size();
     Address stack_top = c.stack_top;
 
-    c.begin_loop(loop_start);    
+    c.begin_loop();
 
     b.lhs->compile(c);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False);
@@ -1355,7 +1349,7 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_opcode(Opcode::Copy);
     c.emit_size(target_v.type.size());
     
-    c.begin_loop(loop_start);
+    c.begin_loop();
     
     f.body->compile(c);
 
@@ -1414,7 +1408,7 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_opcode(f.iterable->type.data.range.inclusive ? Opcode::Int_Less_Equal : Opcode::Int_Less_Than);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False, false);
 
-    c.begin_loop(loop_start);
+    c.begin_loop();
 
     f.body->compile(c);
     
@@ -1739,7 +1733,7 @@ void Typed_AST_Fn_Declaration::compile(Compiler &c) {
     }
     
     if (fn->type.data.func.return_type->kind == Value_Type_Kind::Void) {
-        new_c.compile_deferred_statements(new_c.current_scope());
+        new_c.compile_deferred_statements(&new_c.current_scope(), new_c.current_scope().parent, Clear_Defers::Yes);
         new_c.emit_opcode(defn->varargs ? Opcode::Variadic_Return : Opcode::Return);
         new_c.emit_size(0);
     }

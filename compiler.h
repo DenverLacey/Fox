@@ -33,7 +33,7 @@ struct Compiler_Scope {
 };
 
 struct Compiler_Loop {
-    size_t start;
+    Compiler_Scope *scope;
     String label;
     std::vector<size_t> breaks;
     std::vector<size_t> continues;
@@ -129,10 +129,9 @@ struct Compiler {
     Compiler_Scope &current_scope();
     void begin_scope();
     void end_scope();
-    void compile_deferred_statements(Compiler_Scope &scope, Clear_Defers clear = Clear_Defers::Yes);
-    void compile_all_deferred_statements(Clear_Defers clear = Clear_Defers::Yes);
+    void compile_deferred_statements(Compiler_Scope *begin, Compiler_Scope *end, Clear_Defers clear);
 
-    void begin_loop(size_t loop_start);
+    void begin_loop();
     void end_loop();
     
     template<typename T>
