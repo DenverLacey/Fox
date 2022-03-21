@@ -64,6 +64,8 @@ enum class Token_Kind {
     Or,
     In,
     Return,
+    Break,
+    Continue,
     Import,
     As,
     Vararg,

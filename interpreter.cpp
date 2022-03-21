@@ -16,11 +16,11 @@
 #include <assert.h>
 #include <fstream>
 
-#define PRINT_DEBUG_DIAGNOSTICS 1
-#define PRINT_STACK 1
-#define TYPECHECK 1
-#define COMPILE_AST 1
-#define RUN_VIRTUAL_MACHINE 1
+#define PRINT_DEBUG_DIAGNOSTICS  1 && defined(DEBUG)
+#define PRINT_STACK              1 && defined(DEBUG)
+#define TYPECHECK                1 || defined(NDEBUG)
+#define COMPILE_AST              1 || defined(NDEBUG)
+#define RUN_VIRTUAL_MACHINE      1 || defined(NDEBUG)
 
 Interpreter::Interpreter() {
     load_builtins(this);

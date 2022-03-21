@@ -27,6 +27,10 @@ char *String_Allocator::duplicate(const char *s) {
 }
 
 char *String_Allocator::duplicate(const char *s, size_t size) {
+    if (s == nullptr) { 
+        return nullptr;
+    }
+
     char *_s = allocate(size + 1);
     memcpy(_s, s, size);
     _s[size] = 0;

@@ -192,6 +192,20 @@ Ref<Untyped_AST> Untyped_AST_Return::clone() {
     return Mem.make<Untyped_AST_Return>(sub ? sub->clone() : nullptr, location);
 }
 
+Untyped_AST_Loop_Control::Untyped_AST_Loop_Control(Untyped_AST_Kind kind, String label, Code_Location location) {
+    this->kind = kind;
+    this->label = label;
+    this->location = location;
+}
+
+Untyped_AST_Loop_Control::~Untyped_AST_Loop_Control() {
+    label.free();
+}
+
+Ref<Untyped_AST> Untyped_AST_Loop_Control::clone() {
+    return Mem.make<Untyped_AST_Loop_Control>(kind, label.clone(), location);
+}
+
 Untyped_AST_Binary::Untyped_AST_Binary(
     Untyped_AST_Kind kind, 
     Ref<Untyped_AST> lhs, 
@@ -963,6 +977,20 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 print_sub_at_indent("sub", ret->sub, indent + 1);
             } else {
                 printf("%*ssub: nullptr\n", (indent + 1) * INDENT_SIZE, "");
+            }
+        } break;
+        case Untyped_AST_Kind::Break: {
+            auto control = node.cast<Untyped_AST_Loop_Control>();
+            printf("(break)\n");
+            if (control->label.size() != 0) {
+                printf("%*slabel: %.*s\n", (indent + 1) * INDENT_SIZE, "", control->label.size(), control->label.c_str());
+            }
+        } break;
+        case Untyped_AST_Kind::Continue: {
+            auto control = node.cast<Untyped_AST_Loop_Control>();
+            printf("(continue)\n");
+            if (control->label.size() != 0) {
+                printf("%*slabel: %.*s\n", (indent + 1) * INDENT_SIZE, "", control->label.size(), control->label.c_str());
             }
         } break;
         case Untyped_AST_Kind::Addition: {

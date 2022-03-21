@@ -44,6 +44,8 @@ enum class Typed_AST_Kind {
     Deref,
     Defer,
     Return,
+    Break,
+    Continue,
     
     // binary
     Addition,
@@ -204,6 +206,15 @@ struct Typed_AST_Return : public Typed_AST_Unary {
     bool variadic;
 
     Typed_AST_Return(bool variadic, Ref<Typed_AST> sub, Code_Location location);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Loop_Control : public Typed_AST {
+    String label;
+
+    Typed_AST_Loop_Control(Typed_AST_Kind kind, String label, Code_Location location);
+    ~Typed_AST_Loop_Control();
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

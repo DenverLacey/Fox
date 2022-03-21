@@ -82,6 +82,8 @@ Precedence token_precedence(Token token) {
         case Token_Kind::Or: return Precedence::Or;
         case Token_Kind::Underscore: return Precedence::None;
         case Token_Kind::Return: return Precedence::None;
+        case Token_Kind::Break: return Precedence::None;
+        case Token_Kind::Continue: return Precedence::None;
         case Token_Kind::Import: return Precedence::None;
         case Token_Kind::As: return Precedence::Cast;
         case Token_Kind::Vararg: return Precedence::None;
@@ -531,6 +533,9 @@ struct Parser {
         } else if (check(Token_Kind::Return)) {
             s = parse_return_statement(next());
             expect(Token_Kind::Semi, "Expected ';' after statement.");
+        } else if (check(Token_Kind::Break) || check(Token_Kind::Continue)) {
+            s = parse_loop_control(next());
+            expect(Token_Kind::Semi, "Expected ';' after statement.");
         } else if (check(Token_Kind::Left_Curly)) {
             s = parse_block();
         } else {
@@ -851,6 +856,24 @@ struct Parser {
             sub = parse_expression();
         }
         return Mem.make<Untyped_AST_Return>(sub, token.location);
+    }
+
+    Ref<Untyped_AST_Loop_Control> parse_loop_control(Token token) {
+        bool is_break = token.kind == Token_Kind::Break;
+        const char *control_str = is_break ? "break" : "continue";
+
+        auto label = String{};
+        if (match(Token_Kind::Left_Paren)) {
+            auto label_tok = expect(Token_Kind::Ident, "Expected identifier in parenetheses of %s statement.", control_str);
+            label = label_tok.data.s.clone();
+            expect(Token_Kind::Right_Paren, "Expected ')' after identifer in parentheses of %s statement.", control_str);
+        }
+
+        return Mem.make<Untyped_AST_Loop_Control>(
+            is_break ? Untyped_AST_Kind::Break : Untyped_AST_Kind::Continue,
+            label,
+            token.location
+        );
     }
     
     Ref<Untyped_AST> parse_expression_or_assignment() {

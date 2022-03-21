@@ -180,6 +180,20 @@ bool Typed_AST_Return::is_constant(Compiler &c) {
     return sub ? sub->is_constant(c) : true;
 }
 
+Typed_AST_Loop_Control::Typed_AST_Loop_Control(Typed_AST_Kind kind, String label, Code_Location location) {
+    this->kind = kind;
+    this->label = label;
+    this->location = location;
+}
+
+Typed_AST_Loop_Control::~Typed_AST_Loop_Control() {
+    label.free();
+}
+
+bool Typed_AST_Loop_Control::is_constant(Compiler &c) {
+    return true;
+}
+
 Typed_AST_Binary::Typed_AST_Binary(
     Typed_AST_Kind kind, 
     Value_Type type,
@@ -542,6 +556,8 @@ static Typed_AST_Kind to_typed(Untyped_AST_Kind kind) {
         case Untyped_AST_Kind::Address_Of_Mut:  return Typed_AST_Kind::Address_Of_Mut;
         case Untyped_AST_Kind::Deref:           return Typed_AST_Kind::Deref;
         case Untyped_AST_Kind::Return:          return Typed_AST_Kind::Return;
+        case Untyped_AST_Kind::Break:           return Typed_AST_Kind::Break;
+        case Untyped_AST_Kind::Continue:        return Typed_AST_Kind::Continue;
         case Untyped_AST_Kind::Addition:        return Typed_AST_Kind::Addition;
         case Untyped_AST_Kind::Subtraction:     return Typed_AST_Kind::Subtraction;
         case Untyped_AST_Kind::Multiplication:  return Typed_AST_Kind::Multiplication;
@@ -720,6 +736,20 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
                 print_sub_at_indent(interp, "sub", ret->sub, indent + 1);
             } else {
                 printf("%*ssub: nullptr\n", (indent + 1) * INDENT_SIZE, "");
+            }
+        } break;
+        case Typed_AST_Kind::Break: {
+            auto control = node.cast<Typed_AST_Loop_Control>();
+            printf("(break)\n");
+            if (control->label.size() != 0) {
+                printf("%*slabel: %.*s\n", (indent + 1) * INDENT_SIZE, "", control->label.size(), control->label.c_str());
+            }
+        } break;
+        case Typed_AST_Kind::Continue: {
+            auto control = node.cast<Typed_AST_Loop_Control>();
+            printf("(continue)\n");
+            if (control->label.size() != 0) {
+                printf("%*slabel: %.*s\n", (indent + 1) * INDENT_SIZE, "", control->label.size(), control->label.c_str());
             }
         } break;
         case Typed_AST_Kind::Addition: {
@@ -1685,6 +1715,10 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
     t.has_return = true;
 
     return Mem.make<Typed_AST_Return>(t.function->varargs, sub, location);
+}
+
+Ref<Typed_AST> Untyped_AST_Loop_Control::typecheck(Typer &t) {
+    return Mem.make<Typed_AST_Loop_Control>(to_typed(kind), label.clone(), location);;
 }
 
 enum class Skip_Receiver {

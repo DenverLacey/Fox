@@ -15,7 +15,7 @@ You should then be able to build the compiler with your usual tools.
 - [x] Boolean values.
 - [x] 64 bit integer and floating point values.
 - [x] UTF8 string and character values.
-- [x] Pointers values.
+- [x] Pointer values.
 - [x] Arrays and slices.
 - [x] Global and local variables.
 - [ ] Compile-time constants. (partially implemented)

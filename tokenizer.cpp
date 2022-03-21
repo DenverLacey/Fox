@@ -140,6 +140,12 @@ void Token::print() const {
         case Token_Kind::Return:
             printf("Return");
             break;
+        case Token_Kind::Break:
+            printf("Break");
+            break;
+        case Token_Kind::Continue:
+            printf("Continue");
+            break;
         case Token_Kind::Import:
             printf("Import");
             break;
@@ -718,6 +724,10 @@ static Token identifier_or_keyword(Tokenizer &t) {
         tok.kind = Token_Kind::In;
     } else if (word == "return") {
         tok.kind = Token_Kind::Return;
+    } else if (word == "break") {
+        tok.kind = Token_Kind::Break;
+    } else if (word == "continue") {
+        tok.kind = Token_Kind::Continue;
     } else if (word == "import") {
         tok.kind = Token_Kind::Import;
     } else if (word == "as") {

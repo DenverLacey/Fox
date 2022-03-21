@@ -38,6 +38,8 @@ enum class Untyped_AST_Kind {
     Deref,
     Defer,
     Return,
+    Break,
+    Continue,
     
     // binary
     Addition,
@@ -200,6 +202,15 @@ struct Untyped_AST_Unary : public Untyped_AST {
 
 struct Untyped_AST_Return : public Untyped_AST_Unary {
     Untyped_AST_Return(Ref<Untyped_AST> sub, Code_Location location);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Loop_Control : public Untyped_AST {
+    String label;
+
+    Untyped_AST_Loop_Control(Untyped_AST_Kind kind, String label, Code_Location location);
+    ~Untyped_AST_Loop_Control();
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

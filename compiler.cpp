@@ -93,6 +93,12 @@ void Compiler::emit_loop(size_t loop_start) {
     emit_value<size_t>(jump);
 }
 
+void Compiler::patch_loop_controls(const std::vector<size_t> &controls) {
+    for (size_t control : controls) {
+        patch_jump(control);
+    }
+}
+
 Variable &Compiler::put_variable(
     String id,
     Value_Type type,
@@ -387,21 +393,31 @@ void Compiler::end_scope() {
     stack_top = flush_point;
 }
 
-void Compiler::compile_deferred_statements(Compiler_Scope &scope, bool pop) {
+void Compiler::compile_deferred_statements(Compiler_Scope &scope, Clear_Defers clear) {
     for (int i = scope.deferred_statements.size() - 1; i >= 0; i--) {
         auto s = scope.deferred_statements[i];
         s->compile(*this);
     }
 
-    if (pop) {
+    if (clear == Clear_Defers::Yes) {
         scope.deferred_statements.clear();
     }
 }
 
-void Compiler::compile_all_deferred_statements(bool pop) {
+void Compiler::compile_all_deferred_statements(Clear_Defers clear) {
     for (auto &scope : scopes) {
-        compile_deferred_statements(scope, pop);
+        compile_deferred_statements(scope, clear);
     }
+}
+
+void Compiler::begin_loop(size_t loop_start) {
+    loops.push_back(Compiler_Loop {
+        .start = loop_start
+    });
+}
+
+void Compiler::end_loop() {
+    loops.pop_back();
 }
 
 void Typed_AST_Bool::compile(Compiler &c) {
@@ -733,7 +749,7 @@ void Typed_AST_Unary::compile(Compiler &c) {
 void Typed_AST_Return::compile(Compiler &c) {
     Address stack_top = c.stack_top;
 
-    c.compile_all_deferred_statements(/*pop*/ false);
+    c.compile_all_deferred_statements(Clear_Defers::No);
     
     Size size = 0;
     if (sub) {
@@ -745,6 +761,35 @@ void Typed_AST_Return::compile(Compiler &c) {
     c.emit_size(size);
     
     c.stack_top = stack_top;
+}
+
+void Typed_AST_Loop_Control::compile(Compiler &c) {
+    bool is_break = kind == Typed_AST_Kind::Break;
+    const char *control_str = is_break ? "break" : "continue";
+    verify(!c.loops.empty(), location, "'%s' outside of a loop.", control_str);
+
+    Compiler_Loop *loop;
+    if (label.size() != 0) {
+        todo("Implement labelled loops.");
+    } else {
+        loop = &c.loops.back();
+    }
+
+    // @TODO:
+    // @NOTE:
+    //  When we have labels this is gonna become more complicated.
+    //
+    c.compile_deferred_statements(c.current_scope(), Clear_Defers::No);
+
+    size_t jump = c.emit_jump(Opcode::Jump);
+
+    if (kind == Typed_AST_Kind::Break) {
+        loop->breaks.push_back(jump);
+    } else if (kind == Typed_AST_Kind::Continue) {
+        loop->continues.push_back(jump);
+    } else {
+        internal_error("Attempt to compile Loop_Control with invalid kind: %d.", kind);
+    }
 }
 
 static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
@@ -764,14 +809,24 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
 static void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
     size_t loop_start = c.function->instructions.size();
     Address stack_top = c.stack_top;
-    
+
+    c.begin_loop(loop_start);    
+
     b.lhs->compile(c);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False);
     
     b.rhs->compile(c);
+
+    auto loop = c.loops.back();
+
+    c.patch_loop_controls(loop.continues);
     c.emit_loop(loop_start);
-    c.patch_jump(exit_jump);
     
+    c.patch_jump(exit_jump);
+    c.patch_loop_controls(loop.breaks);
+    
+    c.end_loop();
+
     c.stack_top = stack_top;
 }
 
@@ -1300,9 +1355,13 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_opcode(Opcode::Copy);
     c.emit_size(target_v.type.size());
     
-//    new_loop(c, loop_start, for_->label);
+    c.begin_loop(loop_start);
+    
     f.body->compile(c);
-//    patch_loop_controls(c, c->continues);
+
+    auto loop = c.loops.back();
+
+    c.patch_loop_controls(loop.continues);
     
     // increment counter
     c.emit_opcode(Opcode::Push_Pointer);
@@ -1312,8 +1371,9 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_loop(loop_start);
 
     c.patch_jump(exit_jump);
-//    patch_loop_controls(c, c->breaks);
-//    end_loop(c);
+    c.patch_loop_controls(loop.breaks);
+
+    c.end_loop();
 }
 
 static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
@@ -1353,10 +1413,13 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
     
     c.emit_opcode(f.iterable->type.data.range.inclusive ? Opcode::Int_Less_Equal : Opcode::Int_Less_Than);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False, false);
-    
-    //    new_loop(c, loop_start, for_->label);
+
+    c.begin_loop(loop_start);
+
     f.body->compile(c);
-    //    patch_loop_controls(c, c->continues);
+    
+    auto loop = c.loops.back();
+    c.patch_loop_controls(loop.continues);
     
     if (counter_v) {
         // increment counter
@@ -1373,7 +1436,9 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_loop(loop_start);
     
     c.patch_jump(exit_jump);
-//    patch_loop_controls(c, c->breaks);
+    c.patch_loop_controls(loop.breaks);
+
+    c.end_loop();
 }
 
 void Typed_AST_For::compile(Compiler &c) {

@@ -32,6 +32,13 @@ struct Compiler_Scope {
     std::vector<Ref<Typed_AST>> deferred_statements;
 };
 
+struct Compiler_Loop {
+    size_t start;
+    String label;
+    std::vector<size_t> breaks;
+    std::vector<size_t> continues;
+};
+
 struct Find_Variable_Result {
     enum {
         Not_Found,
@@ -40,6 +47,11 @@ struct Find_Variable_Result {
         Found_Constant,
     } status;
     Variable *variable;
+};
+
+enum class Clear_Defers {
+    No = 0,
+    Yes = 1,
 };
 
 //struct Loop {
@@ -65,15 +77,13 @@ struct Compiler {
     
     Compiler_Scope *global_scope;
     std::forward_list<Compiler_Scope> scopes;
+    std::vector<Compiler_Loop> loops;
     
     static constexpr size_t Constants_Allignment = 8;
     Data_Section &constants;
     Data_Section &str_constants;
 //    int wb_top;
 //    AST *ret_statement = nullptr;
-//    std::vector<Loop> loops;
-//    std::vector<LoopJump> breaks;
-//    std::vector<LoopJump> continues;
     
     Compiler(Interpreter *interp, Data_Section &constants, Data_Section &str_constants, Function_Definition *function);
     Compiler(Compiler *parent, Function_Definition *function);
@@ -87,6 +97,7 @@ struct Compiler {
     size_t emit_jump(Opcode jump_code, bool update_stack_top = true);
     void patch_jump(size_t jump);
     void emit_loop(size_t loop_start);
+    void patch_loop_controls(const std::vector<size_t> &controls);
     Variable &put_variable(String id, Value_Type type, Address address, bool is_const = false);
     void put_variables_from_pattern(Typed_AST_Processed_Pattern &pp, Address address);
     Find_Variable_Result find_variable(String id);
@@ -118,8 +129,11 @@ struct Compiler {
     Compiler_Scope &current_scope();
     void begin_scope();
     void end_scope();
-    void compile_deferred_statements(Compiler_Scope &scope, bool pop = true);
-    void compile_all_deferred_statements(bool pop = true);
+    void compile_deferred_statements(Compiler_Scope &scope, Clear_Defers clear = Clear_Defers::Yes);
+    void compile_all_deferred_statements(Clear_Defers clear = Clear_Defers::Yes);
+
+    void begin_loop(size_t loop_start);
+    void end_loop();
     
     template<typename T>
     bool evaluate(Ref<Typed_AST> expression, T &out_result) {
