@@ -54,3 +54,42 @@ for n in [_]{ 0, 1, 2, 3, 4 } {
 	}
 	@print(n);
 }
+
+@print("Test: Labels in While loop");
+let mut i = 0;
+outer: while i < 5 {
+	for j in 0..5 {
+		if i == 3 {
+			i += 1;
+			continue(outer);
+		} else if j == 2 {
+			break;
+		}
+		@puts(i); @puts(' '); @print(j);
+	}
+	i += 1;
+}
+
+@print("Test: Labels in For Range loop");
+outer: for i in 0..5 {
+	for j in 0..5 {
+		if i == 3 {
+			continue(outer);
+		} else if j == 2 {
+			break;
+		}
+		@puts(i); @puts(' '); @print(j);
+	}
+}
+
+@print("Test: Labels in For loop");
+outer: for n in [_]{ 0, 1, 2, 3, 4 } {
+	for j in 0..5 {
+		if n == 3 {
+			continue(outer);
+		} else if j == 2 {
+			break;
+		}
+		@puts(n); @puts(' '); @print(j);
+	}
+}

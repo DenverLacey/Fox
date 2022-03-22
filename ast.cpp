@@ -523,7 +523,30 @@ Ref<Untyped_AST> Untyped_AST_If::clone() {
     return Mem.make<Untyped_AST_If>(cond, then, else_, location);
 }
 
+Untyped_AST_While::Untyped_AST_While(
+    Ref<Untyped_AST_Ident> label, 
+    Ref<Untyped_AST> condition, 
+    Ref<Untyped_AST_Multiary> body,
+    Code_Location location)
+{
+    this->kind = Untyped_AST_Kind::While;
+    this->label = label;
+    this->condition = condition;
+    this->body = body;
+    this->location = location;
+}
+
+Ref<Untyped_AST> Untyped_AST_While::clone() {
+    return Mem.make<Untyped_AST_While>(
+        label->clone().cast<Untyped_AST_Ident>(), 
+        condition->clone(), 
+        body->clone().cast<Untyped_AST_Multiary>(),
+        location
+    );
+}
+
 Untyped_AST_For::Untyped_AST_For(
+    Ref<Untyped_AST_Ident> label,
     Ref<Untyped_AST_Pattern> target,
     String counter,
     Ref<Untyped_AST> iterable,
@@ -531,6 +554,7 @@ Untyped_AST_For::Untyped_AST_For(
     Code_Location location)
 {
     this->kind = Untyped_AST_Kind::For;
+    this->label = label;
     this->target = target;
     this->counter = counter;
     this->iterable = iterable;
@@ -544,6 +568,7 @@ Untyped_AST_For::~Untyped_AST_For() {
 
 Ref<Untyped_AST> Untyped_AST_For::clone() {
     return Mem.make<Untyped_AST_For>(
+        label->clone().cast<Untyped_AST_Ident>(),
         target->clone().cast<Untyped_AST_Pattern>(),
         counter.clone(),
         iterable->clone(),
@@ -1029,9 +1054,6 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         case Untyped_AST_Kind::Greater_Eq: {
             print_binary_at_indent(">=", node.cast<Untyped_AST_Binary>(), indent);
         } break;
-        case Untyped_AST_Kind::While: {
-            print_binary_at_indent("while", node.cast<Untyped_AST_Binary>(), indent);
-        } break;
         case Untyped_AST_Kind::And: {
             print_binary_at_indent("and", node.cast<Untyped_AST_Binary>(), indent);
         } break;
@@ -1089,6 +1111,15 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
             if (t->else_) {
                 print_sub_at_indent("else", t->else_, indent + 1);
             }
+        } break;
+        case Untyped_AST_Kind::While: {
+            auto w = node.cast<Untyped_AST_While>();
+            printf("(while)\n");
+            if (w->label) {
+                print_sub_at_indent("label", w->label, indent + 1);
+            }
+            print_sub_at_indent("cond", w->condition, indent + 1);
+            print_sub_at_indent("body", w->body, indent + 1);
         } break;
         case Untyped_AST_Kind::For: {
             auto f = node.cast<Untyped_AST_For>();

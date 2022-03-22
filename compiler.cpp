@@ -408,14 +408,30 @@ void Compiler::compile_deferred_statements(Compiler_Scope *begin, Compiler_Scope
     }
 }
 
-void Compiler::begin_loop() {
+void Compiler::begin_loop(String label, Code_Location location) {
+    auto loop = find_loop(label);
+    verify(loop == nullptr, location, "Cannot use '%.*s' as label for loop as it's already the label for another loop. The other loop is located at %s:%zu:%zu.", label.size(), label.c_str(), loop->location.filename, loop->location.l0 + 1, loop->location.c0 + 1);
+
     loops.push_back(Compiler_Loop {
-        .scope = &current_scope()
+        .scope = &current_scope(),
+        .label = label,
+        .location = location
     });
 }
 
 void Compiler::end_loop() {
     loops.pop_back();
+}
+
+Compiler_Loop *Compiler::find_loop(String label) {
+    if (label.size() != 0) {
+        for (auto &loop : loops) {
+            if (loop.label == label) {
+                return &loop;
+            }
+        }
+    }
+    return nullptr;
 }
 
 void Typed_AST_Bool::compile(Compiler &c) {
@@ -768,7 +784,8 @@ void Typed_AST_Loop_Control::compile(Compiler &c) {
 
     Compiler_Loop *loop;
     if (label.size() != 0) {
-        todo("Implement labelled loops.");
+        loop = c.find_loop(label);
+        verify(loop, location, "Unknown label '%.*s'.", label.size(), label.c_str());
     } else {
         loop = &c.loops.back();
     }
@@ -797,30 +814,6 @@ static void compile_assignment(Compiler &c, Typed_AST_Binary &b) {
     c.emit_opcode(Opcode::Move);
     c.emit_size(size);
     
-    c.stack_top = stack_top;
-}
-
-static void compile_while_loop(Compiler &c, Typed_AST_Binary &b) {
-    size_t loop_start = c.function->instructions.size();
-    Address stack_top = c.stack_top;
-
-    c.begin_loop();
-
-    b.lhs->compile(c);
-    size_t exit_jump = c.emit_jump(Opcode::Jump_False);
-    
-    b.rhs->compile(c);
-
-    auto loop = c.loops.back();
-
-    c.patch_loop_controls(loop.continues);
-    c.emit_loop(loop_start);
-    
-    c.patch_jump(exit_jump);
-    c.patch_loop_controls(loop.breaks);
-    
-    c.end_loop();
-
     c.stack_top = stack_top;
 }
 
@@ -1072,9 +1065,6 @@ void Typed_AST_Binary::compile(Compiler &c) {
         case Typed_AST_Kind::Assignment:
             compile_assignment(c, *this);
             return;
-        case Typed_AST_Kind::While:
-            compile_while_loop(c, *this);
-            return;
         case Typed_AST_Kind::Equal:
             lhs->compile(c);
             rhs->compile(c);
@@ -1261,6 +1251,31 @@ void Typed_AST_Match_Pattern::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Match_Pattern::compile() is disallowed.");
 }
 
+void Typed_AST_While::compile(Compiler &c) {
+    size_t loop_start = c.function->instructions.size();
+    Address stack_top = c.stack_top;
+
+    auto label = this->label ? this->label->id : String{};
+    c.begin_loop(label, location);
+
+    condition->compile(c);
+    size_t exit_jump = c.emit_jump(Opcode::Jump_False);
+    
+    body->compile(c);
+
+    auto loop = c.loops.back();
+
+    c.patch_loop_controls(loop.continues);
+    c.emit_loop(loop_start);
+    
+    c.patch_jump(exit_jump);
+    c.patch_loop_controls(loop.breaks);
+    
+    c.end_loop();
+
+    c.stack_top = stack_top;
+}
+
 static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     // initialize counter variable
     Variable counter_v = { false, value_types::Int, c.stack_top };
@@ -1349,7 +1364,8 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_opcode(Opcode::Copy);
     c.emit_size(target_v.type.size());
     
-    c.begin_loop();
+    auto label = f.label ? f.label->id : String{};
+    c.begin_loop(label, f.location);
     
     f.body->compile(c);
 
@@ -1408,7 +1424,8 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
     c.emit_opcode(f.iterable->type.data.range.inclusive ? Opcode::Int_Less_Equal : Opcode::Int_Less_Than);
     size_t exit_jump = c.emit_jump(Opcode::Jump_False, false);
 
-    c.begin_loop();
+    auto label = f.label ? f.label->id : String{};
+    c.begin_loop(label, f.location);
 
     f.body->compile(c);
     

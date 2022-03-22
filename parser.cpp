@@ -273,6 +273,12 @@ struct Parser {
         if (tok.kind != Token_Kind::Ident) return false;
         return tok.data.s == id;
     }
+
+    bool check_labelled_loop() {
+        return (check(Token_Kind::Ident) &&
+                check(Token_Kind::Colon, 1) &&
+                (check(Token_Kind::While, 2) || check(Token_Kind::For, 2)));
+    }
     
     bool match(Token_Kind kind) {
         if (check(kind)) {
@@ -523,9 +529,21 @@ struct Parser {
         } else if (check(Token_Kind::If)) {
             s = parse_if_statement(next());
         } else if (check(Token_Kind::While)) {
-            s = parse_while_statement(next());
+            s = parse_while_statement(next(), {});
         } else if (check(Token_Kind::For)) {
-            s = parse_for_statement(next());
+            s = parse_for_statement(next(), {});
+        } else if (check_labelled_loop()) {
+            auto label_tok = expect(Token_Kind::Ident, "Expected identifier as label to loop.");
+            expect(Token_Kind::Colon, "Expected ':' after label of loop.");
+            
+            auto loop_tok = next();
+            if (loop_tok.kind == Token_Kind::While) {
+                s = parse_while_statement(loop_tok, label_tok);
+            } else if (loop_tok.kind == Token_Kind::For) {
+                s = parse_for_statement(loop_tok, label_tok);
+            } else {
+                error(loop_tok.location, "Expected a loop after label.");
+            }
         } else if (check(Token_Kind::Match)) {
             s = parse_match_statement(next());
         } else if (check(Token_Kind::Defer)) {
@@ -793,13 +811,24 @@ struct Parser {
         return Mem.make<Untyped_AST_If>(cond, then, else_, token.location);
     }
     
-    Ref<Untyped_AST_Binary> parse_while_statement(Token token) {
+    Ref<Untyped_AST_While> parse_while_statement(Token token, std::optional<Token> label_token) {
+        Ref<Untyped_AST_Ident> label = nullptr;
+        if (label_token.has_value()) {
+            auto label_str = label_token->data.s.clone();
+            label = Mem.make<Untyped_AST_Ident>(label_str, label_token->location);
+        }
         auto cond = parse_expression();
         auto body = parse_block();
-        return Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::While, cond, body, token.location);
+        return Mem.make<Untyped_AST_While>(label, cond, body, token.location);
     }
     
-    Ref<Untyped_AST_For> parse_for_statement(Token token) {
+    Ref<Untyped_AST_For> parse_for_statement(Token token, std::optional<Token> label_token) {
+        Ref<Untyped_AST_Ident> label = nullptr;
+        if (label_token.has_value()) {
+            auto label_str = label_token->data.s.clone();
+            label = Mem.make<Untyped_AST_Ident>(label_str, label_token->location);
+        }
+
         auto target = parse_pattern();
         
         String counter = "";
@@ -813,7 +842,7 @@ struct Parser {
         auto iterable = parse_expression();
         auto body = parse_block();
         
-        return Mem.make<Untyped_AST_For>(target, counter, iterable, body, token.location);
+        return Mem.make<Untyped_AST_For>(label, target, counter, iterable, body, token.location);
     }
     
     Ref<Untyped_AST_Match> parse_match_statement(Token token) {

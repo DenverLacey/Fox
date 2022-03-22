@@ -35,6 +35,7 @@ struct Compiler_Scope {
 struct Compiler_Loop {
     Compiler_Scope *scope;
     String label;
+    Code_Location location;
     std::vector<size_t> breaks;
     std::vector<size_t> continues;
 };
@@ -131,8 +132,9 @@ struct Compiler {
     void end_scope();
     void compile_deferred_statements(Compiler_Scope *begin, Compiler_Scope *end, Clear_Defers clear);
 
-    void begin_loop();
+    void begin_loop(String label, Code_Location location);
     void end_loop();
+    Compiler_Loop *find_loop(String label);
     
     template<typename T>
     bool evaluate(Ref<Typed_AST> expression, T &out_result) {

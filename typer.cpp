@@ -57,7 +57,7 @@ Typed_AST_Ident::Typed_AST_Ident(String id, Value_Type type, Code_Location locat
     kind = Typed_AST_Kind::Ident;
     this->type = type;
     this->id = id;
-this->location = location;
+    this->location = location;
 }
 
 Typed_AST_Ident::~Typed_AST_Ident() {
@@ -404,8 +404,26 @@ bool Typed_AST_Match_Pattern::is_constant(Compiler &c) {
     return true;
 }
 
+Typed_AST_While::Typed_AST_While(
+    Ref<Typed_AST_Ident> label,
+    Ref<Typed_AST> condition,
+    Ref<Typed_AST_Multiary> body,
+    Code_Location location)
+{
+    this->kind = Typed_AST_Kind::While;
+    this->label = label;
+    this->condition = condition;
+    this->body = body;
+    this->location = location;
+}
+
+bool Typed_AST_While::is_constant(Compiler &c) {
+    return condition->is_constant(c) && body->is_constant(c);
+}
+
 Typed_AST_For::Typed_AST_For(
     Typed_AST_Kind kind,
+    Ref<Typed_AST_Ident> label,
     Ref<Typed_AST_Processed_Pattern> target,
     String counter,
     Ref<Typed_AST> iterable,
@@ -413,6 +431,7 @@ Typed_AST_For::Typed_AST_For(
     Code_Location location)
 {
     this->kind = kind;
+    this->label = label;
     this->target = target;
     this->counter = counter;
     this->iterable = iterable;
@@ -788,9 +807,6 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
         case Typed_AST_Kind::Greater_Eq: {
             print_binary_at_indent(interp, ">=", node.cast<Typed_AST_Binary>(), indent);
         } break;
-        case Typed_AST_Kind::While: {
-            print_binary_at_indent(interp, "while", node.cast<Typed_AST_Binary>(), indent);
-        } break;
         case Typed_AST_Kind::And: {
             print_binary_at_indent(interp, "and", node.cast<Typed_AST_Binary>(), indent);
         } break;
@@ -828,6 +844,15 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             if (t->else_) {
                 print_sub_at_indent(interp, "else", t->else_, indent + 1);
             }
+        } break;
+        case Typed_AST_Kind::While: {
+            auto w = node.cast<Typed_AST_While>();
+            printf("(while)\n");
+            if (w->label) {
+                printf("%*slabel: %.*s\n", (indent + 1) * INDENT_SIZE, "", w->label->id.size(), w->label->id.c_str());
+            }
+            print_sub_at_indent(interp, "cond", w->condition, indent + 1);
+            print_sub_at_indent(interp, "body", w->body, indent + 1);
         } break;
         case Typed_AST_Kind::For:
         case Typed_AST_Kind::For_Range: {
@@ -1718,7 +1743,7 @@ Ref<Typed_AST> Untyped_AST_Return::typecheck(Typer &t) {
 }
 
 Ref<Typed_AST> Untyped_AST_Loop_Control::typecheck(Typer &t) {
-    return Mem.make<Typed_AST_Loop_Control>(to_typed(kind), label.clone(), location);;
+    return Mem.make<Typed_AST_Loop_Control>(to_typed(kind), label.clone(), location);
 }
 
 enum class Skip_Receiver {
@@ -2290,10 +2315,6 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
                 rhs,
                 location
             );
-        case Untyped_AST_Kind::While:
-            verify(lhs->type.kind == Value_Type_Kind::Bool, lhs->location, "(while) requires condition to be 'bool' but was given '%s'.", lhs->type.display_str());
-            t.has_return = false;
-            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::While, value_types::None, lhs, rhs, location);
         case Untyped_AST_Kind::Cast: {
             Ref<Typed_AST> typechecked;
             
@@ -2603,7 +2624,28 @@ Ref<Typed_AST> Untyped_AST_Type_Signature::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Type_Signature>(resolved_type, location);
 }
 
+Ref<Typed_AST> Untyped_AST_While::typecheck(Typer &t) {
+    Ref<Typed_AST_Ident> label = nullptr;
+    if (this->label) {
+        label = Mem.make<Typed_AST_Ident>(this->label->id.clone(), value_types::None, this->label->location);
+    }
+
+    auto cond = condition->typecheck(t);
+    auto body = this->body->typecheck(t).cast<Typed_AST_Multiary>();
+
+    verify(cond->type.kind == Value_Type_Kind::Bool, cond->location, "(while) requires condition to be 'bool' but was given '%s'.", cond->type.display_str());
+    
+    t.has_return = false;
+    
+    return Mem.make<Typed_AST_While>(label, cond, body, location);
+}
+
 Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
+    Ref<Typed_AST_Ident> label = nullptr;
+    if (this->label) {
+        label = Mem.make<Typed_AST_Ident>(this->label->id.clone(), value_types::None, this->label->location);
+    }
+
     auto iterable = this->iterable->typecheck(t);
     switch (iterable->type.kind) {
         case Value_Type_Kind::Array:
@@ -2638,6 +2680,7 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
         iterable->type.kind == Value_Type_Kind::Range ?
             Typed_AST_Kind::For_Range :
             Typed_AST_Kind::For,
+        label,
         processed_target,
         counter.clone(),
         iterable,

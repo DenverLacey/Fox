@@ -1,17 +1,7 @@
 
-for i in 0..5 {
-	defer {
-		@puts("Leaving iteration ");
-		@print(i);
-	}
-
-	if i == 1 {
-		continue;
-	}
-
-	if i == 3 {
-		break;
-	}
-
-	@print(i);
+loop: while true {
+	@print("In the loop");
+	break(loop);
 }
+
+@print("Out the loop");
