@@ -40,6 +40,7 @@ Precedence token_precedence(Token token) {
         // literals
         case Token_Kind::True:   return Precedence::None;
         case Token_Kind::False:  return Precedence::None;
+        case Token_Kind::Byte:   return Precedence::None;
         case Token_Kind::Int:    return Precedence::None;
         case Token_Kind::Float:  return Precedence::None;
         case Token_Kind::Char:   return Precedence::None;
@@ -965,6 +966,9 @@ struct Parser {
             case Token_Kind::False:
                 a = Mem.make<Untyped_AST_Bool>(false, token.location);
                 break;
+            case Token_Kind::Byte:
+                a = Mem.make<Untyped_AST_Byte>(token.data.b, token.location);
+                break;
             case Token_Kind::Int:
                 a = Mem.make<Untyped_AST_Int>(token.data.i, token.location);
                 break;
@@ -1302,6 +1306,11 @@ struct Parser {
             auto size_expr = parse_expression();
             expect(Token_Kind::Right_Paren, "Expected ')' to terminate '@alloc' builtin.");
             parsed = Mem.make<Untyped_AST_Binary>(Untyped_AST_Kind::Builtin_Alloc, sig, size_expr, location);
+        } else if (id_str == "free") {
+            expect(Token_Kind::Left_Paren, "Expected '(' after '@%.*s'.", id_str.size(), id_str.c_str());
+            auto arg = parse_expression();
+            expect(Token_Kind::Right_Paren, "Expected ')' to terminate '@%.*s' builtin.", id_str.size(), id_str.c_str());
+            parsed = Mem.make<Untyped_AST_Unary>(Untyped_AST_Kind::Builtin_Free, arg, location);
         } else if (id_str == "puts" || id_str == "print") {
             expect(Token_Kind::Left_Paren, "Expected '(' after '@%.*s'.", id_str.size(), id_str.c_str());
             auto kind = id_str == "puts" ? Untyped_AST_Builtin_Printlike::Puts : Untyped_AST_Builtin_Printlike::Print;

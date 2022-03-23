@@ -1,0 +1,53 @@
+enum Direction {
+	Up,
+	Down,
+	Left,
+	Right,
+}
+
+impl Direction {
+	fn as_char(self) -> char {
+		match *self {
+			Direction::Up => return '^';
+			Direction::Down => return 'v';
+			Direction::Left => return '<';
+			Direction::Right => return '>';
+		}
+		return 'x';
+	}
+}
+
+struct Player {
+	x: int,
+	y: int,
+	dir: Direction,
+}
+
+struct Board {
+	width: int,
+	height: int,
+}
+
+impl Board {
+	fn draw(self, player: Player) {
+		for y in 0..self.height {
+			for x in 0..self.width {
+				if x == player.x and y == player.y {
+					@puts(player.dir.as_char());
+				} else {
+					@puts('.');
+				}
+			}
+			@puts('\n');
+		}
+	}
+}
+
+let board = Board{ width: 5, height: 5 };
+let player = Player {
+	x: 2,
+	y: 2,
+	dir: Direction::Down,
+};
+
+board.draw(player);

@@ -410,7 +410,7 @@ void Compiler::compile_deferred_statements(Compiler_Scope *begin, Compiler_Scope
 
 void Compiler::begin_loop(String label, Code_Location location) {
     auto loop = find_loop(label);
-    verify(loop == nullptr, location, "Cannot use '%.*s' as label for loop as it's already the label for another loop. The other loop is located at %s:%zu:%zu.", label.size(), label.c_str(), loop->location.filename, loop->location.l0 + 1, loop->location.c0 + 1);
+    verify(loop == nullptr, location, "Cannot use '%.*s' as label for loop as it's already the label for another loop.\n\tThe other loop is located at %s:%zu:%zu.", label.size(), label.c_str(), loop->location.filename, loop->location.l0 + 1, loop->location.c0 + 1);
 
     loops.push_back(Compiler_Loop {
         .scope = &current_scope(),
@@ -471,6 +471,18 @@ void Typed_AST_Ident::compile(Compiler &c) {
     }
     
     c.stack_top = stack_top + v->type.size();
+}
+
+void Typed_AST_Byte::compile(Compiler &c) {
+    if (value == 0) {
+        c.emit_opcode(Opcode::Lit_0b);
+    } else if (value == 1) {
+        c.emit_opcode(Opcode::Lit_1b);
+    } else {
+        c.emit_opcode(Opcode::Lit_Byte);
+        c.emit_value<runtime::Byte>(value);
+    }
+    c.stack_top += type.size();
 }
 
 void Typed_AST_Int::compile(Compiler &c) {

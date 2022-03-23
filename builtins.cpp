@@ -21,15 +21,29 @@ void builtin_alloc(Stack &stack, Address arg_start) {
     stack.push(allocation);
 }
 
-void builtin_free(Stack &stack, Address arg_start) {
+void builtin_free_pointer(Stack &stack, Address arg_start) {
     runtime::Pointer pointer = stack.pop<runtime::Pointer>();
     free(pointer);
+}
+
+void builtin_free_slice(Stack &stack, Address arg_start) {
+    runtime::Slice slice = stack.pop<runtime::Slice>();
+    free(slice.data);
+}
+
+void builtin_free_str(Stack &stack, Address arg_start) {
+    runtime::String str = stack.pop<runtime::String>();
+    free(str.s);
 }
 
 void builtin_panic(Stack &stack, Address arg_start) {
     runtime::String err = stack.pop<runtime::String>();
     printf("Panic! %.*s\n", err.len, err.s);
     exit(EXIT_FAILURE);
+}
+
+void print_byte(runtime::Byte value) {
+    printf("%d", value);
 }
 
 void print_bool(runtime::Bool value) {
@@ -55,6 +69,9 @@ void print_str(runtime::String value) {
 
 void print_value(Value_Type type, void *ptr) {
     switch (type.kind) {
+        case Value_Type_Kind::Byte:
+            print_byte(*reinterpret_cast<runtime::Byte *>(ptr));
+            break;
         case Value_Type_Kind::Bool:
             print_bool(*reinterpret_cast<runtime::Bool *>(ptr));
             break;
@@ -127,6 +144,11 @@ void print_enum(Enum_Definition *defn, void *ptr) {
     }
 }
 
+void builtin_puts_byte(Stack &stack, Address arg_start) {
+    runtime::Byte value = stack.pop<runtime::Byte>();
+    print_byte(value);
+}
+
 void builtin_puts_bool(Stack &stack, Address arg_start) {
     runtime::Bool value = stack.pop<runtime::Bool>();
     print_bool(value);
@@ -163,6 +185,11 @@ void builtin_puts_enum(Stack &stack, Address arg_start) {
     auto data = stack.pop(defn->size);
 
     print_enum(defn, data);
+}
+
+void builtin_print_byte(Stack &stack, Address arg_start) {
+    builtin_puts_byte(stack, arg_start);
+    printf("\n");
 }
 
 void builtin_print_bool(Stack &stack, Address arg_start) {
@@ -206,14 +233,29 @@ void load_builtins(Interpreter *interp) {
         value_types::func(value_types::ptr_to(const_cast<Value_Type *>(&value_types::Void)), value_types::Int)
     });
     
-    interp->builtins.add_builtin("free", {
-        builtin_free,
+    interp->builtins.add_builtin("<free-ptr>", {
+        builtin_free_pointer,
         value_types::func(value_types::Void, value_types::ptr_to(const_cast<Value_Type *>(&value_types::Void)))
+    });
+
+    interp->builtins.add_builtin("<free-slice>", {
+        builtin_free_slice,
+        value_types::func(value_types::Void, value_types::slice_of(const_cast<Value_Type *>(&value_types::Void)))
+    });
+
+    interp->builtins.add_builtin("<free-str>", {
+        builtin_free_str,
+        value_types::func(value_types::Void, value_types::Str)
     });
     
     interp->builtins.add_builtin("panic", {
         builtin_panic,
         value_types::func(value_types::Void, value_types::Str)
+    });
+
+    interp->builtins.add_builtin("<puts-byte>", {
+        builtin_puts_byte,
+        value_types::func(value_types::Void, value_types::Byte)
     });
 
     interp->builtins.add_builtin("<puts-bool>", {
@@ -249,6 +291,11 @@ void load_builtins(Interpreter *interp) {
     interp->builtins.add_builtin("<puts-enum>", {
         builtin_puts_enum,
         value_types::func(value_types::Void, Value_Type{ Value_Type_Kind::Enum })
+    });
+
+    interp->builtins.add_builtin("<print-byte>", {
+        builtin_print_byte,
+        value_types::func(value_types::Void, value_types::Byte)
     });
     
     interp->builtins.add_builtin("<print-bool>", {

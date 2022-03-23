@@ -23,6 +23,7 @@ enum class Value_Type_Kind : uint8_t {
     None,
     Unresolved_Type,
     Void,
+    Byte,
     Bool,
     Char,
     Int,
@@ -41,6 +42,7 @@ enum class Value_Type_Kind : uint8_t {
 };
 
 namespace runtime {
+using Byte = uint8_t;
 using Bool = bool;
 using Char = char32_t;
 using Int = int64_t;
@@ -148,6 +150,7 @@ struct Value_Type {
 namespace value_types {
 inline const Value_Type None = { Value_Type_Kind::None };
 inline const Value_Type Void = { Value_Type_Kind::Void };
+inline const Value_Type Byte = { Value_Type_Kind::Byte };
 inline const Value_Type Bool = { Value_Type_Kind::Bool };
 inline const Value_Type Char = { Value_Type_Kind::Char };
 inline const Value_Type Int = { Value_Type_Kind::Int };

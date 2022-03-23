@@ -16,6 +16,7 @@
 
 enum class Typed_AST_Kind {
     // literals
+    Byte,
     Bool,
     Char,
     Float,
@@ -150,6 +151,14 @@ struct Typed_AST_UUID : public Typed_AST {
     UUID uuid;
     
     Typed_AST_UUID(Typed_AST_Kind kind, UUID uuid, Value_Type type, Code_Location location);
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Byte : public Typed_AST {
+    uint8_t value;
+    
+    Typed_AST_Byte(uint8_t value, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };

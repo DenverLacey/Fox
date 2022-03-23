@@ -16,6 +16,7 @@
 
 enum class Untyped_AST_Kind {
     // literals
+    Byte,
     Bool,
     Char,
     Float,
@@ -98,6 +99,7 @@ enum class Untyped_AST_Kind {
     Builtin,
     Builtin_Sizeof,
     Builtin_Alloc,
+    Builtin_Free,
     Builtin_Printlike,
     
     // unique
@@ -165,6 +167,14 @@ struct Untyped_AST_Path : public Untyped_AST_Symbol {
     Ref<Untyped_AST_Symbol> rhs;
     
     Untyped_AST_Path(Ref<Untyped_AST_Ident> lhs, Ref<Untyped_AST_Symbol> rhs, Code_Location location);
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Byte : public Untyped_AST {
+    uint8_t value;
+
+    Untyped_AST_Byte(uint8_t value, Code_Location location);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

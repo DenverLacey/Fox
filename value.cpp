@@ -24,6 +24,8 @@ Size Value_Type::size() const {
             return 0;
         case Value_Type_Kind::Void:
             return 0;
+        case Value_Type_Kind::Byte:
+            return sizeof(runtime::Byte);
         case Value_Type_Kind::Bool:
             return sizeof(runtime::Bool);
         case Value_Type_Kind::Char:
@@ -84,6 +86,9 @@ char *Value_Type::debug_str() const {
             break;
         case Value_Type_Kind::Void:
             s << "void";
+            break;
+        case Value_Type_Kind::Byte:
+            s << "byte";
             break;
         case Value_Type_Kind::Bool:
             s << "bool";
@@ -186,6 +191,9 @@ char *Value_Type::display_str() const {
             break;
         case Value_Type_Kind::Void:
             s << "void";
+            break;
+        case Value_Type_Kind::Byte:
+            s << "byte";
             break;
         case Value_Type_Kind::Bool:
             s << "bool";
@@ -321,6 +329,7 @@ Value_Type Value_Type::clone() const {
             
         case Value_Type_Kind::None:  break;
         case Value_Type_Kind::Void:  break;
+        case Value_Type_Kind::Byte:  break;
         case Value_Type_Kind::Bool:  break;
         case Value_Type_Kind::Char:  break;
         case Value_Type_Kind::Int:   break;

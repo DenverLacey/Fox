@@ -1,7 +1,6 @@
 
-loop: while true {
-	@print("In the loop");
-	break(loop);
-}
+let ptr = @alloc(*int, @size_of(int));
+@free(ptr);
 
-@print("Out the loop");
+let slice = []int{ @alloc(*int, @size_of(int)), 1 };
+@free(slice);

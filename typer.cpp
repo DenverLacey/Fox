@@ -80,6 +80,17 @@ bool Typed_AST_UUID::is_constant(Compiler &c) {
     return true;
 }
 
+Typed_AST_Byte::Typed_AST_Byte(uint8_t value, Code_Location location) {
+    kind = Typed_AST_Kind::Byte;
+    type.kind = Value_Type_Kind::Byte;
+    this->value = value;
+    this->location = location;
+}
+
+bool Typed_AST_Byte::is_constant(Compiler &c) {
+    return true;
+}
+
 Typed_AST_Int::Typed_AST_Int(int64_t value, Code_Location location) {
     kind = Typed_AST_Kind::Int;
     type.kind = Value_Type_Kind::Int;
@@ -670,6 +681,10 @@ static void print_cast_at_indent(Interpreter *interp, const Ref<Typed_AST_Cast> 
 
 static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size_t indent) {
     switch (node->kind) {
+        case Typed_AST_Kind::Byte: {
+            auto lit = node.cast<Typed_AST_Byte>();
+            printf("%db\n", lit->value);
+        } break;
         case Typed_AST_Kind::Bool: {
             Ref<Typed_AST_Bool> lit = node.cast<Typed_AST_Bool>();
             printf("%s\n", lit->value ? "true" : "false");
@@ -1659,6 +1674,10 @@ Ref<Typed_AST> Untyped_AST_Path::typecheck(Typer &t) {
     return typechecked;
 }
 
+Ref<Typed_AST> Untyped_AST_Byte::typecheck(Typer &t) {
+    return Mem.make<Typed_AST_Byte>(value, location);
+}
+
 Ref<Typed_AST> Untyped_AST_Int::typecheck(Typer &t) {
     return Mem.make<Typed_AST_Int>(value, location);
 }
@@ -1718,6 +1737,37 @@ Ref<Typed_AST> Untyped_AST_Unary::typecheck(Typer &t) {
             Size type_size = type->value_type->size();
             
             return Mem.make<Typed_AST_Int>(static_cast<int64_t>(type_size), location);
+        } break;
+        case Untyped_AST_Kind::Builtin_Free: {
+            Builtin_Definition *defn = nullptr;
+            switch (sub->type.kind) {
+                case Value_Type_Kind::Ptr:
+                    defn = t.interp->builtins.get_builtin("<free-ptr>");
+                    internal_verify(defn, "Failed to retrieve <free-ptr> builtin.");
+                    break;
+                case Value_Type_Kind::Slice:
+                    defn = t.interp->builtins.get_builtin("<free-slice>");
+                    internal_verify(defn, "Failed to retrieve <free-slice> builtin.");
+                    break;
+                case Value_Type_Kind::Str:
+                    defn = t.interp->builtins.get_builtin("<free-str>");
+                    internal_verify(defn, "Failed to retrieve <free-str> builtin.");
+                    break;
+
+                default:
+                    error(sub->location, "Cannot free something of type '%s'.", sub->type.display_str());
+                    break;
+            }
+
+            auto builtin = Mem.make<Typed_AST_Builtin>(defn, nullptr, location);
+
+            return Mem.make<Typed_AST_Binary>(
+                Typed_AST_Kind::Builtin_Call,
+                *builtin->type.data.func.return_type,
+                builtin,
+                sub,
+                location
+            );
         } break;
             
         default:
@@ -2489,6 +2539,11 @@ Ref<Typed_AST> Untyped_AST_Builtin_Printlike::typecheck(Typer &t) {
 
     Ref<Typed_AST> printlike = nullptr;
     switch (arg->type.kind) {
+        case Value_Type_Kind::Byte: {
+            auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-byte>" : "<print-byte>");
+            internal_verify(defn, "Failed to retrieve builtin");
+            printlike = Mem.make<Typed_AST_Builtin>(defn, nullptr, location);
+        } break;
         case Value_Type_Kind::Bool: {
             auto defn = t.interp->builtins.get_builtin(is_puts ? "<puts-bool>" : "<print-bool>");
             internal_verify(defn, "Failed to retrieve builtin");

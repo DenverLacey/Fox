@@ -140,6 +140,16 @@ Ref<Untyped_AST> Untyped_AST_Path::clone() {
     );
 }
 
+Untyped_AST_Byte::Untyped_AST_Byte(uint8_t value, Code_Location location) {
+    kind = Untyped_AST_Kind::Byte;
+    this->value = value;
+    this->location = location;
+}
+
+Ref<Untyped_AST> Untyped_AST_Byte::clone() {
+    return Mem.make<Untyped_AST_Byte>(value, location);
+}
+
 Untyped_AST_Int::Untyped_AST_Int(int64_t value, Code_Location location) {
     kind = Untyped_AST_Kind::Int;
     this->value = value;
@@ -938,6 +948,10 @@ static void print_pattern(Ref<Untyped_AST_Pattern> p) {
 
 static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
     switch (node->kind) {
+        case Untyped_AST_Kind::Byte: {
+            auto lit = node.cast<Untyped_AST_Byte>();
+            printf("%db\n", lit->value);
+        } break;
         case Untyped_AST_Kind::Bool: {
             Ref<Untyped_AST_Bool> lit = node.cast<Untyped_AST_Bool>();
             printf("%s\n", lit->value ? "true" : "false");
@@ -1258,6 +1272,9 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
         } break;
         case Untyped_AST_Kind::Builtin_Alloc: {
             print_binary_at_indent("@alloc", node.cast<Untyped_AST_Binary>(), indent);
+        } break;
+        case Untyped_AST_Kind::Builtin_Free: {
+            print_unary_at_indent("@free", node.cast<Untyped_AST_Unary>(), indent);
         } break;
         case Untyped_AST_Kind::Builtin_Printlike: {
             auto builtin = node.cast<Untyped_AST_Builtin_Printlike>();

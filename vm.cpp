@@ -93,6 +93,12 @@ void VM::run() {
             case Opcode::Lit_1: {
                 stack.push<runtime::Int>(1);
             } break;
+            case Opcode::Lit_0b: {
+                stack.push<runtime::Byte>(0);
+            } break;
+            case Opcode::Lit_1b: {
+                stack.push<runtime::Byte>(1);
+            } break;
             case Opcode::Lit_Char: {
                 runtime::Char c = READ(runtime::Char, frame);
                 stack.push<runtime::Char>(c);
@@ -100,6 +106,10 @@ void VM::run() {
             case Opcode::Lit_Int: {
                 runtime::Int value = READ(runtime::Int, frame);
                 stack.push<runtime::Int>(value);
+            } break;
+            case Opcode::Lit_Byte: {
+                runtime::Byte value = READ(runtime::Byte, frame);
+                stack.push<runtime::Byte>(value);
             } break;
             case Opcode::Lit_Float: {
                 runtime::Float value = READ(runtime::Float, frame);
@@ -420,10 +430,23 @@ void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Sectio
                 printf(IDX "Lit_1\n", i);
                 i++;
                 break;
+            case Opcode::Lit_0b:
+                printf(IDX "Lit_0b\n", i);
+                i++;
+                break;
+            case Opcode::Lit_1b:
+                printf(IDX "Lit_1b\n", i);
+                i++;
+                break;
             case Opcode::Lit_Char: {
                 MARK(i);
                 runtime::Char c = READ(runtime::Char, i);
                 printf(IDX "Lit_Char '%s'\n", mark, utf8char_t::from_char32(c).buf);
+            } break;
+            case Opcode::Lit_Byte: {
+                MARK(i);
+                runtime::Byte constant = READ(runtime::Byte, i);
+                printf(IDX "Lit_Byte (%d)\n", mark, constant);
             } break;
             case Opcode::Lit_Int: {
                 MARK(i);

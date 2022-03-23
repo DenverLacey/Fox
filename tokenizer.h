@@ -20,6 +20,7 @@ enum class Token_Kind {
     // literals
     True,
     False,
+    Byte,
     Int,
     Float,
     Char,
@@ -97,6 +98,7 @@ enum class Token_Kind {
 };
 
 union Token_Data {
+    uint8_t b;
     int64_t i;
     double f;
     char32_t c;

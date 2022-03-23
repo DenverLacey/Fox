@@ -1,0 +1,62 @@
+struct String_Builder {
+	segments: []mut str,
+	len: int,
+}
+
+impl String_Builder {
+	fn new() -> Self {
+		return Self {
+			segments: []mut str{ 0 as *mut str, 0 },
+			len: 0,
+		};
+	}
+
+	fn free(self) {
+		@free(self.segments.data() as *void);
+	}
+
+	fn append(mut self, segment: str) {
+		if self.segments.len() <= self.len {
+			if self.segments.len() > 0 {
+				self.reserve(self.segments.len());
+			} else {
+				self.reserve(1);
+			}
+		}
+
+		self.segments[self.len] = segment;
+		self.len += 1;
+	}
+
+	fn reserve(mut self, extra_capacity: int) {
+		let new_cap = (self.segments.len() + extra_capacity) * @size_of(str);
+		let new_segs = []mut str{
+			@alloc(*mut str, new_cap),
+			new_cap,
+		};
+
+		for segment, i in self.segments {
+			new_segs[i] = segment;
+		}
+
+		@free(self.segments.data() as *void);
+
+		self.segments = new_segs;
+	}
+
+	fn print(self) {
+		for i in 0..self.len {
+			@puts(self.segments[i]);
+		}
+		@puts('\n');
+	}
+}
+
+let mut split = String_Builder::new();
+defer split.free();
+
+split.append("Hello ");
+split.print();
+
+split.append("world!");
+split.print();

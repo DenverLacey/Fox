@@ -26,6 +26,9 @@ void Token::print() const {
         case Token_Kind::False:
             printf("False");
             break;
+        case Token_Kind::Byte:
+            printf("Byte (%d)", data.b);
+            break;
         case Token_Kind::Int:
             printf("Int (%lld)", data.i);
             break;
@@ -417,11 +420,19 @@ static Token number(Tokenizer &t) {
     size_t len = word_end - word;
     char *num_str = SMem.duplicate(word, len);
     if (underscores) remove_underscores(num_str, len);
+
+    bool is_byte = t.match('b');
+    verify(!(is_byte ^ is_float), t.current_location(), "Cannot use a floating point literal as the number component to a byte literal.");
+
     Token tok;
-    
     if (is_float) {
         tok.kind = Token_Kind::Float;
         tok.data.f = atof(num_str);
+    } else if (is_byte) {
+        tok.kind = Token_Kind::Byte;
+        auto byte = atoll(num_str);
+        verify(byte >= 0 && byte <= 255, t.current_location(), "Byte literals must be a number beetween 0 and 255 but was given %lld.", byte);
+        tok.data.b = static_cast<uint8_t>(byte);
     } else {
         tok.kind = Token_Kind::Int;
         tok.data.i = atoll(num_str);
