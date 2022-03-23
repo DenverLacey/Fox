@@ -203,6 +203,7 @@ struct Parser {
                 auto id = token.data.s;
                 if (id == "void"  ||
                     id == "bool"  ||
+                    id == "byte"  ||
                     id == "char"  ||
                     id == "float" ||
                     id == "int"   ||
@@ -723,6 +724,8 @@ struct Parser {
                 auto id = token.data.s;
                 if (id == "void") {
                     type->kind = Value_Type_Kind::Void;
+                } else if (id == "byte") {
+                    type->kind = Value_Type_Kind::Byte;
                 } else if (id == "bool") {
                     type->kind = Value_Type_Kind::Bool;
                 } else if (id == "char") {

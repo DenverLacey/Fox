@@ -1,7 +1,7 @@
 
-let a = 7b;
-let b = 8b;
-let c = a + b;
+let a: byte = 7b;
+let b: byte = 8b;
+let c: byte = a + b;
 
 @print(a);
 @print(b);
