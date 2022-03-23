@@ -977,6 +977,8 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
             printf("%*sfn_type: %s\n", (indent + 1) * INDENT_SIZE, "", decl->defn->type.debug_str());
             print_sub_at_indent(interp, "body", decl->body, indent + 1);
         } break;
+        case Typed_AST_Kind::Cast_Byte_Int:
+        case Typed_AST_Kind::Cast_Byte_Float:
         case Typed_AST_Kind::Cast_Bool_Int:
         case Typed_AST_Kind::Cast_Char_Int:
         case Typed_AST_Kind::Cast_Int_Float:
@@ -2047,6 +2049,30 @@ static Ref<Typed_AST_Multiary> typecheck_slice_literal(
     return fields;
 }
 
+static Ref<Typed_AST> typecheck_cast_from_byte(
+    Typer &t,
+    Ref<Typed_AST> lhs,
+    Ref<Typed_AST_Type_Signature> sig,
+    Code_Location location)
+{
+    Ref<Typed_AST> typechecked;
+
+    switch (sig->value_type->kind) {
+        case Value_Type_Kind::Int:
+            typechecked = Mem.make<Typed_AST_Cast>(Typed_AST_Kind::Cast_Byte_Int, value_types::Int, lhs, location);
+            break;
+        case Value_Type_Kind::Float:
+            typechecked = Mem.make<Typed_AST_Cast>(Typed_AST_Kind::Cast_Byte_Float, value_types::Float, lhs, location);
+            break;
+
+        default:
+            error(sig->location, "Cannot cast from type 'byte' to type '%s'.", sig->value_type->display_str());
+            break;
+    }
+
+    return typechecked;
+}
+
 static Ref<Typed_AST> typecheck_cast_from_bool(
     Typer &t,
     Ref<Typed_AST> lhs,
@@ -2202,56 +2228,66 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Addition:
             verify(lhs->type.kind == rhs->type.kind, lhs->location, "(+) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float,
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte,
                    lhs->location, 
                    "(+) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, 
+                   rhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte, 
                    rhs->location,
                    "(+) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Addition, lhs->type, lhs, rhs, location);
         case Untyped_AST_Kind::Subtraction:
             verify(lhs->type.kind == rhs->type.kind, lhs->location, "(-) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, 
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte, 
                    lhs->location,
                    "(-) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, 
+                   rhs->type.kind == Value_Type_Kind::Float ||
+                   rhs->type.kind == Value_Type_Kind::Byte, 
                    rhs->location,
                    "(-) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Subtraction, lhs->type, lhs, rhs, location);
         case Untyped_AST_Kind::Multiplication:
             verify(lhs->type.kind == rhs->type.kind, lhs->location, "(*) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, 
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte, 
                    lhs->location,
                    "(*) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, 
+                   rhs->type.kind == Value_Type_Kind::Float ||
+                   rhs->type.kind == Value_Type_Kind::Byte, 
                    rhs->location,
                    "(*) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Multiplication, lhs->type, lhs, rhs, location);
         case Untyped_AST_Kind::Division:
             verify(lhs->type.kind == rhs->type.kind, lhs->location, "(/) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float, 
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte, 
                    lhs->location,
                    "(/) requires operands to be either 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
-                   rhs->type.kind == Value_Type_Kind::Float, 
+                   rhs->type.kind == Value_Type_Kind::Float ||
+                   rhs->type.kind == Value_Type_Kind::Byte, 
                    rhs->location,
                    "(/) requires operands to be either 'int' or 'float' but was given '%s'.", rhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Division, lhs->type, lhs, rhs, location);
         case Untyped_AST_Kind::Mod:
             verify(lhs->type.kind == rhs->type.kind, lhs->location, "(+) requires both operands to be the same type.");
-            verify(lhs->type.kind == Value_Type_Kind::Int, 
+            verify(lhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Byte, 
                     lhs->location,
                     "(+) requires operands to be 'int' but was given '%s'.", lhs->type.display_str());
-            verify(rhs->type.kind == Value_Type_Kind::Int, 
+            verify(rhs->type.kind == Value_Type_Kind::Int ||
+                   lhs->type.kind == Value_Type_Kind::Byte, 
                     rhs->location,
                     "(+) requires operands to be 'int' but was given '%s'.", rhs->type.display_str());
-            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Mod, value_types::Int, lhs, rhs, location);
+            return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Mod, lhs->type, lhs, rhs, location);
         case Untyped_AST_Kind::Assignment:
             verify(
                 lhs->type.is_mut,
@@ -2273,28 +2309,32 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
         case Untyped_AST_Kind::Less:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), lhs->location, "(<) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float,
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte,
                    lhs->location,
                    "(<) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less, value_types::Bool, lhs, rhs, location);
         case Untyped_AST_Kind::Greater:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), lhs->location, "(>) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float,
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte,
                    lhs->location,
                    "(>) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Greater, value_types::Bool, lhs, rhs, location);
         case Untyped_AST_Kind::Less_Eq:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), lhs->location, "(<=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float,
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte,
                    lhs->location,
                    "(<=) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Less_Eq, value_types::Bool, lhs, rhs, location);
         case Untyped_AST_Kind::Greater_Eq:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), lhs->location, "(>=) requires both operands to be the same type.");
             verify(lhs->type.kind == Value_Type_Kind::Int ||
-                   lhs->type.kind == Value_Type_Kind::Float,
+                   lhs->type.kind == Value_Type_Kind::Float ||
+                   lhs->type.kind == Value_Type_Kind::Byte,
                    lhs->location,
                    "(>=) requires operands to be 'int' or 'float' but was given '%s'.", lhs->type.display_str());
             return Mem.make<Typed_AST_Binary>(Typed_AST_Kind::Greater_Eq, value_types::Bool, lhs, rhs, location);
@@ -2372,6 +2412,9 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
             internal_verify(sig, "rhs to 'as' operator was not a type signature.");
             
             switch (lhs->type.kind) {
+                case Value_Type_Kind::Byte:
+                    typechecked = typecheck_cast_from_byte(t, lhs, sig, location);
+                    break;
                 case Value_Type_Kind::Bool:
                     typechecked = typecheck_cast_from_bool(t, lhs, sig, location);
                     break;

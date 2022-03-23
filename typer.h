@@ -84,6 +84,8 @@ enum class Typed_AST_Kind {
     Fn_Decl,
     
     // casts
+    Cast_Byte_Int,
+    Cast_Byte_Float,
     Cast_Bool_Int,
     Cast_Char_Int,
     Cast_Int_Float,

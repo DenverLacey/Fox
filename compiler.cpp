@@ -1129,6 +1129,8 @@ void Typed_AST_Binary::compile(Compiler &c) {
                 op = Opcode::Int_Add;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Add;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Add;
             else if (type.kind == Value_Type_Kind::Str)
                 op = Opcode::Str_Add;
             break;
@@ -1137,21 +1139,30 @@ void Typed_AST_Binary::compile(Compiler &c) {
                 op = Opcode::Int_Sub;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Sub;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Sub;
             break;
         case Typed_AST_Kind::Multiplication:
             if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Mul;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Mul;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Mul;
             break;
         case Typed_AST_Kind::Division:
             if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Div;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Div;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Div;
             break;
         case Typed_AST_Kind::Mod:
-            op = Opcode::Mod;
+            if (lhs->type.kind == Value_Type_Kind::Int)
+                op = Opcode::Int_Mod;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Mod;
             break;
             
         case Typed_AST_Kind::Less:
@@ -1159,24 +1170,32 @@ void Typed_AST_Binary::compile(Compiler &c) {
                 op = Opcode::Int_Less_Than;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Less_Than;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Less_Than;
             break;
         case Typed_AST_Kind::Less_Eq:
             if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Less_Equal;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Less_Equal;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Less_Equal;
             break;
         case Typed_AST_Kind::Greater:
             if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Greater_Than;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Greater_Than;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Greater_Than;
             break;
         case Typed_AST_Kind::Greater_Eq:
             if (lhs->type.kind == Value_Type_Kind::Int)
                 op = Opcode::Int_Greater_Equal;
             else if (lhs->type.kind == Value_Type_Kind::Float)
                 op = Opcode::Float_Greater_Equal;
+            else if (lhs->type.kind == Value_Type_Kind::Byte)
+                op = Opcode::Byte_Greater_Equal;
             break;
             
         default:
@@ -1388,7 +1407,7 @@ static void compile_for_loop(Typed_AST_For &f, Compiler &c) {
     // increment counter
     c.emit_opcode(Opcode::Push_Pointer);
     c.emit_address(counter_v.address);
-    c.emit_opcode(Opcode::Inc);
+    c.emit_opcode(Opcode::Int_Inc);
 
     c.emit_loop(loop_start);
 
@@ -1448,13 +1467,13 @@ static void compile_for_range_loop(Typed_AST_For &f, Compiler &c) {
         // increment counter
         c.emit_opcode(Opcode::Push_Pointer);
         c.emit_address(counter_v->address);
-        c.emit_opcode(Opcode::Inc);
+        c.emit_opcode(Opcode::Int_Inc);
     }
     
     // increment target_v
     c.emit_opcode(Opcode::Push_Pointer);
     c.emit_address(target_v.address);
-    c.emit_opcode(Opcode::Inc);
+    c.emit_opcode(Opcode::Int_Inc);
     
     c.emit_loop(loop_start);
     
@@ -1773,6 +1792,12 @@ void Typed_AST_Cast::compile(Compiler &c) {
     
     Opcode cast_op;
     switch (kind) {
+        case Typed_AST_Kind::Cast_Byte_Int:
+            cast_op = Opcode::Cast_Byte_Int;
+            break;
+        case Typed_AST_Kind::Cast_Byte_Float:
+            cast_op = Opcode::Cast_Byte_Float;
+            break;
         case Typed_AST_Kind::Cast_Bool_Int:
             cast_op = Opcode::Cast_Bool_Int;
             break;

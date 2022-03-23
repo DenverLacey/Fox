@@ -1,6 +1,8 @@
 
-let ptr = @alloc(*int, @size_of(int));
-@free(ptr);
+let a = 7b;
+let b = 8b;
+let c = a + b;
 
-let slice = []int{ @alloc(*int, @size_of(int)), 1 };
-@free(slice);
+@print(a);
+@print(b);
+@print(c);

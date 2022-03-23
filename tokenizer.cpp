@@ -422,7 +422,7 @@ static Token number(Tokenizer &t) {
     if (underscores) remove_underscores(num_str, len);
 
     bool is_byte = t.match('b');
-    verify(!(is_byte ^ is_float), t.current_location(), "Cannot use a floating point literal as the number component to a byte literal.");
+    verify(!is_float || (is_float && !is_byte), t.current_location(), "Cannot use a floating point literal as the number component to a byte literal.");
 
     Token tok;
     if (is_float) {

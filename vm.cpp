@@ -48,10 +48,6 @@ void *Stack::get(Address address) {
     return &_buffer[address];
 }
 
-void *Stack::get(VM *vm, Address address) {
-    return get(vm->frames.top().stack_bottom + address);
-}
-
 VM::VM(Data_Section &constants, Data_Section &str_constants)
   : constants(constants),
     str_constants(str_constants)
@@ -60,20 +56,20 @@ VM::VM(Data_Section &constants, Data_Section &str_constants)
 
 void VM::run() {
     #define READ(type, frame) *reinterpret_cast<type *>(&(*frame->instructions)[frame->pc]); frame->pc += sizeof(type)
-    #define UNOP(type, op) { \
-        type a = stack.pop<type>(); \
-        stack.push(op(a)); \
+    #define UNOP(ret_type, arg_type, op) { \
+        arg_type a = stack.pop<arg_type>(); \
+        stack.push<ret_type>(op(a)); \
     } break
-    #define BIOP(type, op) { \
-        type b = stack.pop<type>(); \
-        type a = stack.pop<type>(); \
-        stack.push(a op b); \
+    #define BIOP(ret_type, arg_type, op) { \
+        arg_type b = stack.pop<arg_type>(); \
+        arg_type a = stack.pop<arg_type>(); \
+        stack.push<ret_type>(a op b); \
     } break
-    #define BIOP_CHECK_FOR_ZERO(type, op, op_str) { \
-        type b = stack.pop<type>(); \
-        type a = stack.pop<type>(); \
+    #define BIOP_CHECK_FOR_ZERO(ret_type, arg_type, op, op_str) { \
+        arg_type b = stack.pop<arg_type>(); \
+        arg_type a = stack.pop<arg_type>(); \
         verify(b != 0, Code_Location{ 0,0,"<NO-LOC>" }, "Second operand detected as zero which is disallowed for operator " op_str "."); \
-        stack.push(a op b); \
+        stack.push<ret_type>(a op b); \
     } break
     
     Call_Frame *frame = &frames.top();
@@ -135,43 +131,58 @@ void VM::run() {
             } break;
                 
             // Arithmetic Operations
-            case Opcode::Int_Add:   BIOP(runtime::Int, +);
-            case Opcode::Int_Sub:   BIOP(runtime::Int, -);
-            case Opcode::Int_Mul:   BIOP(runtime::Int, *);
-            case Opcode::Int_Div:   BIOP_CHECK_FOR_ZERO(runtime::Int, /, "/");
-            case Opcode::Int_Neg:   UNOP(runtime::Int, -);
-            case Opcode::Mod:       BIOP_CHECK_FOR_ZERO(runtime::Int, %, "%%");
-            case Opcode::Inc: {
+            case Opcode::Int_Add:   BIOP(runtime::Int, runtime::Int, +);
+            case Opcode::Int_Sub:   BIOP(runtime::Int, runtime::Int, -);
+            case Opcode::Int_Mul:   BIOP(runtime::Int, runtime::Int, *);
+            case Opcode::Int_Div:   BIOP_CHECK_FOR_ZERO(runtime::Int, runtime::Int, /, "/");
+            case Opcode::Int_Neg:   UNOP(runtime::Int, runtime::Int, -);
+            case Opcode::Int_Mod:   BIOP_CHECK_FOR_ZERO(runtime::Int, runtime::Int, %, "%%");
+            case Opcode::Int_Inc: {
                 runtime::Int *n = stack.pop<runtime::Int *>();
                 (*n)++;
             } break;
-            case Opcode::Dec: {
+            case Opcode::Int_Dec: {
                 runtime::Int *n = stack.pop<runtime::Int *>();
                 (*n)--;
             } break;
+
+            case Opcode::Byte_Add:   BIOP(runtime::Byte, runtime::Byte, +);
+            case Opcode::Byte_Sub:   BIOP(runtime::Byte, runtime::Byte, -);
+            case Opcode::Byte_Mul:   BIOP(runtime::Byte, runtime::Byte, *);
+            case Opcode::Byte_Div:   BIOP_CHECK_FOR_ZERO(runtime::Byte, runtime::Byte, /, "/");
+            case Opcode::Byte_Neg:   UNOP(runtime::Byte, runtime::Byte, -);
+            case Opcode::Byte_Mod:   BIOP_CHECK_FOR_ZERO(runtime::Byte, runtime::Byte, %, "%%");
+            case Opcode::Byte_Inc: {
+                runtime::Byte *n = stack.pop<runtime::Byte *>();
+                (*n)++;
+            } break;
+            case Opcode::Byte_Dec: {
+                runtime::Byte *n = stack.pop<runtime::Byte *>();
+                (*n)--;
+            } break;
                 
-            case Opcode::Float_Add: BIOP(runtime::Float, +);
-            case Opcode::Float_Sub: BIOP(runtime::Float, -);
-            case Opcode::Float_Mul: BIOP(runtime::Float, *);
-            case Opcode::Float_Div: BIOP_CHECK_FOR_ZERO(runtime::Float, /, "/");
-            case Opcode::Float_Neg: UNOP(runtime::Float, -);
+            case Opcode::Float_Add: BIOP(runtime::Float, runtime::Float, +);
+            case Opcode::Float_Sub: BIOP(runtime::Float, runtime::Float, -);
+            case Opcode::Float_Mul: BIOP(runtime::Float, runtime::Float, *);
+            case Opcode::Float_Div: BIOP_CHECK_FOR_ZERO(runtime::Float, runtime::Float, /, "/");
+            case Opcode::Float_Neg: UNOP(runtime::Float, runtime::Float, -);
                 
             case Opcode::Str_Add:
                 todo("Str_Add not yet implemented.");
                 break;
                 
             // Bitwise Operations
-            case Opcode::Bit_Not:       UNOP(runtime::Int, ~);
-            case Opcode::Shift_Left:    BIOP(runtime::Int, <<);
-            case Opcode::Shift_Right:   BIOP(runtime::Int, >>);
-            case Opcode::Bit_And:       BIOP(runtime::Int, &);
-            case Opcode::Xor:           BIOP(runtime::Int, ^);
-            case Opcode::Bit_Or:        BIOP(runtime::Int, |);
+            case Opcode::Bit_Not:       UNOP(runtime::Int, runtime::Int, ~);
+            case Opcode::Shift_Left:    BIOP(runtime::Int, runtime::Int, <<);
+            case Opcode::Shift_Right:   BIOP(runtime::Int, runtime::Int, >>);
+            case Opcode::Bit_And:       BIOP(runtime::Int, runtime::Int, &);
+            case Opcode::Xor:           BIOP(runtime::Int, runtime::Int, ^);
+            case Opcode::Bit_Or:        BIOP(runtime::Int, runtime::Int, |);
                 
             // Logical Operations
-            case Opcode::And:   BIOP(runtime::Bool, &&);
-            case Opcode::Or:    BIOP(runtime::Bool, ||);
-            case Opcode::Not:   UNOP(runtime::Bool, !);
+            case Opcode::And:   BIOP(runtime::Bool, runtime::Bool, &&);
+            case Opcode::Or:    BIOP(runtime::Bool, runtime::Bool, ||);
+            case Opcode::Not:   UNOP(runtime::Bool, runtime::Bool, !);
                 
             // Equality Operations
             case Opcode::Equal: {
@@ -202,14 +213,18 @@ void VM::run() {
             } break;
                 
             // Relational Operations
-            case Opcode::Int_Less_Than:         BIOP(runtime::Int, <);
-            case Opcode::Int_Less_Equal:        BIOP(runtime::Int, <=);
-            case Opcode::Int_Greater_Than:      BIOP(runtime::Int, >);
-            case Opcode::Int_Greater_Equal:     BIOP(runtime::Int, >=);
-            case Opcode::Float_Less_Than:       BIOP(runtime::Float, <);
-            case Opcode::Float_Less_Equal:      BIOP(runtime::Float, <=);
-            case Opcode::Float_Greater_Than:    BIOP(runtime::Float, >);
-            case Opcode::Float_Greater_Equal:   BIOP(runtime::Float, >=);
+            case Opcode::Byte_Less_Than:        BIOP(runtime::Bool, runtime::Byte, <);
+            case Opcode::Byte_Less_Equal:       BIOP(runtime::Bool, runtime::Byte, <=);
+            case Opcode::Byte_Greater_Than:     BIOP(runtime::Bool, runtime::Byte, >);
+            case Opcode::Byte_Greater_Equal:    BIOP(runtime::Bool, runtime::Byte, >=);
+            case Opcode::Int_Less_Than:         BIOP(runtime::Bool, runtime::Int, <);
+            case Opcode::Int_Less_Equal:        BIOP(runtime::Bool, runtime::Int, <=);
+            case Opcode::Int_Greater_Than:      BIOP(runtime::Bool, runtime::Int, >);
+            case Opcode::Int_Greater_Equal:     BIOP(runtime::Bool, runtime::Int, >=);
+            case Opcode::Float_Less_Than:       BIOP(runtime::Bool, runtime::Float, <);
+            case Opcode::Float_Less_Equal:      BIOP(runtime::Bool, runtime::Float, <=);
+            case Opcode::Float_Greater_Than:    BIOP(runtime::Bool, runtime::Float, >);
+            case Opcode::Float_Greater_Equal:   BIOP(runtime::Bool, runtime::Float, >=);
                 
             // Stack Operations
             case Opcode::Move: {
@@ -246,13 +261,13 @@ void VM::run() {
             } break;
             case Opcode::Push_Pointer: {
                 Address address = READ(Address, frame);
-                runtime::Pointer p = stack.get(this, address);
+                runtime::Pointer p = stack.get(frame->stack_bottom + address);
                 stack.push<runtime::Pointer>(p);
             } break;
             case Opcode::Push_Value: {
                 Size size = READ(Size, frame);
                 Address address = READ(Address, frame);
-                void *data = stack.get(this, address);
+                void *data = stack.get(frame->stack_bottom + address);
                 stack.push(data, size);
             } break;
             case Opcode::Push_Global_Pointer: {
@@ -329,6 +344,14 @@ void VM::run() {
             } break;
                 
             // Cast
+            case Opcode::Cast_Byte_Int: {
+                runtime::Byte value = stack.pop<runtime::Byte>();
+                stack.push(static_cast<runtime::Int>(value));
+            } break;
+            case Opcode::Cast_Byte_Float: {
+                runtime::Byte value = stack.pop<runtime::Byte>();
+                stack.push(static_cast<runtime::Float>(value));
+            } break;
             case Opcode::Cast_Bool_Int: {
                 runtime::Bool value = stack.pop<runtime::Bool>();
                 stack.push<runtime::Int>(value ? 1 : 0);
@@ -367,7 +390,7 @@ void VM::run() {
                 Size size = READ(Size, frame);
                 void *result = stack.pop(size);
                 
-                runtime::Int ret_addr = *reinterpret_cast<runtime::Int *>(stack.get(this, -static_cast<int>(value_types::Int.size())));
+                runtime::Int ret_addr = *reinterpret_cast<runtime::Int *>(stack.get(frame->stack_bottom - static_cast<int>(value_types::Int.size())));
                 ret_addr += value_types::Int.size();
                 stack._top = frame->stack_bottom - static_cast<int>(ret_addr);
                 
@@ -500,16 +523,48 @@ void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Sectio
                 printf(IDX "Int_Neg\n", i);
                 i++;
                 break;
-            case Opcode::Mod:
-                printf(IDX "Mod\n", i);
+            case Opcode::Int_Mod:
+                printf(IDX "Int_Mod\n", i);
                 i++;
                 break;
-            case Opcode::Inc:
-                printf(IDX "Inc\n", i);
+            case Opcode::Int_Inc:
+                printf(IDX "Int_Inc\n", i);
                 i++;
                 break;
-            case Opcode::Dec:
-                printf(IDX "Dec\n", i);
+            case Opcode::Int_Dec:
+                printf(IDX "Int_Dec\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Add:
+                printf(IDX "Byte_Add\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Sub:
+                printf(IDX "Byte_Sub\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Mul:
+                printf(IDX "Byte_Mul\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Div:
+                printf(IDX "Byte_Div\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Neg:
+                printf(IDX "Byte_Neg\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Mod:
+                printf(IDX "Byte_Mod\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Inc:
+                printf(IDX "Byte_Inc\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Dec:
+                printf(IDX "Byte_Dec\n", i);
                 i++;
                 break;
             case Opcode::Float_Add:
@@ -598,6 +653,22 @@ void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Sectio
                 break;
                 
             // Relational
+            case Opcode::Byte_Less_Than:
+                printf(IDX "Byte_Less_Than\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Less_Equal:
+                printf(IDX "Byte_Less_Equal\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Greater_Than:
+                printf(IDX "Byte_Greater_Than\n", i);
+                i++;
+                break;
+            case Opcode::Byte_Greater_Equal:
+                printf(IDX "Byte_Greater_Equal\n", i);
+                i++;
+                break;
             case Opcode::Int_Less_Than:
                 printf(IDX "Int_Less_Than\n", i);
                 i++;
@@ -757,6 +828,14 @@ void print_code(std::vector<uint8_t> &code, Data_Section &constants, Data_Sectio
             } break;
                 
             // Cast
+            case Opcode::Cast_Byte_Int:
+                printf(IDX "Cast_Byte_Int\n", i);
+                i++;
+                break;
+            case Opcode::Cast_Byte_Float:
+                printf(IDX "Cast_Byte_Float\n", i);
+                i++;
+                break;
             case Opcode::Cast_Bool_Int:
                 printf(IDX "Cast_Bool_Int\n", i);
                 i++;

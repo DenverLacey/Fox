@@ -43,9 +43,18 @@ enum class Opcode : uint8_t {
     Int_Mul,
     Int_Div,
     Int_Neg,
-    Mod,
-    Inc,
-    Dec,
+    Int_Mod,
+    Int_Inc,
+    Int_Dec,
+
+    Byte_Add,
+    Byte_Sub,
+    Byte_Mul,
+    Byte_Div,
+    Byte_Neg,
+    Byte_Mod,
+    Byte_Inc,
+    Byte_Dec,
     
     Float_Add,
     Float_Sub,
@@ -80,6 +89,11 @@ enum class Opcode : uint8_t {
     Int_Less_Equal,
     Int_Greater_Than,
     Int_Greater_Equal,
+
+    Byte_Less_Than,
+    Byte_Less_Equal,
+    Byte_Greater_Than,
+    Byte_Greater_Equal,
     
     Float_Less_Than,
     Float_Less_Equal,
@@ -121,6 +135,8 @@ enum class Opcode : uint8_t {
     Call_Builtin,   //    BYTE_CALL_NATIVE,
     
     // CAST
+    Cast_Byte_Int,
+    Cast_Byte_Float,
     Cast_Bool_Int,
     Cast_Char_Int,
     Cast_Int_Float,
@@ -149,7 +165,6 @@ struct Stack {
     void *pop(size_t size);
     void *top(size_t size);
     void *get(Address address);
-    void *get(VM *vm, Address address);
     
     template<typename T>
     void push(T constant) {
