@@ -458,6 +458,21 @@ bool Typed_AST_For::is_constant(Compiler &c) {
     return iterable->is_constant(c) && body->is_constant(c);
 }
 
+Typed_AST_Forever::Typed_AST_Forever(
+    Ref<Typed_AST_Ident> label,
+    Ref<Typed_AST_Multiary> body, 
+    Code_Location location)
+{
+    this->kind = Typed_AST_Kind::Forever;
+    this->label = label;
+    this->body = body;
+    this->location = location;
+}
+
+bool Typed_AST_Forever::is_constant(Compiler &c) {
+    return body->is_constant(c);
+}
+
 Typed_AST_Match::Typed_AST_Match(
     Ref<Typed_AST> cond,
     Ref<Typed_AST> default_arm,
@@ -878,6 +893,12 @@ static void print_at_indent(Interpreter *interp, const Ref<Typed_AST> node, size
                 printf("%*scounter: %s\n", (indent + 1) * INDENT_SIZE, "", f->counter.c_str());
             }
             print_sub_at_indent(interp, "iterable", f->iterable, indent + 1);
+            print_sub_at_indent(interp, "body", f->body, indent + 1);
+        } break;
+        case Typed_AST_Kind::Forever: {
+            auto f = node.cast<Typed_AST_Forever>();
+            printf("(forever)\n");
+            if (f->label) print_sub_at_indent(interp, "label", f->label, indent + 1);
             print_sub_at_indent(interp, "body", f->body, indent + 1);
         } break;
         case Typed_AST_Kind::Match: {
@@ -2785,6 +2806,18 @@ Ref<Typed_AST> Untyped_AST_For::typecheck(Typer &t) {
         body.cast<Typed_AST_Multiary>(),
         location
     );
+}
+
+Ref<Typed_AST> Untyped_AST_Forever::typecheck(Typer &t) {
+    Ref<Typed_AST_Ident> label = nullptr;
+    if (this->label) {
+        label = Mem.make<Typed_AST_Ident>(this->label->id.clone(), value_types::None, this->label->location);
+    }
+
+    auto body = this->body->typecheck(t).cast<Typed_AST_Multiary>();
+    internal_verify(body, "body didn't typecheck to a Multiary.");
+
+    return Mem.make<Typed_AST_Forever>(label, body, location);
 }
 
 Ref<Typed_AST> Untyped_AST_Match::typecheck(Typer &t) {

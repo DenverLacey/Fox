@@ -1,8 +1,14 @@
+let mut i = 0;
+forever: for {
+    i += 1;
 
-let a: byte = 7b;
-let b: byte = 8b;
-let c: byte = a + b;
+    if i % 2 != 0 {
+        continue(forever);
+    }
 
-@print(a);
-@print(b);
-@print(c);
+    @print(i);
+
+    if (i >= 100) {
+        break(forever);
+    }
+}

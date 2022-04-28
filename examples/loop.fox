@@ -93,3 +93,19 @@ outer: for n in [_]{ 0, 1, 2, 3, 4 } {
 		@puts(n); @puts(' '); @print(j);
 	}
 }
+
+@print("Test: Forever loop");
+let mut i = 0;
+loop: for {
+    i += 1;
+
+    if i % 2 != 0 {
+        continue(loop);
+    }
+
+    @print(i);
+
+    if (i >= 10) {
+        break(loop);
+    }
+}

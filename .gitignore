@@ -37,3 +37,6 @@ Makefile
 
 # Binaries
 /bin
+
+# vscode
+.vscode/

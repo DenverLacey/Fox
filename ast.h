@@ -105,6 +105,7 @@ enum class Untyped_AST_Kind {
     // unique
     If,
     For,
+    Forever,
     Match,
     Type_Signature,
     Generic_Specification,
@@ -386,6 +387,15 @@ struct Untyped_AST_For : public Untyped_AST {
     
     Untyped_AST_For(Ref<Untyped_AST_Ident> label, Ref<Untyped_AST_Pattern> target, String counter, Ref<Untyped_AST> iterable, Ref<Untyped_AST_Multiary> body, Code_Location location);
     ~Untyped_AST_For();
+    Ref<Typed_AST> typecheck(Typer &t) override;
+    Ref<Untyped_AST> clone() override;
+};
+
+struct Untyped_AST_Forever : public Untyped_AST {
+    Ref<Untyped_AST_Ident> label;
+    Ref<Untyped_AST_Multiary> body;
+
+    Untyped_AST_Forever(Ref<Untyped_AST_Ident> label, Ref<Untyped_AST_Multiary> body, Code_Location location);
     Ref<Typed_AST> typecheck(Typer &t) override;
     Ref<Untyped_AST> clone() override;
 };

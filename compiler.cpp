@@ -1502,6 +1502,27 @@ void Typed_AST_For::compile(Compiler &c) {
     c.end_scope();
 }
 
+void Typed_AST_Forever::compile(Compiler &c) {
+    size_t loop_start = c.function->instructions.size();
+    Address stack_top = c.stack_top;
+
+    auto label = this->label ? this->label->id : String{};
+    c.begin_loop(label, location);
+    
+    body->compile(c);
+
+    auto loop = c.loops.back();
+
+    c.patch_loop_controls(loop.continues);
+    c.emit_loop(loop_start);
+    
+    c.patch_loop_controls(loop.breaks);
+    
+    c.end_loop();
+
+    c.stack_top = stack_top;
+}
+
 void Typed_AST_Match::compile(Compiler &c) {
     Address stack_top = c.stack_top;
     

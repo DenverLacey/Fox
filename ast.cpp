@@ -587,6 +587,25 @@ Ref<Untyped_AST> Untyped_AST_For::clone() {
     );
 }
 
+Untyped_AST_Forever::Untyped_AST_Forever(
+    Ref<Untyped_AST_Ident> label, 
+    Ref<Untyped_AST_Multiary> body, 
+    Code_Location location) 
+{
+    this->kind = Untyped_AST_Kind::Forever;
+    this->label = label;
+    this->body = body;
+    this->location = location;
+}
+
+Ref<Untyped_AST> Untyped_AST_Forever::clone() {
+    return Mem.make<Untyped_AST_Forever>(
+        label->clone().cast<Untyped_AST_Ident>(),
+        body->clone().cast<Untyped_AST_Multiary>(),
+        location
+    );
+}
+
 Untyped_AST_Match::Untyped_AST_Match(
     Ref<Untyped_AST> cond,
     Ref<Untyped_AST> default_arm,
@@ -1143,6 +1162,12 @@ static void print_at_indent(const Ref<Untyped_AST> node, size_t indent) {
                 printf("%*scounter: %s\n", (indent + 1) * INDENT_SIZE, "", f->counter.c_str());
             }
             print_sub_at_indent("iterable", f->iterable, indent + 1);
+            print_sub_at_indent("body", f->body, indent + 1);
+        } break;
+        case Untyped_AST_Kind::Forever: {
+            auto f = node.cast<Untyped_AST_Forever>();
+            printf("(forever)\n");
+            if (f->label) print_sub_at_indent("label", f->label, indent + 1);
             print_sub_at_indent("body", f->body, indent + 1);
         } break;
         case Untyped_AST_Kind::Match: {

@@ -826,11 +826,16 @@ struct Parser {
         return Mem.make<Untyped_AST_While>(label, cond, body, token.location);
     }
     
-    Ref<Untyped_AST_For> parse_for_statement(Token token, std::optional<Token> label_token) {
+    Ref<Untyped_AST> parse_for_statement(Token token, std::optional<Token> label_token) {
         Ref<Untyped_AST_Ident> label = nullptr;
         if (label_token.has_value()) {
             auto label_str = label_token->data.s.clone();
             label = Mem.make<Untyped_AST_Ident>(label_str, label_token->location);
+        }
+
+        if (check(Token_Kind::Left_Curly)) {
+            auto body = parse_block();
+            return Mem.make<Untyped_AST_Forever>(label, body, token.location);
         }
 
         auto target = parse_pattern();

@@ -95,6 +95,7 @@ enum class Typed_AST_Kind {
     If,
     For,
     For_Range,
+    Forever,
     Match,
     Type_Signature,
     Field_Access,
@@ -361,6 +362,15 @@ struct Typed_AST_For : public Typed_AST {
     
     Typed_AST_For(Typed_AST_Kind kind, Ref<Typed_AST_Ident> label, Ref<Typed_AST_Processed_Pattern> target, String counter, Ref<Typed_AST> iterable, Ref<Typed_AST_Multiary> body, Code_Location location);
     ~Typed_AST_For();
+    void compile(Compiler &c) override;
+    bool is_constant(Compiler &c) override;
+};
+
+struct Typed_AST_Forever : public Typed_AST {
+    Ref<Typed_AST_Ident> label;
+    Ref<Typed_AST_Multiary> body;
+
+    Typed_AST_Forever(Ref<Typed_AST_Ident> label, Ref<Typed_AST_Multiary> body, Code_Location location);
     void compile(Compiler &c) override;
     bool is_constant(Compiler &c) override;
 };
