@@ -11,8 +11,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-using Size = unsigned int;
-using Address = size_t;
+using Size = uint32_t;
+using Address = uint16_t;
 using UUID = uint64_t;
 
 struct utf8char_t {

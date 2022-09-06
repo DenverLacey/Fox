@@ -9,7 +9,7 @@
 #include "error.h"
 #include "tokenizer.h"
 #include "String.h"
-#include "utfcpp/utf8.h"
+#include "utf8.h"
 #include "mem.h"
 
 void Token::print() const {

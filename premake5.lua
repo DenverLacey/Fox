@@ -12,6 +12,8 @@ project "Fox"
 		"utfcpp/**.h"
 	}
 
+    includedirs { "utfcpp" }
+
 	filter "configurations:Debug"
 		defines { "DEBUG" }
 		symbols "On"

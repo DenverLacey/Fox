@@ -3464,12 +3464,34 @@ static Ref<Typed_AST> typecheck_dot_call_for_string(
 {
     Ref<Typed_AST> typechecked;
     
-    if (method_id == "len") {
+    if (method_id == "bytes") {
+        verify(args->nodes.size() == 0, args->location, "Incorrect number of arguments passed to 'len'. Expected 0 byt was given %zu.", args->nodes.size());
+
+        size_t offset = offsetof(runtime::String, s);
+
+        Value_Type ty = value_types::slice_of(const_cast<Value_Type *>(&value_types::Byte));
+        ty.is_mut = receiver->type.is_mut;
+        
+        bool deref = receiver->type.kind == Value_Type_Kind::Ptr;
+        
+        typechecked = Mem.make<Typed_AST_Field_Access>(
+            ty,
+            deref,
+            receiver,
+            static_cast<Size>(offset),
+            location
+        );
+    } else if (method_id == "len") {
         verify(args->nodes.size() == 0, args->location, "Incorrect number of arguments passed to 'len'. Expected 0 but was given %zu.", args->nodes.size());
         
         size_t offset = offsetof(runtime::String, len);
+        
+        Value_Type ty = value_types::Int;
+        ty.is_mut = receiver->type.is_mut;
+
         bool deref = receiver->type.kind == Value_Type_Kind::Ptr;
-        typechecked = Mem.make<Typed_AST_Field_Access>(value_types::Int, deref, receiver, static_cast<Size>(offset), location);
+        
+        typechecked = Mem.make<Typed_AST_Field_Access>(ty, deref, receiver, static_cast<Size>(offset), location);
     } else {
         error(receiver->location, "'%s' is not a method of 'str'.", method_id.c_str());
     }
@@ -3503,9 +3525,13 @@ static Ref<Typed_AST> typecheck_dot_call_for_slice(
         verify(args->nodes.size() == 0, args->location, "Incorrect number of arguments passed to 'len'. Expected 0 but was given %zu.", args->nodes.size());
         
         size_t offset = offsetof(runtime::Slice, count);
+
+        Value_Type ty = value_types::Int;
+        ty.is_mut = receiver->type.is_mut;
+
         bool deref = receiver->type.kind == Value_Type_Kind::Ptr;
         
-        typechecked = Mem.make<Typed_AST_Field_Access>(value_types::Int, deref, receiver, static_cast<Size>(offset), location);
+        typechecked = Mem.make<Typed_AST_Field_Access>(ty, deref, receiver, static_cast<Size>(offset), location);
     } else {
         error(receiver->location, "'%s' is not a method of '%s'.", method_id.c_str(), receiver->type.display_str());
     }

@@ -34,30 +34,16 @@ impl Timer {
 		self.minutes = 0;
 		self.hours = 0;
 	}
-
-	fn print(self) {
-		@puts("Timer(");
-		
-		@puts(self.seconds);
-		@puts(", ");
-
-		@puts(self.minutes);
-		@puts(", ");
-
-		@puts(self.hours);
-
-		@print(')');
-	}
 }
 
 let mut timer = Timer::new(1, 4, 9);
-timer.print();
+@print(timer);
 
 timer.tick();
-timer.print();
+@print(timer);
 
 timer.reset();
-timer.print();
+@print(timer);
 
 let Timer { s, m, h } = timer;
 @print(s);

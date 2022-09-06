@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "utfcpp/utf8.h"
+#include "utf8.h"
 #include "mem.h"
 
 String::String(char *data, size_t size)

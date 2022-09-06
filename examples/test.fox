@@ -1,14 +1,5 @@
-let mut i = 0;
-forever: for {
-    i += 1;
+const N = 50;
+const P = &N;
 
-    if i % 2 != 0 {
-        continue(forever);
-    }
-
-    @print(i);
-
-    if (i >= 100) {
-        break(forever);
-    }
-}
+let n = *P;
+@print(n);

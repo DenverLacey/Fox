@@ -11,6 +11,17 @@
 #include "error.h"
 #include "interpreter.h"
 
+struct Find_Static_Address_Result {
+    enum {
+        Not_Found,
+        Found,
+        Found_Global
+        // Found_Constant  @INCOMPLETE: probably gonna use this to take pointer to constants
+    } status;
+    Address address;
+};
+static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &node);
+
 Compiler::Compiler(
     Interpreter *interp,
     Data_Section &constants,
@@ -192,9 +203,11 @@ void Compiler::declare_constant(Typed_AST_Let &let) {
             constant.address = add_slice_constant(value.len, value.s);
             SMem.deallocate(value.s, value.len);
         } break;
-        case Value_Type_Kind::Ptr:
+        case Value_Type_Kind::Ptr: {
+            auto result = find_static_address(*this, *let.initializer);
+            internal_verify(result.status == Find_Static_Address_Result::Found_Global, "Couldn't find address in constant pointer initializer.");
             todo("declaring constants of pointer types not yet implemented.");
-            break;
+        } break;
         case Value_Type_Kind::Array: {
             size_t size = let.initializer->type.size();
             void *data = alloca(size);
@@ -514,15 +527,6 @@ void Typed_AST_Builtin::compile(Compiler &c) {
     internal_error("Call to Typed_AST_Builtin::compile() is disallowed.");
 }
 
-struct Find_Static_Address_Result {
-    enum {
-        Not_Found,
-        Found,
-        Found_Global
-    } status;
-    Address address;
-};
-
 static bool emit_address_code(Compiler &c, Typed_AST &node);
 
 static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &node) {
@@ -587,6 +591,9 @@ static Find_Static_Address_Result find_static_address(Compiler &c, Typed_AST &no
             }
             
             address = inst_address + dot->field_offset;
+        } break;
+        case Typed_AST_Kind::Address_Of: {
+            todo("Implement finding the static address of constant pointer values.");
         } break;
             
         default:
@@ -1583,7 +1590,7 @@ void Typed_AST_Match::compile(Compiler &c) {
                             Variable v = {
                                 false,
                                 b.variable_info.type,
-                                cond_v.address + b.offset
+                                static_cast<Address>(cond_v.address + b.offset)
                             };
                             idents.back().push_back({ b.variable_info.id, v });
                         } else {
@@ -1635,7 +1642,7 @@ void Typed_AST_Match::compile(Compiler &c) {
                             Variable v = {
                                 false,
                                 b.variable_info.type,
-                                cond_v.address + b.offset
+                                static_cast<Address>(cond_v.address + b.offset)
                             };
                             idents.back().push_back({ b.variable_info.id, v });
                         } else {

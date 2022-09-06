@@ -38,5 +38,11 @@ Makefile
 # Binaries
 /bin
 
+# Objects
+/obj
+
+# MACOS Specific
+.DS_Store
+
 # vscode
 .vscode/

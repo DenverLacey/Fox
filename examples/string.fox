@@ -1,0 +1,20 @@
+fn report_string(s: str) {   
+    @puts("len: "); @puts(s.len()); @puts(", str: "); @print(s);
+}
+
+let s = "😅";
+report_string(s);
+
+let bytes = s.bytes();
+
+for byte in bytes {
+    @puts(byte);
+    @puts(' ');
+}
+@print("");
+
+let mut s = "Hello";
+report_string(s);
+
+s.len() = 4; // Instead of explicitly setting the length, should probably use slicing like s = s[0..4] or something
+report_string(s);

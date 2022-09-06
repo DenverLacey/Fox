@@ -12,7 +12,7 @@ impl String_Builder {
 	}
 
 	fn free(self) {
-		@free(self.segments.data() as *void);
+		@free(self.segments);
 	}
 
 	fn append(mut self, segment: str) {
@@ -39,7 +39,7 @@ impl String_Builder {
 			new_segs[i] = segment;
 		}
 
-		@free(self.segments.data() as *void);
+		@free(self.segments);
 
 		self.segments = new_segs;
 	}

@@ -22,15 +22,13 @@ impl IntList {
 		let mut self = Self::with_capacity(ns.len());
 		for i in 0..ns.len() {
 			self.items[i] = ns[i];
-			self.count += 1;
 		}
+        self.count = ns.len();
 		return self;
 	}
 
-	fn free(mut self) {
-		@free(self.items.data() as *void);
-		self.items = []mut int{ 0 as *mut int, 0 };
-		self.count = 0;
+	fn free(self) {
+		@free(self.items);
 	}
 
 	fn print(self) {
@@ -45,7 +43,7 @@ impl IntList {
 	}
 }
 
-let mut list = IntList::of(1, 2, 3, 4, 5);
+let list = IntList::of(1, 2, 3, 4, 5);
 defer list.free();
 
 list.print();
