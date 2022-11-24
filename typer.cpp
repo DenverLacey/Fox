@@ -2389,7 +2389,10 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
                    lhs->type.kind == Value_Type_Kind::Slice,
                    lhs->location,
                    "([]) requires first operand to be an array or slice but was given '%s'.", lhs->type.display_str());
-            verify(rhs->type.kind == Value_Type_Kind::Int, rhs->location, "([]) requires second operand to be 'int' but was given '%s'.", rhs->type.display_str());
+            verify(rhs->type.kind == Value_Type_Kind::Int ||
+                   (rhs->type.kind == Value_Type_Kind::Range && rhs->type.child_type()->kind == Value_Type_Kind::Int),
+                   rhs->location,
+                   "([]) requires second operand to be 'int' or 'Range<int>' but was given '%s'.", rhs->type.display_str());
             
             Typed_AST_Kind kind = Typed_AST_Kind::Subscript;
             
@@ -2403,8 +2406,15 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
                     }
                 }
             }
+
+            Value_Type type;
+            if (rhs->type.kind == Value_Type_Kind::Range) {
+                type = value_types::slice_of(lhs->type.child_type());
+            } else {
+                type = *lhs->type.child_type();
+            }
             
-            return Mem.make<Typed_AST_Binary>(kind, *lhs->type.child_type(), lhs, rhs, location);
+            return Mem.make<Typed_AST_Binary>(kind, type, lhs, rhs, location);
         }
         case Untyped_AST_Kind::Range:
             verify(lhs->type.eq_ignoring_mutability(rhs->type), lhs->location, "(..) requires both operands to be the same type.");

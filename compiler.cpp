@@ -716,6 +716,7 @@ static bool emit_address_code(Compiler &c, Typed_AST &node) {
             break;
         case Find_Static_Address_Result::Not_Found:
             success = emit_dynamic_address_code(c, node);
+            verify(success, node.location, "Cannot assign to something that doesn't have an address.");
             break;
             
         default:
@@ -887,9 +888,39 @@ static void emit_dynamic_offset_load(
 }
 
 static void compile_range_subscript_operator(Compiler &c, Typed_AST_Binary &sub) {
-    todo("Subscript with range not yet implemented.");
+    auto container = sub.lhs;
+    auto range = sub.rhs.cast<Typed_AST_Binary>();
+    internal_verify(range, "rhs was not a binary node.");
     
     Address stack_top = c.stack_top;
+
+    Size element_size = container->type.child_type()->size();
+
+    if (container->type.kind == Value_Type_Kind::Array) {
+        // data_ptr = &container + range.lhs * element_size
+        emit_address_code(c, *container);
+        range->lhs->compile(c);
+        if (element_size > 1) {
+            c.emit_opcode(Opcode::Lit_Int);
+            c.emit_value<runtime::Int>(element_size);
+            c.emit_opcode(Opcode::Int_Mul);
+        }
+
+        c.emit_opcode(Opcode::Int_Add);
+    } else {
+        // data_ptr = Load(container, sizeof(int))
+        emit_address_code(c, *container);
+        emit_dynamic_offset_load(c, *range->lhs, element_size);
+    }
+
+    // len = range.rhs - range.lhs
+    // @TODO: compiling the lhs twice is incorrect because if it has side effects
+    // it will have unintended behaviour. It is also inefficient.
+    //
+    range->rhs->compile(c);
+    range->lhs->compile(c);
+    c.emit_opcode(Opcode::Int_Sub);
+
     c.stack_top = stack_top + sub.type.size();
 }
 

@@ -1,5 +1,28 @@
-const N = 50;
-const P = &N;
+// const N = 50;
+// const P = &N;
+// 
+// let n = *P;
+// @print(n);
 
-let n = *P;
-@print(n);
+fn print_slice(name: str, s: []int) {
+    @puts(name); @puts(" = { ");
+    for n in s {
+        @puts(n);
+        @puts(' ');
+    }
+    @print('}');
+}
+
+let array = [_]int{ 1, 2, 3, 4, 5 };
+let slice = array[1..4];
+let slice1 = slice[0..2];
+
+@puts("array = { ");
+for n in array {
+    @puts(n);
+    @puts(' ');
+}
+@print('}');
+
+print_slice("slice", slice);
+print_slice("slice1", slice1);
