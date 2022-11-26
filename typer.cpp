@@ -2386,7 +2386,8 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
         } break;
         case Untyped_AST_Kind::Subscript: {
             verify(lhs->type.kind == Value_Type_Kind::Array ||
-                   lhs->type.kind == Value_Type_Kind::Slice,
+                   lhs->type.kind == Value_Type_Kind::Slice ||
+                   lhs->type.kind == Value_Type_Kind::Str,
                    lhs->location,
                    "([]) requires first operand to be an array or slice but was given '%s'.", lhs->type.display_str());
             verify(rhs->type.kind == Value_Type_Kind::Int ||
@@ -2409,7 +2410,11 @@ Ref<Typed_AST> Untyped_AST_Binary::typecheck(Typer &t) {
 
             Value_Type type;
             if (rhs->type.kind == Value_Type_Kind::Range) {
-                type = value_types::slice_of(lhs->type.child_type());
+                if (lhs->type.kind == Value_Type_Kind::Str) {
+                    type = value_types::Str;
+                } else { 
+                    type = value_types::slice_of(lhs->type.child_type());
+                }
             } else {
                 type = *lhs->type.child_type();
             }

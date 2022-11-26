@@ -875,9 +875,10 @@ static void emit_dynamic_offset_load(
     index.compile(c);
     
     c.emit_opcode(Opcode::Lit_Int);
-    c.emit_value<runtime::Int>(element_size);
-    
-    c.emit_opcode(Opcode::Int_Mul);
+    if (element_size > 1) {
+        c.emit_value<runtime::Int>(element_size);
+        c.emit_opcode(Opcode::Int_Mul);
+    }
     
     // element_ptr = &lhs + offset
     c.emit_opcode(Opcode::Int_Add);
@@ -896,22 +897,20 @@ static void compile_range_subscript_operator(Compiler &c, Typed_AST_Binary &sub)
 
     Size element_size = container->type.child_type()->size();
 
-    if (container->type.kind == Value_Type_Kind::Array) {
-        // data_ptr = &container + range.lhs * element_size
-        emit_address_code(c, *container);
-        range->lhs->compile(c);
-        if (element_size > 1) {
-            c.emit_opcode(Opcode::Lit_Int);
-            c.emit_value<runtime::Int>(element_size);
-            c.emit_opcode(Opcode::Int_Mul);
-        }
-
-        c.emit_opcode(Opcode::Int_Add);
-    } else {
-        // data_ptr = Load(container, sizeof(int))
-        emit_address_code(c, *container);
-        emit_dynamic_offset_load(c, *range->lhs, element_size);
+    emit_address_code(c, *container);
+    if (container->type.kind != Value_Type_Kind::Array) {
+        c.emit_opcode(Opcode::Load);
+        c.emit_size(value_types::Ptr.size());
+    }        
+    
+    range->lhs->compile(c);
+    if (element_size > 1) {
+        c.emit_opcode(Opcode::Lit_Int);
+        c.emit_value<runtime::Int>(element_size);
+        c.emit_opcode(Opcode::Int_Mul);
     }
+
+    c.emit_opcode(Opcode::Int_Add);
 
     // len = range.rhs - range.lhs
     // @TODO: compiling the lhs twice is incorrect because if it has side effects

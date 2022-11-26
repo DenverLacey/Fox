@@ -284,6 +284,8 @@ const Value_Type *Value_Type::child_type() const {
             return data.array.element_type;
         case Value_Type_Kind::Slice:
             return data.slice.element_type;
+        case Value_Type_Kind::Str:
+            return &value_types::Byte;
         case Value_Type_Kind::Tuple:
             return data.tuple.child_types.data();
         case Value_Type_Kind::Range:
